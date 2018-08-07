@@ -1,0 +1,186 @@
+.masterhighlight code, .masterhighlight pre{color:#fdce93;
+background-color:#3f3f3f;
+overflow: auto;
+box-sizing: border-box;
+
+    padding:  8px  8px  8px  8px;
+
+border-radius: 8px !important;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+}
+
+.masterhighlight .hll {
+background-color:#222;
+}
+
+.masterhighlight .err {
+color:#e37170;
+background-color:#3d3535;
+}
+
+.masterhighlight .k {
+color:#f0dfaf;
+}
+
+.masterhighlight .p {
+color:#41706f;
+}
+
+.masterhighlight .cs {
+color:#cd0000;
+font-weight:700;
+}
+
+.masterhighlight .gd {
+color:#cd0000;
+}
+
+.masterhighlight .ge {
+color:#ccc;
+font-style:italic;
+}
+
+.masterhighlight .gr {
+color:red;
+}
+
+.masterhighlight .go {
+color:gray;
+}
+
+.masterhighlight .gs {
+color:#ccc;
+font-weight:700;
+}
+
+.masterhighlight .gu {
+color:purple;
+font-weight:700;
+}
+
+.masterhighlight .gt {
+color:#0040D0;
+}
+
+.masterhighlight .kc {
+color:#dca3a3;
+}
+
+.masterhighlight .kd {
+color:#ffff86;
+}
+
+.masterhighlight .kn {
+color:#dfaf8f;
+font-weight:700;
+}
+
+.masterhighlight .kp {
+color:#cdcf99;
+}
+
+.masterhighlight .kr {
+color:#cdcd00;
+}
+
+.masterhighlight .ni {
+color:#c28182;
+}
+
+.masterhighlight .ne {
+color:#c3bf9f;
+font-weight:700;
+}
+
+.masterhighlight .nn {
+color:#8fbede;
+}
+
+.masterhighlight .vi {
+color:#ffffc7;
+}
+
+
+.masterhighlight .c,.masterhighlight .g,.masterhighlight .cm,.masterhighlight .cp,.masterhighlight .c1 {
+color:#7f9f7f;
+}
+
+.masterhighlight .l,.masterhighlight .x,.masterhighlight .no,.masterhighlight .nd,.masterhighlight .nl,.masterhighlight .nx,.masterhighlight .py,.masterhighlight .w {
+color:#ccc;
+}
+
+.masterhighlight .n,.masterhighlight .nv,.masterhighlight .vg {
+color:#dcdccc;
+}
+
+.masterhighlight .o,.masterhighlight .ow {
+color:#f0efd0;
+}
+
+.masterhighlight .gh,.masterhighlight .gp {
+color:#dcdccc;
+font-weight:700;
+}
+
+.masterhighlight .gi,.masterhighlight .kt {
+color:#00cd00;
+}
+
+.masterhighlight .ld,.masterhighlight .s,.masterhighlight .sb,.masterhighlight .sc,.masterhighlight .sd,.masterhighlight .s2,.masterhighlight .se,.masterhighlight .sh,.masterhighlight .si,.masterhighlight .sx,.masterhighlight .sr,.masterhighlight .s1,.masterhighlight .ss {
+color:#cc9393;
+}
+
+.masterhighlight .m,.masterhighlight .mf,.masterhighlight .mh,.masterhighlight .mi,.masterhighlight .mo,.masterhighlight .il {
+color:#8cd0d3;
+}
+
+.masterhighlight .na,.masterhighlight .nt {
+color:#9ac39f;
+}
+
+.masterhighlight .nb,.masterhighlight .nc,.masterhighlight .nf,.masterhighlight .bp,.masterhighlight .vc {
+color:#efef8f;
+}
+.masterhighlight .c,.masterhighlight .g,.masterhighlight .cm,.masterhighlight .cp,.masterhighlight .c1 {
+color:#7f9f7f;
+}
+
+.masterhighlight .l,.masterhighlight .x,.masterhighlight .no,.masterhighlight .nd,.masterhighlight .nl,.masterhighlight .nx,.masterhighlight .py,.masterhighlight .w {
+color:#ccc;
+}
+
+.masterhighlight .n,.masterhighlight .nv,.masterhighlight .vg {
+color:#dcdccc;
+}
+
+.masterhighlight .o,.masterhighlight .ow {
+color:#f0efd0;
+}
+
+.masterhighlight .gh,.masterhighlight .gp {
+color:#dcdccc;
+font-weight:700;
+}
+
+.masterhighlight .gi,.masterhighlight .kt {
+color:#00cd00;
+}
+
+.masterhighlight .ld,.masterhighlight .s,.masterhighlight .sb,.masterhighlight .sc,.masterhighlight .sd,.masterhighlight .s2,.masterhighlight .se,.masterhighlight .sh,.masterhighlight .si,.masterhighlight .sx,.masterhighlight .sr,.masterhighlight .s1,.masterhighlight .ss {
+color:#cc9393;
+}
+
+.masterhighlight .m,.masterhighlight .mf,.masterhighlight .mh,.masterhighlight .mi,.masterhighlight .mo,.masterhighlight .il {
+color:#8cd0d3;
+}
+
+.masterhighlight .na,.masterhighlight .nt {
+color:#9ac39f;
+}
+
+.masterhighlight .nb,.masterhighlight .nc,.masterhighlight .nf,.masterhighlight .bp,.masterhighlight .vc {
+color:#efef8f;
+}

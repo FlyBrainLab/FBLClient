@@ -1,0 +1,28 @@
+site_name: Neuroballad Documentation
+site_description: 'A Neural Simulation Library for Neurokernel'
+site_author: 'Mehmet Kerem Turkcan'
+site_url: 'https://my-github-handle.github.io/my-project'
+copyright: 'Copyright &copy; 2017 Mehmet Kerem Turkcan'
+site_favicon: favicon.ico
+theme: material
+theme_dir: 'theme'
+extra:
+  palette:
+    primary: 'deep purple'
+    accent: 'deep orange'
+  font:
+    text: 'Ubuntu'
+    code: 'Ubuntu Mono'
+  logo: 'images/logo.png'
+markdown_extensions:
+  - codehilite:
+      noclasses: False
+      use_pygments: True
+      css_class: masterhighlight
+  - admonition
+  - toc
+extra_css:
+  - css/code-highlight.css
+pages:
+    - Home: index.md
+    - Tutorial: tutorial.md
