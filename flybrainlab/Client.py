@@ -14,6 +14,7 @@ from autobahn.wamp import auth
 from autobahn_sync import publish, call, register, subscribe, run, AutobahnSync
 from pathlib import Path
 from functools import partial
+from configparser import ConfigParser
 import numpy as np
 import os
 import json
@@ -42,7 +43,7 @@ if not os.path.exists(os.path.join(home, '.ffbolab','lib')):
 
 # Generate the data path to be used for imports
 _FFBOLabDataPath = os.path.join(home, '.ffbolab', 'data')
-
+_FFBOLabConfigPath = os.path.join(home, '.ffbolab', 'config', 'ffbo.flybrainlab.ini')
 
 def urlRetriever(url, savePath, verify = False):
     """Retrieves and saves a url in Python 3.
@@ -118,10 +119,18 @@ class ffbolabClient:
             # CertificateDownloader = urllib.URLopener()
             urlRetriever("https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
                               os.path.join(home, '.ffbolab', 'lib','caCertFile.pem'))
+            urlRetriever("https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
+                              os.path.join(home, '.ffbolab', 'config','FBLClient.ini'))
             urlRetriever("https://data.flybrainlab.fruitflybrain.org/lib/letsencryptauthorityx3.pem",
                               os.path.join(home, '.ffbolab', 'lib','intermediateCertFile.pem'))
+            config_file = os.path.join(home, '.ffbolab', 'config','FBLClient.ini')
             ca_cert_file = os.path.join(home, '.ffbolab', 'lib','caCertFile.pem')
             intermediate_cert_file = os.path.join(home, '.ffbolab', 'lib','intermediateCertFile.pem')
+        config = ConfigParser()
+        config.read(config_file)
+        user = config["ClientInfo"]["user"]
+        secret = config["ClientInfo"]["secret"]
+        url = config["ClientInfo"]["url"]
         self.FFBOLabcomm = FFBOLabcomm # Current Communications Object
         self.C = None # The Neuroballd Circuit object describing the loaded neural circuit
         self.dataPath = _FFBOLabDataPath
