@@ -11,6 +11,7 @@ import numpy as np
 import h5py
 import neuroballad as nb
 from time import gmtime, strftime
+from configparser import ConfigParser
 import os
 from os.path import expanduser
 import pickle
@@ -86,6 +87,23 @@ def loadExperimentSettings(X):
 
 class ffbolabComponent:
     def __init__(self, ssl = True, debug = True, authentication = True, user = u"ffbo", secret = u"", url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None):
+        if os.path.exists(os.path.join(home, '.ffbolab', 'lib')):
+            print(printHeader('FFBOLab Client') + "Downloading the latest certificates.")
+            # CertificateDownloader = urllib.URLopener()
+            urlRetriever("https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
+                              os.path.join(home, '.ffbolab', 'lib','caCertFile.pem'))
+            urlRetriever("https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
+                              os.path.join(home, '.ffbolab', 'config','FBLClient.ini'))
+            urlRetriever("https://data.flybrainlab.fruitflybrain.org/lib/letsencryptauthorityx3.pem",
+                              os.path.join(home, '.ffbolab', 'lib','intermediateCertFile.pem'))
+            config_file = os.path.join(home, '.ffbolab', 'config','FBLClient.ini')
+            ca_cert_file = os.path.join(home, '.ffbolab', 'lib','caCertFile.pem')
+            intermediate_cert_file = os.path.join(home, '.ffbolab', 'lib','intermediateCertFile.pem')
+        config = ConfigParser()
+        config.read(config_file)
+        user = config["ComponentInfo"]["user"]
+        secret = config["ComponentInfo"]["secret"]
+        url = config["ComponentInfo"]["url"]
         self.FFBOLabcomm = FFBOLabcomm
         self.NKSimState = 0
         self.executionSettings = []
