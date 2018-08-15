@@ -117,7 +117,7 @@ class ffbolabClient:
         if os.path.exists(os.path.join(home, '.ffbolab', 'lib')):
             print(printHeader('FFBOLab Client') + "Downloading the latest certificates.")
             # CertificateDownloader = urllib.URLopener()
-            if not os.path.exists(os.path.join(home, '.ffbolab', 'lib')):  
+            if not os.path.exists(os.path.join(home, '.ffbolab', 'config', 'FBLClient.ini')):  
                 urlRetriever("https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
                                   os.path.join(home, '.ffbolab', 'config','FBLClient.ini'))
             urlRetriever("https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
