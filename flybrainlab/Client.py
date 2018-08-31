@@ -48,7 +48,7 @@ _FFBOLabConfigPath = os.path.join(home, '.ffbolab', 'config', 'ffbo.flybrainlab.
 def urlRetriever(url, savePath, verify = False):
     """Retrieves and saves a url in Python 3.
 
-    Args:
+    # Arguments:
         url (str): File url.
         savePath (str): Path to save the file to.
     """
@@ -59,7 +59,7 @@ def urlRetriever(url, savePath, verify = False):
 def guidGenerator():
     """Unique query ID generator for handling the backend queries
 
-    Returns:
+    # Returns:
         str: The string with time format and brackets.
     """
     def S4():
@@ -69,10 +69,10 @@ def guidGenerator():
 def printHeader(name):
     """Header printer for the console messages. Useful for debugging.
 
-    Args:
+    # Arguments:
         name (str): Name of the component.
 
-    Returns:
+    # Returns:
         str: The string with time format and brackets.
     """
     return '[' + name + ' ' + strftime("%Y-%m-%d %H:%M:%S", gmtime()) + '] '
@@ -80,7 +80,7 @@ def printHeader(name):
 class ffbolabClient:
     """FFBOLab Client class. This class communicates with JupyterLab frontend and connects to FFBO components.
 
-    Attributes:
+    # Attributes:
         FFBOLabcomm (obj): The communication object for sending and receiving data.
         circuit (obj): A Neuroballad circuit that enables local circuit execution and facilitates circuit modification.
         dataPath (str): Data path to be used.
@@ -91,7 +91,7 @@ class ffbolabClient:
     def tryComms(self, a):
         """Communication function to communicate with a JupyterLab frontend if one exists.
 
-        Args:
+        # Arguments:
             a (obj): Arbitrarily formatted data to be sent via communication.
         """
         try:
@@ -102,7 +102,7 @@ class ffbolabClient:
     def __init__(self, ssl = True, debug = True, authentication = True, user = 'guest', secret = 'guestpass', url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None):
         """Initialization function for the ffbolabClient class.
 
-        Args:
+        # Arguments:
             ssl (bool): Whether the FFBO server uses SSL.
             debug (bool) : Whether debugging should be enabled.
             authentication (bool): Whether authentication is enabled.
@@ -161,10 +161,10 @@ class ffbolabClient:
         def on_challenge(challenge):
             """The On Challenge function that computes the user signature for verification.
 
-            Args:
+            # Arguments:
                 challenge (obj): The challenge object received.
 
-            Returns:
+            # Returns:
                 str: The signature sent to the router for verification.
             """
             print(printHeader('FFBOLab Client') + 'Initiating authentication.')
@@ -199,7 +199,7 @@ class ffbolabClient:
         def updateServers(data):
             """Updates available servers.
 
-            Args:
+            # Arguments:
                 data (obj): Obtained servers list.
 
             """
@@ -211,10 +211,10 @@ class ffbolabClient:
         def receiveCommand(data):
             """The Receive Command function that receives commands and sends them to the frontend.
 
-            Args:
+            # Arguments:
                 data (dict): Data to be sent to the frontend
 
-            Returns:
+            # Returns:
                 bool: Whether the data has been received.
             """
             self.clientData.append('Received Command')
@@ -232,10 +232,10 @@ class ffbolabClient:
         def receiveGFX(data):
             """The Receive GFX function that receives commands and sends them to the GFX frontend.
 
-            Args:
+            # Arguments:
                 data (dict): Data to be sent to the frontend.
 
-            Returns:
+            # Returns:
                 bool: Whether the data has been received.
             """
             self.clientData.append('Received GFX Data')
@@ -263,10 +263,10 @@ class ffbolabClient:
         def get_circuit(X):
             """Obtain a circuit and save it to the local FFBOLab folder.
 
-            Args:
+            # Arguments:
                 X (str): Name of the circuit.
 
-            Returns:
+            # Returns:
                 bool: Whether the process has been successful.
             """
             name = X['name']
@@ -280,10 +280,10 @@ class ffbolabClient:
         def get_experiment(X):
             """Obtain an experiment and save it to the local FFBOLab folder.
 
-            Args:
+            # Arguments:
                 X (str): Name of the experiment.
 
-            Returns:
+            # Returns:
                 bool: Whether the process has been successful.
             """
             print(printHeader('FFBOLab Client GFX') + "get_experiment called.")
@@ -301,10 +301,10 @@ class ffbolabClient:
         def receiveData(data):
             """The Receive Data function that receives commands and sends them to the NLP frontend.
 
-            Args:
+            # Arguments:
                 data (dict): Data from the backend.
 
-            Returns:
+            # Returns:
                 bool: Whether the process has been successful.
             """
             self.clientData.append('Received Data')
@@ -322,10 +322,10 @@ class ffbolabClient:
         def receiveMessage(data):
             """The Receive Message function that receives commands and sends them to the NLP frontend.
 
-            Args:
+            # Arguments:
                 data (dict): Data from the backend.
 
-            Returns:
+            # Returns:
                 bool: Whether the process has been successful.
             """
             self.clientData.append('Received Message')
@@ -360,14 +360,14 @@ class ffbolabClient:
     def executeNLPquery(self, query = None, language = 'en', uri = None, queryID = None, returnNAOutput = False):
         """Execute an NLP query.
 
-        Args:
+        # Arguments:
             query (str): Query string.
             language (str): Language to use.
             uri (str): Currently not used; for future NLP extensions.
             queryID (str): Query ID to be used. Generated automatically.
             returnNAOutput (bool): Whether the corresponding NA query should not be executed.
 
-        Returns:
+        # Returns:
             dict: NA output or the NA query itself, depending on the returnNAOutput setting.
         """
         if query is None:
@@ -392,7 +392,7 @@ class ffbolabClient:
     def executeNAquery(self, res, language = 'en', uri = None, queryID = None, progressive = True, threshold = 5):
         """Execute an NA query.
 
-        Args:
+        # Arguments:
             res (dict): Neuroarch query.
             language (str): Language to use.
             uri (str): A custom FFBO query URI if desired.
@@ -400,7 +400,7 @@ class ffbolabClient:
             progressive (bool): Whether the loading should be progressive. Needs to be true most of the time for connection to be stable.
             threshold (int): Data chunk size. Low threshold is required for the connection to be stable.
 
-        Returns:
+        # Returns:
             bool: Whether the process has been successful.
         """
         def on_progress(x, res):
@@ -459,7 +459,7 @@ class ffbolabClient:
     def getNeuropils(self):
         """Get the neuropils the neurons in the workspace reside in.
 
-        Returns:
+        # Returns:
             list of strings: Set of neuropils corresponding to neurons.
         """
         res = {}
@@ -488,7 +488,7 @@ class ffbolabClient:
     def sendNeuropils(self):
         """Pack the list of neuropils into a GFX message.
 
-        Returns:
+        # Returns:
             bool: Whether the messaging has been successful.
         """
         a = {}
@@ -502,10 +502,10 @@ class ffbolabClient:
     def getInfo(self, args):
         """Get information on a neuron.
 
-        Args:
+        # Arguments:
             args (str): Database ID of the neuron or node.
 
-        Returns:
+        # Returns:
             dict: NA information regarding the node.
         """
         res = {"uri": 'ffbo.na.get_data.', "id": args}
@@ -535,10 +535,10 @@ class ffbolabClient:
     def GFXcall(self, args):
         """Arbitrary call to a GFX procedure in the GFX component format.
 
-        Args:
+        # Arguments:
             args (list): A list whose first element is the function name (str) and the following are the arguments.
 
-        Returns:
+        # Returns:
             dict OR string: The call result.
         """
         if isinstance(args, str):
@@ -582,11 +582,11 @@ class ffbolabClient:
     def updateBackend(self, type = "Null", data = "Null"):
         """Updates variables in the backend using the data in the Editor.
 
-        Args:
+        # Arguments:
             type (str): A string, either "WholeCircuit" or "SingleNeuron", specifying the type of the update.
             data (str): A stringified JSON
 
-        Returns:
+        # Returns:
             bool: Whether the update was successful.
         """
 
@@ -598,7 +598,7 @@ class ffbolabClient:
     def getConnectivity(self):
         """Obtain the connectivity matrix of the current circuit in NetworkX format.
 
-        Returns:
+        # Returns:
             dict: The connectivity dictionary.
         """
         res = json.loads("""
@@ -611,11 +611,11 @@ class ffbolabClient:
     def sendExecuteReceiveResults(self, circuitName = "temp", dt = 1e-5, tmax = 1.0, compile = False):
         """Compiles and sends a circuit for execution in the GFX backend.
 
-        Args:
+        # Arguments:
             circuitName (str): The name of the circuit for the backend.
             compile (bool): Whether to compile the circuit first.
 
-        Returns:
+        # Returns:
             bool: Whether the call was successful.
         """
         print(printHeader('FFBOLab Client GFX') + 'Initiating remote execution for the current circuit.')
@@ -660,7 +660,7 @@ class ffbolabClient:
     def sendCircuit(self, name = 'temp'):
         """Sends a circuit to the backend.
 
-        Args:
+        # Arguments:
             name (str): The name of the circuit for the backend.
         """
         self.sendCircuitPrimitive(self.C, args = {'name': name})
@@ -669,7 +669,7 @@ class ffbolabClient:
     def processConnectivity(self, connectivity):
         """Processes a Neuroarch connectivity dictionary.
 
-        Returns:
+        # Returns:
             tuple: A tuple of nodes, edges and unique edges.
         """
         edges = connectivity['edges']
@@ -715,7 +715,7 @@ class ffbolabClient:
     def GenNB(self, nodes, edges, model = "auto", config = {}, default_neuron = nb.MorrisLecar(),  default_synapse = nb.AlphaSynapse()):
         """Processes the output of processConnectivity to generate a Neuroballad circuit
 
-        Returns:
+        # Returns:
             tuple: A tuple of the Neuroballad circuit, and a dictionary that maps the neuron names to the uids.
         """
         edge_strengths = []
@@ -771,7 +771,7 @@ class ffbolabClient:
     def alter(self, X):
         """Alters a set of models with specified Neuroballad models.
 
-       Args:
+       # Arguments:
             X (list of lists): A list of lists. Elements are lists whose first element is the neuron ID (str) and the second is the Neuroballad object corresponding to the model.
         """
         if any(isinstance(el, list) for el in X): # Check if input is a list of lists
@@ -790,10 +790,10 @@ class ffbolabClient:
     def addInput(self, x):
         """Adds an input to the experiment settings. The input is a Neuroballad input object.
 
-        Args:
+        # Arguments:
             x (Neuroballad Input Object): The input object to append to the list of inputs.
 
-        Returns:
+        # Returns:
             dict: The input object added to the experiment list.
         """
         self.experimentInputs.append(x.params)
@@ -876,10 +876,10 @@ class ffbolabClient:
     def FICurveGenerator(self, model):
         """Sample library function showing how to do automated experimentation using FFBOLab's Notebook features. Takes a simple abstract neuron model and runs experiments on it.
 
-        Args:
+        # Arguments:
             model (Neuroballad Model Object): The model object to test.
 
-        Returns:
+        # Returns:
             numpy array: A tuple of NumPy arrays corresponding to the X and Y of the FI curve.
         """
         del self.data
