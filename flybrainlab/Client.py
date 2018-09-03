@@ -773,8 +773,8 @@ class ffbolabClient:
         M = self.getConnectivityMatrix()
         connDict = {}
         for i in range(M.shape[0]):
-            if M[i,postsynapticIndex]>0:
-                connDict[self.out_nodes[i]] = M[i,postsynapticIndex]
+            if M[i,presynapticIndex]>0:
+                connDict[self.out_nodes[i]] = M[i,presynapticIndex]
         return connDict
 
     def GenNB(self, nodes, edges, model = "auto", config = {}, default_neuron = nb.MorrisLecar(),  default_synapse = nb.AlphaSynapse()):
