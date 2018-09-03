@@ -389,7 +389,7 @@ class ffbolabClient:
                 self.sendNeuropils()
                 return res
 
-    def executeNAquery(self, res, language = 'en', uri = None, queryID = None, progressive = True, threshold = 5):
+    def executeNAquery(self, res, language = 'en', uri = None, queryID = None, progressive = True, threshold = 1):
         """Execute an NA query.
 
         # Arguments:
@@ -397,7 +397,7 @@ class ffbolabClient:
             language (str): Language to use.
             uri (str): A custom FFBO query URI if desired.
             queryID (str): Query ID to be used. Generated automatically.
-            progressive (bool): Whether the loading should be progressive. Needs to be true most of the time for connection to be stable.
+            progressive (bool): Whether the loading should be progressive. Needs to be true most of the time for the connection to be stable.
             threshold (int): Data chunk size. Low threshold is required for the connection to be stable.
 
         # Returns:
