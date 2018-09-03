@@ -778,7 +778,7 @@ class ffbolabClient:
         return connDict
 
     def GenNB(self, nodes, edges, model = "auto", config = {}, default_neuron = nb.MorrisLecar(),  default_synapse = nb.AlphaSynapse()):
-        """Processes the output of processConnectivity to generate a Neuroballad circuit
+        """Processes the output of processConnectivity to generate a Neuroballad circuit.
 
         # Returns:
             tuple: A tuple of the Neuroballad circuit, and a dictionary that maps the neuron names to the uids.
@@ -871,7 +871,7 @@ class ffbolabClient:
         return x.params
 
     def listInputs(self):
-        """Sends the current experiment settings to the frontend for displaying in the JSONEditor.
+        """Sends the current experiment settings to the frontend for displaying in an editor.
         """
         a = {}
         data = self.experimentInputs
