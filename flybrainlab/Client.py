@@ -712,6 +712,46 @@ class ffbolabClient:
         out_edges_unique = list(set(out_edges))
         return out_nodes, out_edges, out_edges_unique
 
+    def getSynapses(self, presynapticNeuron, postsynapticNeuron):
+        if self.compiled == False:
+            self.prepareCircuit()
+        try:
+            presynapticIndex = client.out_nodes.index(presynapticNeuron)
+        except:
+            raise Exception("The presynaptic neuron given as input to 'getSynapses' is not present in the current workspace.")
+        try:
+            postsynapticIndex = client.out_nodes.index(postsynapticNeuron)
+        except:
+            raise Exception("The postsynaptic neuron given as input to 'getSynapses' is not present in the current workspace.")
+        M = self.getConnectivityMatrix()
+        return M[presynapticIndex, postsynapticIndex]
+
+    def getPresynapticNeurons(self, postsynapticNeuron):
+        if self.compiled == False:
+            self.prepareCircuit()
+        postsynapticIndex = client.out_nodes.index(postsynapticNeuron)
+        if postsynapticIndex<0:
+            raise Exception("The postsynaptic neuron given as input to 'getPresynapticNeurons' is not present in the current workspace.")
+        M = self.getConnectivityMatrix()
+        connDict = {}
+        for i in range(M.shape[0]):
+            if M[i,postsynapticIndex]>0:
+                connDict[self.out_nodes[i]] = M[i,postsynapticIndex]
+        return connDict
+
+    def getPostsynapticNeurons(self, presynapticNeuron):
+        if self.compiled == False:
+            self.prepareCircuit()
+        presynapticIndex = client.out_nodes.index(presynapticNeuron)
+        if presynapticIndex<0:
+            raise Exception("The presynaptic neuron given as input to 'getPostsynapticNeurons' is not present in the current workspace.")
+        M = self.getConnectivityMatrix()
+        connDict = {}
+        for i in range(M.shape[0]):
+            if M[i,postsynapticIndex]>0:
+                connDict[self.out_nodes[i]] = M[i,postsynapticIndex]
+        return connDict
+
     def GenNB(self, nodes, edges, model = "auto", config = {}, default_neuron = nb.MorrisLecar(),  default_synapse = nb.AlphaSynapse()):
         """Processes the output of processConnectivity to generate a Neuroballad circuit
 
