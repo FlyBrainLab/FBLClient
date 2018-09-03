@@ -713,23 +713,40 @@ class ffbolabClient:
         return out_nodes, out_edges, out_edges_unique
 
     def getSynapses(self, presynapticNeuron, postsynapticNeuron):
+        """Returns the synapses between a given presynaptic neuron and a postsynaptic neuron.
+
+        # Arguments:
+            presynapticNeuron (str): The name of the presynaptic neuron.
+            postsynapticNeuron (str): The name of the postsynaptic neuron.
+
+        # Returns:
+            float: The number of synapses.
+        """
         if self.compiled == False:
             self.prepareCircuit()
         try:
-            presynapticIndex = client.out_nodes.index(presynapticNeuron)
+            presynapticIndex = self.out_nodes.index(presynapticNeuron)
         except:
             raise Exception("The presynaptic neuron given as input to 'getSynapses' is not present in the current workspace.")
         try:
-            postsynapticIndex = client.out_nodes.index(postsynapticNeuron)
+            postsynapticIndex = self.out_nodes.index(postsynapticNeuron)
         except:
             raise Exception("The postsynaptic neuron given as input to 'getSynapses' is not present in the current workspace.")
         M = self.getConnectivityMatrix()
         return M[presynapticIndex, postsynapticIndex]
 
     def getPresynapticNeurons(self, postsynapticNeuron):
+        """Returns a dictionary of all presynaptic neurons for a given postsynaptic neuron.
+
+        # Arguments:
+            postsynapticNeuron (str): The name of the postsynaptic neuron.
+
+        # Returns:
+            dict: A dictionary whose keys are the presynaptic neurons and whose values are numbers of synapses for the given postsynaptic neuron.
+        """
         if self.compiled == False:
             self.prepareCircuit()
-        postsynapticIndex = client.out_nodes.index(postsynapticNeuron)
+        postsynapticIndex = self.out_nodes.index(postsynapticNeuron)
         if postsynapticIndex<0:
             raise Exception("The postsynaptic neuron given as input to 'getPresynapticNeurons' is not present in the current workspace.")
         M = self.getConnectivityMatrix()
@@ -740,9 +757,17 @@ class ffbolabClient:
         return connDict
 
     def getPostsynapticNeurons(self, presynapticNeuron):
+        """Returns a dictionary of all postsynaptic neurons for a given presynaptic neuron.
+
+        # Arguments:
+            presynapticNeuron (str): The name of the presynaptic neuron.
+
+        # Returns:
+            dict: A dictionary whose keys are the presynaptic neurons and whose values are numbers of synapses for the given presynaptic neuron.
+        """
         if self.compiled == False:
             self.prepareCircuit()
-        presynapticIndex = client.out_nodes.index(presynapticNeuron)
+        presynapticIndex = self.out_nodes.index(presynapticNeuron)
         if presynapticIndex<0:
             raise Exception("The presynaptic neuron given as input to 'getPostsynapticNeurons' is not present in the current workspace.")
         M = self.getConnectivityMatrix()
