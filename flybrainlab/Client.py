@@ -446,6 +446,18 @@ class ffbolabClient:
         })
         return True
 
+    def addByUname(self, uname):
+        self.executeNAquery({
+            "verb": "add",
+            "query": [
+                        {
+                        'action': { 'method': { 'query': { 'uname': uname } } },
+                        'object': { 'class': ["Neuron", "Synapse"] }
+                        }
+                    ]
+        })
+        return True
+
     def runLayouting(self, type="auto", model="auto"):
         self.prepareCircuit(model = model)
         self.sendCircuit(name = "auto")
