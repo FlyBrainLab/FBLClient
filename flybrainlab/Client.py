@@ -446,9 +446,9 @@ class ffbolabClient:
         })
         return True
 
-    def addByUname(self, uname):
+    def addByUname(self, uname, verb="add"):
         self.executeNAquery({
-            "verb": "add",
+            "verb": verb,
             "query": [
                         {
                         'action': { 'method': { 'query': { 'uname': uname } } },
