@@ -438,7 +438,14 @@ class ffbolabClient:
         else:
             self.tryComms(a)
             return a
-        
+
+    def createTag(self, tagName):
+        self.executeNAquery({
+            "tag": tagName,
+            "uri": 'ffbo.na.create_tag'
+        })
+        return True
+
     def loadTag(self, tagName):
         self.executeNAquery({
             "tag": tagName,
