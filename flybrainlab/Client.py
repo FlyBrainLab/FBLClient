@@ -12,6 +12,7 @@ from collections import Counter
 from autobahn.wamp.types import RegisterOptions, CallOptions
 from autobahn.wamp import auth
 from autobahn_sync import publish, call, register, subscribe, run, AutobahnSync
+from IPython.display import clear_output
 from pathlib import Path
 from functools import partial
 from configparser import ConfigParser
@@ -421,7 +422,7 @@ class ffbolabClient:
         res['data_callback_uri'] = 'ffbo.ui.receive_data'
         res_list = []
         res = self.client.session.call(uri, res, options=CallOptions(
-                on_progress=partial(on_progress, res=res_list)
+                on_progress=partial(on_progress, res=res_list), timeout = 3000
             ))
         a = {}
         a['data'] = res
@@ -440,8 +441,10 @@ class ffbolabClient:
             return a
 
     def createTag(self, tagName):
+        metadata = {"color":{},"pinned":{},"visibility":{},"camera":{"position":{},'up':{}},'target':{}};
         self.executeNAquery({
             "tag": tagName,
+            "metadata": metadata,
             "uri": 'ffbo.na.create_tag'
         })
         return True
@@ -530,7 +533,7 @@ class ffbolabClient:
         res = {"uri": 'ffbo.na.get_data.', "id": args}
         queryID = guidGenerator()
         res = self.executeNAquery(res, uri = res['uri'] + self.naServerID, queryID = queryID, progressive = False)
-        res['data']['data']['summary']['rid'] = args
+        # res['data']['data']['summary']['rid'] = args
         a = {}
         a['data'] = res
         a['messageType'] = 'Data'
@@ -675,6 +678,39 @@ class ffbolabClient:
         self.C = C
         self.node_keys = node_keys
         self.compiled = True
+
+    def getSlowConnectivity(self):
+        
+
+        hashids = []
+        names = []
+        synapses = []
+
+        for data in self.data:
+                    if data['messageType'] == 'Data':
+                        if 'data' in data:
+                            if 'data' in data['data']:
+                                keys = list(data['data']['data'].keys())
+                                for key in keys:
+                                    if 'uname' in data['data']['data'][key].keys():
+                                        hashids.append(key)
+                                        names.append(data['data']['data'][key]['uname'])
+        
+
+        for i in range(len(hashids)):
+            res = self.getInfo(hashids[i])
+            if 'connectivity' in res['data']['data'].keys():
+                presyn = res['data']['data']['connectivity']['pre']['details']
+
+                for syn in presyn:
+                    synapses.append([syn['uname'], names[i], syn['number']])
+
+                postsyn = res['data']['data']['connectivity']['pre']['details']
+                for syn in postsyn:
+                    synapses.append([names[i], syn['uname'], syn['number']])
+                clear_output()
+        connectivity = {'hashids': hashids, 'names': names, 'synapses': synapses}
+        return connectivity
 
     def sendCircuit(self, name = 'temp'):
         """Sends a circuit to the backend.
