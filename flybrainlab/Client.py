@@ -144,6 +144,8 @@ class Client:
         self.sendDataToGFX = True # Shall we send the received simulation data to GFX Component?
         self.executionSuccessful = False # Used to wait for data loading
         self.experimentQueue = [] # A queue for experiments
+        self.simExperimentConfig = None # Experiment configuration (disabled neurons etc.) for simulations
+        self.simExperimentRunners = {} # Experiment runners for simulations
         self.simData = {} # Locally loaded simulation data obtained from server
         self.clientData = [] # Servers list
         self.data = [] # A buffer for data from backend; used in multiple functions so needed
@@ -1124,6 +1126,22 @@ class Client:
             print(res)
         G=nx.Graph(res[1]['data']['data'])
         self.C.G = G
+        return True
+
+    def loadExperimentConfig(self, x):
+        print('Obtained Experiment Configuration: ', x)
+        self.simExperimentConfig = json.loads(x)
+        return True
+
+    def initiateExperiments(self):
+        print('Initiating experiments...')
+        print('Experiment Setup: ', self.simExperimentConfig)
+        for key in self.simExperimentConfig.keys():
+            if key in self.simExperimentRunners.keys():
+                run_func = self.simExperimentRunners[key]
+                run_func()
+            else:
+                print('No runner available for Diagram {}'.format(key))
         return True
 
 ffbolabClient = Client
