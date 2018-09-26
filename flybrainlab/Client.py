@@ -20,11 +20,12 @@ import numpy as np
 import os
 import json
 import binascii
-import seaborn as sns;
+import seaborn as sns
 sns.set(color_codes=True)
 import pandas as pd
 import numpy as np
 import neuroballad as nb
+import networkx as nx
 from time import gmtime, strftime
 
 
@@ -78,8 +79,8 @@ def printHeader(name):
     """
     return '[' + name + ' ' + strftime("%Y-%m-%d %H:%M:%S", gmtime()) + '] '
 
-class ffbolabClient:
-    """FFBOLab Client class. This class communicates with JupyterLab frontend and connects to FFBO components.
+class Client:
+    """FlyBrainLab Client class. This class communicates with JupyterLab frontend and connects to FFBO components.
 
     # Attributes:
         FFBOLabcomm (obj): The communication object for sending and receiving data.
@@ -134,7 +135,7 @@ class ffbolabClient:
         secret = config["ClientInfo"]["secret"]
         url = config["ClientInfo"]["url"]
         self.FFBOLabcomm = FFBOLabcomm # Current Communications Object
-        self.C = None # The Neuroballd Circuit object describing the loaded neural circuit
+        self.C = nb.Circuit() # The Neuroballd Circuit object describing the loaded neural circuit
         self.dataPath = _FFBOLabDataPath
         extra = {'auth': authentication}
         self.lmsg = 0
@@ -1040,7 +1041,9 @@ class ffbolabClient:
 
         return True
 
-    def parseSimResults(self):
+    def FICurveParseSimResults(self):
+        """Parses the simulation results for the FI curve generator example.
+        """
         numpyData = {}
         for x in self.data:
             if type(x['data']) is dict:
@@ -1052,7 +1055,9 @@ class ffbolabClient:
                         numpyData[i] += x['data'][i]
         self.simData = numpyData
 
-    def plotSimResults(self):
+    def FICurvePlotSimResults(self):
+        """Plots some result curves for the FI curve generator example.
+        """
         import matplotlib
         import numpy as np
         import matplotlib.pyplot as plt
@@ -1076,9 +1081,9 @@ class ffbolabClient:
         plt.title('F-I Curve for the Queried Model')
 
     def loadCartridge(self, cartridgeIndex = 100):
-        """Sample library function for loading cartridges, showing how one can build libraries that work with FFBOLab.
+        """Sample library function for loading cartridges, showing how one can build libraries that work with flybrainlab.
         """
-        cartridge_index = str(cartridge_index)
+        cartridge_index = str(cartridgeIndex)
 
         queryList = [
             '{"query":[{"action":{"method":{"query":{"name":["lamina"]}}},"object":{"class":"LPU"}},{"action":{"method":{"traverse_owns":{"cls":"CartridgeModel","name":"cartridge_' + cartridge_index +'"}}},"object":{"memory":0}},'+ #1
@@ -1115,7 +1120,10 @@ class ffbolabClient:
             '{"query":[{"action":{"method":{"has":{}}},"object":{"state":0}}],"format":"nx"}']
 
         for i in queryList:
-            res = _FFBOLABClient.executeNAquery(json.loads(i))
+            res = self.executeNAquery(json.loads(i))
+            print(res)
         G=nx.Graph(res[1]['data']['data'])
         self.C.G = G
         return True
+
+ffbolabClient = Client
