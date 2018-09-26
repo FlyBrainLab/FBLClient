@@ -1129,11 +1129,21 @@ class Client:
         return True
 
     def loadExperimentConfig(self, x):
+        """Updates the simExperimentConfig attribute using input from the diagram.
+
+        # Arguments:
+            x (string): A JSON dictionary as a string.
+
+        # Returns:
+            bool: True.
+        """
         print('Obtained Experiment Configuration: ', x)
         self.simExperimentConfig = json.loads(x)
         return True
 
     def initiateExperiments(self):
+        """Initializes and executes experiments for different LPUs.
+        """
         print('Initiating experiments...')
         print('Experiment Setup: ', self.simExperimentConfig)
         for key in self.simExperimentConfig.keys():
@@ -1141,7 +1151,7 @@ class Client:
                 run_func = self.simExperimentRunners[key]
                 run_func()
             else:
-                print('No runner available for Diagram {}'.format(key))
+                print('No runner(s) were found for Diagram {}.'.format(key))
         return True
 
 ffbolabClient = Client
