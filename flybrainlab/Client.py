@@ -101,7 +101,7 @@ class Client:
         except:
             pass
 
-    def __init__(self, ssl = True, debug = True, authentication = True, user = 'guest', secret = 'guestpass', url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None):
+    def __init__(self, ssl = True, debug = True, authentication = True, user = 'guest', secret = 'guestpass', url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None, legacy = False):
         """Initialization function for the ffbolabClient class.
 
         # Arguments:
@@ -133,7 +133,8 @@ class Client:
         config.read(config_file)
         user = config["ClientInfo"]["user"]
         secret = config["ClientInfo"]["secret"]
-        url = config["ClientInfo"]["url"]
+        if url is None:
+            url = config["ClientInfo"]["url"]
         self.FFBOLabcomm = FFBOLabcomm # Current Communications Object
         self.C = nb.Circuit() # The Neuroballd Circuit object describing the loaded neural circuit
         self.dataPath = _FFBOLabDataPath
@@ -149,6 +150,7 @@ class Client:
         self.simData = {} # Locally loaded simulation data obtained from server
         self.clientData = [] # Servers list
         self.data = [] # A buffer for data from backend; used in multiple functions so needed
+        self.legacy = legacy
         st_cert=open(ca_cert_file, 'rt').read()
         c=OpenSSL.crypto
         ca_cert=c.load_certificate(c.FILETYPE_PEM, st_cert)
@@ -322,6 +324,27 @@ class Client:
             return True
         print(printHeader('FFBOLab Client') + "Procedure ffbo.ui.receive_data Registered...")
 
+        @FFBOLABClient.register('ffbo.ui.receive_partial.' + str(FFBOLABClient._async_session._session_id))
+        def receivePartial(data):
+            """The Receive Partial Data function that receives commands and sends them to the NLP frontend.
+
+            # Arguments:
+                data (dict): Data from the backend.
+
+            # Returns:
+                bool: Whether the process has been successful.
+            """
+            self.clientData.append('Received Data')
+            a = {}
+            a['data'] = data
+            a['messageType'] = 'Data'
+            a['widget'] = 'NLP'
+            self.data.append(a)
+            print(printHeader('FFBOLab Client NLP') + "Received partial data.")
+            self.tryComms(a)
+            return True
+        print(printHeader('FFBOLab Client') + "Procedure ffbo.ui.receive_partial Registered...")
+
         @FFBOLABClient.register('ffbo.ui.receive_msg.' + str(FFBOLABClient._async_session._session_id))
         def receiveMessage(data):
             """The Receive Message function that receives commands and sends them to the NLP frontend.
@@ -380,18 +403,40 @@ class Client:
         if query.startswith("load "):
             self.sendSVG(query[5:])
         else:
-            uri = 'ffbo.nlp.query.' + self.nlpServerID
-            queryID = guidGenerator()
-            resNA = self.client.session.call(uri , query, language)
-            print(printHeader('FFBOLab Client NLP') + 'NLP successfully parsed query.')
+            if self.legacy == False:
+                uri = 'ffbo.nlp.query.' + self.nlpServerID
+                queryID = guidGenerator()
+                resNA = self.client.session.call(uri , query, language)
+                print(printHeader('FFBOLab Client NLP') + 'NLP successfully parsed query.')
 
-            if returnNAOutput == True:
-                return resNA
+                if returnNAOutput == True:
+                    return resNA
+                else:
+                    self.compiled = False
+                    res = self.executeNAquery(resNA, queryID = queryID)
+                    self.sendNeuropils()
+                    return res
             else:
-                self.compiled = False
-                res = self.executeNAquery(resNA, queryID = queryID)
-                self.sendNeuropils()
-                return res
+                msg = {}
+                msg['username'] = "Guest  "
+                msg['servers'] = {}
+                msg['data_callback_uri'] = 'ffbo.ui.receive_data'
+                msg['language'] = language
+                msg['servers']['nlp'] = self.nlpServerID
+                msg['servers']['na'] = self.naServerID
+                msg['nlp_query'] = query
+                def on_progress(x, res):
+                    res.append(x)
+                res_list = []
+                resNA = self.client.session.call('ffbo.processor.nlp_to_visualise', msg, options=CallOptions(
+                                                    on_progress=partial(on_progress, res=res_list), timeout = 20))
+                if returnNAOutput == True:
+                    return resNA
+                else:
+                    self.compiled = False
+                    # res = self.executeNAquery(resNA, queryID = queryID)
+                    self.sendNeuropils()
+                    return resNA
 
     def executeNAquery(self, res, language = 'en', uri = None, queryID = None, progressive = True, threshold = 1):
         """Execute an NA query.
@@ -424,9 +469,12 @@ class Client:
         res['threshold'] = threshold
         res['data_callback_uri'] = 'ffbo.ui.receive_data'
         res_list = []
-        res = self.client.session.call(uri, res, options=CallOptions(
-                on_progress=partial(on_progress, res=res_list), timeout = 3000
-            ))
+        if self.legacy == False:
+            res = self.client.session.call(uri, res, options=CallOptions(
+                    on_progress=partial(on_progress, res=res_list), timeout = 3000
+                ))
+        else:
+            res = self.client.session.call(uri, res)
         a = {}
         a['data'] = res
         a['messageType'] = 'Data'
