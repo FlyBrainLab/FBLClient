@@ -1197,9 +1197,11 @@ class Client:
         for key in self.simExperimentConfig.keys():
             if key in self.simExperimentRunners.keys():
                 run_func = self.simExperimentRunners[key]
-                run_func()
+                run_func(self.simExperimentConfig)
             else:
                 print('No runner(s) were found for Diagram {}.'.format(key))
         return True
 
 ffbolabClient = Client
+
+
