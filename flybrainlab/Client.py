@@ -492,6 +492,11 @@ class Client:
             return a
 
     def createTag(self, tagName):
+        """Creates a tag.
+
+        # Returns:
+            bool: True.
+        """
         metadata = {"color":{},"pinned":{},"visibility":{},"camera":{"position":{},'up':{}},'target':{}};
         self.executeNAquery({
             "tag": tagName,
@@ -501,6 +506,11 @@ class Client:
         return True
 
     def loadTag(self, tagName):
+        """Loads a tag.
+
+        # Returns:
+            bool: True.
+        """
         self.executeNAquery({
             "tag": tagName,
             "uri": 'ffbo.na.retrieve_tag'
@@ -508,6 +518,11 @@ class Client:
         return True
 
     def addByUname(self, uname, verb="add"):
+        """Adds some neurons by the uname.
+
+        # Returns:
+            bool: True.
+        """
         self.executeNAquery({
             "verb": verb,
             "query": [
@@ -520,6 +535,11 @@ class Client:
         return True
 
     def runLayouting(self, type="auto", model="auto"):
+        """Sends a request for the running of the layouting algorithm.
+
+        # Returns:
+            bool: True.
+        """
         self.prepareCircuit(model = model)
         self.sendCircuit(name = "auto")
         a = {}
