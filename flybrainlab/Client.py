@@ -1222,17 +1222,31 @@ class Client:
         print('Experiment Setup: ', self.simExperimentConfig)
         for key in self.simExperimentConfig.keys():
             if key in self.simExperimentRunners.keys():
-                for i in LPU_list:
-                    try:
-                        importlib.import_module(i)
-                        print('Loaded LPU {}.'.format(i))
-                    except:
-                        print('Failed to load LPU {}.'.format(i))
+                try:
+                    module = importlib.import_module(i)
+                    print('Loaded LPU {}.'.format(i))
+                    self.simExperimentRunners[key] = getattr(module, 'sim')
+                except:
+                    print('Failed to load LPU {}.'.format(i))
                 run_func = self.simExperimentRunners[key]
                 run_func(self.simExperimentConfig)
             else:
                 print('No runner(s) were found for Diagram {}.'.format(key))
         return True
+
+import importlib
+
+LPU_list = ['cx','mb']
+
+for i in LPU_list:
+    try:
+        module = importlib.import_module(i)
+        print('Loaded LPU {}.'.format(i))
+        sim_func = getattr(module, 'sim')
+        sim_func({'hello': 'world'})
+    except:
+        print('Failed to load LPU {}.'.format(i))
+
 
 ffbolabClient = Client
 
