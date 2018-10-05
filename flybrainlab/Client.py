@@ -26,6 +26,7 @@ import pandas as pd
 import numpy as np
 import neuroballad as nb
 import networkx as nx
+import importlib
 from time import gmtime, strftime
 
 
@@ -315,7 +316,10 @@ class Client:
             """
             self.clientData.append('Received Data')
             a = {}
-            a['data'] = data
+            if self.legacy == True:
+                a['data'] = {'data': data, 'queryID': guidGenerator()}
+            else:
+                a['data'] = data
             a['messageType'] = 'Data'
             a['widget'] = 'NLP'
             self.data.append(a)
@@ -336,7 +340,7 @@ class Client:
             """
             self.clientData.append('Received Data')
             a = {}
-            a['data'] = data
+            a['data'] = {'data': data, 'queryID': guidGenerator()}
             a['messageType'] = 'Data'
             a['widget'] = 'NLP'
             self.data.append(a)
@@ -403,30 +407,31 @@ class Client:
         if query.startswith("load "):
             self.sendSVG(query[5:])
         else:
-            if self.legacy == False:
-                uri = 'ffbo.nlp.query.' + self.nlpServerID
-                queryID = guidGenerator()
-                resNA = self.client.session.call(uri , query, language)
-                print(printHeader('FFBOLab Client NLP') + 'NLP successfully parsed query.')
+            # if self.legacy == False:
+            uri = 'ffbo.nlp.query.' + self.nlpServerID
+            queryID = guidGenerator()
+            resNA = self.client.session.call(uri , query, language)
+            print(printHeader('FFBOLab Client NLP') + 'NLP successfully parsed query.')
 
-                if returnNAOutput == True:
-                    return resNA
-                else:
-                    self.compiled = False
-                    res = self.executeNAquery(resNA, queryID = queryID)
-                    self.sendNeuropils()
-                    return res
+            if returnNAOutput == True:
+                return resNA
+            else:
+                self.compiled = False
+                res = self.executeNAquery(resNA, queryID = queryID)
+                self.sendNeuropils()
+                return res
+            """
             else:
                 msg = {}
                 msg['username'] = "Guest  "
                 msg['servers'] = {}
-                msg['data_callback_uri'] = 'ffbo.ui.receive_data'
+                msg['data_callback_uri'] = 'ffbo.ui.receive_partial'
                 msg['language'] = language
                 msg['servers']['nlp'] = self.nlpServerID
                 msg['servers']['na'] = self.naServerID
                 msg['nlp_query'] = query
                 def on_progress(x, res):
-                    res.append(x)
+                    res.append({'data': x, 'queryID': guidGenerator()})
                 res_list = []
                 resNA = self.client.session.call('ffbo.processor.nlp_to_visualise', msg, options=CallOptions(
                                                     on_progress=partial(on_progress, res=res_list), timeout = 20))
@@ -437,6 +442,7 @@ class Client:
                     # res = self.executeNAquery(resNA, queryID = queryID)
                     self.sendNeuropils()
                     return resNA
+            """
 
     def executeNAquery(self, res, language = 'en', uri = None, queryID = None, progressive = True, threshold = 1):
         """Execute an NA query.
@@ -1111,8 +1117,8 @@ class Client:
 
         return True
 
-    def FICurveParseSimResults(self):
-        """Parses the simulation results for the FI curve generator example.
+    def parseSimResults(self):
+        """Parses the simulation results.
         """
         numpyData = {}
         for x in self.data:
@@ -1216,6 +1222,12 @@ class Client:
         print('Experiment Setup: ', self.simExperimentConfig)
         for key in self.simExperimentConfig.keys():
             if key in self.simExperimentRunners.keys():
+                for i in LPU_list:
+                    try:
+                        importlib.import_module(i)
+                        print('Loaded LPU {}.'.format(i))
+                    except:
+                        print('Failed to load LPU {}.'.format(i))
                 run_func = self.simExperimentRunners[key]
                 run_func(self.simExperimentConfig)
             else:
