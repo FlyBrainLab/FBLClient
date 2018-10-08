@@ -1159,46 +1159,53 @@ class Client:
     def loadCartridge(self, cartridgeIndex = 100):
         """Sample library function for loading cartridges, showing how one can build libraries that work with flybrainlab.
         """
-        cartridge_index = str(cartridgeIndex)
+        self.executeNAquery(
+            {"query":[
+                {"action":{"method":{"query":{"name":["lamina"]}}},"object":{"class":"LPU"}},
+                {"action":{"method":{"traverse_owns":{"cls":"CartridgeModel","name":'cartridge_' + str(cartridgeIndex)}}},"object":{"memory":0}},
+                {"action":{"method":{"traverse_owns":{"instanceof":"MembraneModel"}}},"object":{"memory":0}},
+                {"action":{"method":{"traverse_owns":{"instanceof":"DendriteModel"}}}, "object":{"memory":1}},
+                {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
+                {"action":{"method":{"traverse_owns":{"cls":"Port"}}},"object":{"memory":3}},
+                {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
+                {"action":{"method":{"gen_traversal_in":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","MembraneModel","instanceof"]]}}},"object":{"memory":0}},
+                {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
+                {"action":{"method":{"gen_traversal_in":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","Aggregator","instanceof"]]}}},"object":{"memory":2}},
+                {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
+                {"action":{"method":{"gen_traversal_out":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","MembraneModel","instanceof"]]}}},"object":{"memory":4}},
+                {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
+                {"action":{"method":{"gen_traversal_out":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","Aggregator","instanceof"]]}}},"object":{"memory":6}},
+                {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
+                {"action":{"op":{"__add__":{"memory":2}}},"object":{"memory":0}},
+                {"action":{"op":{"__add__":{"memory":6}}},"object":{"memory":0}},
+                {"action":{"op":{"__add__":{"memory":8}}},"object":{"memory":0}},
+                {"action":{"op":{"__add__":{"memory":11}}},"object":{"memory":0}},
+                {"action":{"method":{"get_connecting_synapsemodels":{}}},"object":{"memory":0}},
+                {"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},
+                {"action":{"method":{"get_connected_ports":{}}},"object":{"memory":1}},
+                {"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},
+                {"action":{"method":{"query":{"name":["retina-lamina"]}}},"object":{"class":"Pattern"}},
+                {"action":{"method":{"owns":{"cls":"Interface"}}},"object":{"memory":0}},
+                {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
+                {"action":{"op":{"find_matching_ports_from_selector":{"memory":20}}},"object":{"memory":1}},
+                {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
+                {"action":{"method":{"query":{"name":["retina"]}}},"object":{"class":"LPU"}},
+                {"action":{"op":{"find_matching_ports_from_selector":{"memory":1}}},"object":{"memory":0}},
+                {"action":{"method":{"gen_traversal_in":{"pass_through":["SendsTo", "MembraneModel","instanceof"]}}},"object":{"memory":0}},
+                {"action":{"op":{"__add__":{"memory":10}}},"object":{"memory":0}},
+                {"action":{"op":{"__add__":{"memory":4}}},"object":{"memory":0}}
+            ],
+            "format":"no_result"})
 
-        queryList = [
-            '{"query":[{"action":{"method":{"query":{"name":["lamina"]}}},"object":{"class":"LPU"}},{"action":{"method":{"traverse_owns":{"cls":"CartridgeModel","name":"cartridge_' + cartridge_index +'"}}},"object":{"memory":0}},'+ #1
-            '{"action":{"method":{"traverse_owns":{"instanceof":"MembraneModel"}}},"object":{"memory":0}},'+ #2
-            '{"action":{"method":{"traverse_owns":{"instanceof":"DendriteModel"}}}, "object":{"memory":1}},'+ #3
-            '{"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},'+ #4
-            '{"action":{"method":{"traverse_owns":{"cls":"Port"}}},"object":{"memory":3}},'+ #5
-            '{"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},' +#6
-            '{"action":{"method":{"gen_traversal_in":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","MembraneModel","instanceof"]]}}},"object":{"memory":0}},{"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},' +#7
-            '{"action":{"method":{"gen_traversal_in":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","Aggregator","instanceof"]]}}},"object":{"memory":2}},{"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},' +#8
-            '{"action":{"method":{"gen_traversal_out":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","MembraneModel","instanceof"]]}}},"object":{"memory":4}},{"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},' + #9
-            '{"action":{"method":{"gen_traversal_out":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","Aggregator","instanceof"]]}}},"object":{"memory":6}},{"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},' + #10 -- ports
-            '{"action":{"op":{"__add__":{"memory":2}}},"object":{"memory":0}},' + #11
-            '{"action":{"op":{"__add__":{"memory":6}}},"object":{"memory":0}},' + #12
-            '{"action":{"op":{"__add__":{"memory":8}}},"object":{"memory":0}},' + #13
-            '{"action":{"op":{"__add__":{"memory":11}}},"object":{"memory":0}},' + #14
-            '{"action":{"method":{"get_connecting_synapsemodels":{}}},"object":{"memory":0}},' + #15 --> ports
-            '{"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},' + #16
-            '{"action":{"method":{"get_connected_ports":{}}},"object":{"memory":1}},' + #17
-            '{"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},' + #18 lam_comps
-            '{"action":{"method":{"query":{"name":["retina-lamina"]}}},"object":{"class":"Pattern"}},' + #19
-            '{"action":{"method":{"owns":{"cls":"Interface"}}},"object":{"memory":0}},' + #20
-            '{"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},' + #21
-            '{"action":{"op":{"find_matching_ports_from_selector":{"memory":20}}},"object":{"memory":1}},' +  #22
-            '{"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},' + #23
-            '{"action":{"method":{"get_connected_ports":{}}},"object":{"memory":0}},' + #24
-            '{"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},' + #25 pat1
-            '{"action":{"method":{"query":{"name":["retina"]}}},"object":{"class":"LPU"}},' + #26 -> lam_comps
-            '{"action":{"op":{"find_matching_ports_from_selector":{"memory":1}}},"object":{"memory":0}},' + #27
-            '{"action":{"method":{"gen_traversal_in":{"pass_through":["SendsTo", "MembraneModel","instanceof"]}}},"object":{"memory":0}},' + #28 ret_comp
-            '{"action":{"op":{"__add__":{"memory":10}}},"object":{"memory":0}},' + #29
-            '{"action":{"op":{"__add__":{"memory":4}}},"object":{"memory":0}}],' + #30
-            '"format":"no_result"}',
-            '{"query":[{"action":{"method":{"has":{}}},"object":{"state":0}}],"format":"nx"}']
+        res = self.executeNAquery({"query":[{"action":{"method":{"has":{}}},"object":{"state":0}}],"format":"nx"})
 
-        for i in queryList:
-            res = self.executeNAquery(json.loads(i))
-            print(res)
-        G=nx.Graph(res[1]['data']['data'])
+        data = []
+        for i in res:
+            if 'data' in i:
+                if 'data' in i['data']:
+                    if 'nodes' in i['data']['data']:
+                        data.append(i['data']['data'])
+        G=nx.Graph(data[0])
         self.C.G = G
         return True
 
