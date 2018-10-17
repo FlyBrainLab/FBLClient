@@ -928,14 +928,14 @@ class Client:
                 idx = C.add_cluster(1, default_neuron)[0]
                 node_keys[i] = idx
         for i, v in enumerate(list(C.G.nodes())):
-            C.G.nodes()[v]['BioName'] = list(node_keys.keys())[i]
+            C.G.nodes()[v]['name'] = list(node_keys.keys())[i]
         if model == "auto":
             for i in edges:
                 if i not in config:
                     idx = C.add_cluster(1, default_synapse)[0]
                     C.join([[node_keys[i[0]],idx]])
                     C.join([[idx, node_keys[i[1]]]])
-                    C.G.nodes()["uid" + str(idx)]['BioName'] = "Synapse from " + i[0] + " to " + i[1]
+                    C.G.nodes()["uid" + str(idx)]['name'] = "Synapse from " + i[0] + " to " + i[1]
                     # print(C.G.nodes()["uid" + str(idx)]['BioName'])
         if model == "simple":
             for i in edges:
