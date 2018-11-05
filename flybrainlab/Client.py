@@ -10,6 +10,7 @@ from twisted.internet.ssl import CertificateOptions
 import OpenSSL.crypto
 from collections import Counter
 from autobahn.wamp.types import RegisterOptions, CallOptions
+from functools import partial
 from autobahn.wamp import auth
 from autobahn_sync import publish, call, register, subscribe, run, AutobahnSync
 from IPython.display import clear_output
@@ -28,6 +29,7 @@ import neuroballad as nb
 import networkx as nx
 import importlib
 from time import gmtime, strftime
+
 
 
 ## Create the home directory
@@ -348,6 +350,27 @@ class Client:
             self.tryComms(a)
             return True
         print(printHeader('FFBOLab Client') + "Procedure ffbo.ui.receive_partial Registered...")
+
+        @FFBOLABClient.register('ffbo.gfx.receive_partial.' + str(FFBOLABClient._async_session._session_id))
+        def receivePartialGFX(data):
+            """The Receive Partial Data function that receives commands and sends them to the NLP frontend.
+
+            # Arguments:
+                data (dict): Data from the backend.
+
+            # Returns:
+                bool: Whether the process has been successful.
+            """
+            self.clientData.append('Received Data')
+            a = {}
+            a['data'] = {'data': data, 'queryID': guidGenerator()}
+            a['messageType'] = 'Data'
+            a['widget'] = 'NLP'
+            self.data.append(a)
+            print(printHeader('FFBOLab Client NLP') + "Received partial data.")
+            self.tryComms(a)
+            return True
+        print(printHeader('FFBOLab Client') + "Procedure ffbo.gfx.receive_partial Registered...")
 
         @FFBOLABClient.register('ffbo.ui.receive_msg.' + str(FFBOLABClient._async_session._session_id))
         def receiveMessage(data):
@@ -1056,7 +1079,7 @@ class Client:
                 file.write(X['data'])
         return True
 
-    def sendSVG(self, X):
+    def _sendSVG(self, X):
         """Deprecated function that loads an SVG via the backend.
            Deprecated because of connectivity issues with large files.
         """
@@ -1069,6 +1092,27 @@ class Client:
         a['messageType'] = 'loadCircuit'
         a['widget'] = 'GFX'
         self.tryComms(a)
+
+
+    def sendSVG(self, name, file):
+        """Sends an SVG to the FBL fileserver. Useful for storing data and using loadSVG.
+
+        # Arguments:
+            name (str): Name to use when saving the file; '_visual' gets automatically appended to it.
+            file (str): Path to the SVG file.
+        """
+        with open(file, 'r') as ifile:
+            data = ifile.read()
+        data = json.dumps({'name': name, 'svg': data})
+        self.client.session.call('ffbo.gfx.sendSVG',data)
+
+    def loadSVG(self, name):
+        """Loads an SVG in the FBL fileserver.
+
+        # Arguments:
+            name (str): Name to use when loading the file.
+        """
+        self.tryComms({'widget':'GFX','messageType': 'loadCircuit', 'data': name})
 
     def FICurveGenerator(self, model):
         """Sample library function showing how to do automated experimentation using FFBOLab's Notebook features. Takes a simple abstract neuron model and runs experiments on it.
@@ -1240,6 +1284,121 @@ class Client:
             else:
                 print('No runner(s) were found for Diagram {}.'.format(key))
         return True
+
+
+    def load_retina_lamina(self, cartridgeIndex=11):
+        """Loads retina and lamina.
+
+        # Arguments:
+            cartridgeIndex (int): The cartridge to load. Optional.
+
+        # Returns:
+            dict: A result dict to use with the execute_lamina_retina function.
+
+        # Example:
+            res = load_retina_lamina(nm[0])
+            execute_multilpu(nm[0], res)
+        """
+
+        inp = {"query":[
+                        {"action":{"method":{"query":{"name":["lamina"]}}},"object":{"class":"LPU"}},
+                        {"action":{"method":{"traverse_owns":{"cls":"CartridgeModel","name":'cartridge_' + str(cartridgeIndex)}}},"object":{"memory":0}},
+                        {"action":{"method":{"traverse_owns":{"instanceof":"MembraneModel"}}},"object":{"memory":0}},
+                        {"action":{"method":{"traverse_owns":{"instanceof":"DendriteModel"}}}, "object":{"memory":1}},
+                        {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
+                        {"action":{"method":{"traverse_owns":{"cls":"Port"}}},"object":{"memory":3}},
+                        {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
+                        {"action":{"method":{"gen_traversal_in":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","MembraneModel","instanceof"]]}}},"object":{"memory":0}},
+                        {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
+                        {"action":{"method":{"gen_traversal_in":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","Aggregator","instanceof"]]}}},"object":{"memory":2}},
+                        {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
+                        {"action":{"method":{"gen_traversal_out":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","MembraneModel","instanceof"]]}}},"object":{"memory":4}},
+                        {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
+                        {"action":{"method":{"gen_traversal_out":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","Aggregator","instanceof"]]}}},"object":{"memory":6}},
+                        {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
+                        {"action":{"op":{"__add__":{"memory":2}}},"object":{"memory":0}},
+                        {"action":{"op":{"__add__":{"memory":6}}},"object":{"memory":0}},
+                        {"action":{"op":{"__add__":{"memory":8}}},"object":{"memory":0}},
+                        {"action":{"op":{"__add__":{"memory":11}}},"object":{"memory":0}},
+                        {"action":{"method":{"get_connecting_synapsemodels":{}}},"object":{"memory":0}},
+                        {"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},
+                        {"action":{"method":{"get_connected_ports":{}}},"object":{"memory":1}},
+                        {"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},
+                        {"action":{"method":{"query":{"name":["retina-lamina"]}}},"object":{"class":"Pattern"}},
+                        {"action":{"method":{"owns":{"cls":"Interface"}}},"object":{"memory":0}},
+                        {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
+                        {"action":{"op":{"find_matching_ports_from_selector":{"memory":20}}},"object":{"memory":1}},
+                        {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
+                        {"action":{"method":{"get_connected_ports":{}}},"object":{"memory":0}},
+                        {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
+                        {"action":{"method":{"query":{"name":["retina"]}}},"object":{"class":"LPU"}},
+                        {"action":{"op":{"find_matching_ports_from_selector":{"memory":1}}},"object":{"memory":0}},
+                        {"action":{"method":{"gen_traversal_in":{"pass_through":["SendsTo", "MembraneModel","instanceof"]}}},"object":{"memory":0}},
+                        {"action":{"op":{"__add__":{"memory":10}}},"object":{"memory":0}},
+                        {"action":{"op":{"__add__":{"memory":4}}},"object":{"memory":0}}
+                    ],
+                    "format":"no_result",
+                    "user": self.client._async_session._session_id,
+                    "server": self.naServerID}
+
+        res = self.client.session.call('ffbo.processor.neuroarch_query', inp)
+
+        inp = {"query":[
+                        {"action":{"method":{"has":{}}},"object":{"state":0}}
+                    ],
+                    "format":"nx",
+                    "user": self.client._async_session._session_id,
+                    "server": self.naServerID}
+
+        res = self.client.session.call('ffbo.processor.neuroarch_query', inp)
+
+        res = self.client.session.call(u'ffbo.processor.server_information')
+
+        msg = {"user": self.client._async_session._session_id,
+            "servers": {'na': self.naServerID, 'nk': list(res['nk'].keys())[0]}}
+
+        res = self.client.session.call(u'ffbo.na.query.' + msg['servers']['na'], {'user': msg['user'],
+                                'command': {"retrieve":{"state":0}},
+                                'format': "nk"})
+
+        # print(res['data']['LPU'].keys())
+        print('Retina and lamina circuits have been successfully loaded.')
+        return res
+
+
+    def execute_multilpu(self, res):
+        """Executes a multilpu circuit. Requires a result dictionary.
+
+        # Arguments:
+            res (dict): The result dictionary to use for execution.
+
+        # Returns:
+            bool: A success indicator.
+        """
+        labels = []
+        for i in res['data']['LPU']:
+            for j in res['data']['LPU'][i]['nodes']:
+                if 'label' in res['data']['LPU'][i]['nodes'][j]:
+                    label = res['data']['LPU'][i]['nodes'][j]['label']
+                    if 'port' not in label and 'synapse' not in label:
+                        labels.append(label)
+
+        res = self.client.session.call(u'ffbo.processor.server_information')
+        msg = {'neuron_list': labels,
+            "user": self.client._async_session._session_id,
+            "servers": {'na': self.naServerID, 'nk': list(res['nk'].keys())[0]}}
+
+        print(res)
+        res = []
+        def on_progress(x, res):
+            res.append(x)
+        res_list = []
+        res = self.client.session.call('ffbo.processor.nk_execute', msg, options=CallOptions(
+                            on_progress=partial(on_progress, res=res_list), timeout = 30000000000
+                        ))
+        print('Execution request sent. Please wait.')
+    
+
 
 import importlib
 
