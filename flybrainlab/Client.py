@@ -104,7 +104,7 @@ class Client:
         except:
             pass
 
-    def __init__(self, ssl = True, debug = True, authentication = True, user = 'guest', secret = 'guestpass', url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None, legacy = False):
+    def __init__(self, ssl = True, debug = True, authentication = True, user = 'guest', secret = 'guestpass', url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None, legacy = False, gfx_privileges = False):
         """Initialization function for the ffbolabClient class.
 
         # Arguments:
@@ -351,26 +351,27 @@ class Client:
             return True
         print(printHeader('FFBOLab Client') + "Procedure ffbo.ui.receive_partial Registered...")
 
-        @FFBOLABClient.register('ffbo.gfx.receive_partial.' + str(FFBOLABClient._async_session._session_id))
-        def receivePartialGFX(data):
-            """The Receive Partial Data function that receives commands and sends them to the NLP frontend.
+        if gfx_privileges:
+            @FFBOLABClient.register('ffbo.gfx.receive_partial.' + str(FFBOLABClient._async_session._session_id))
+            def receivePartialGFX(data):
+                """The Receive Partial Data function that receives commands and sends them to the NLP frontend.
 
-            # Arguments:
-                data (dict): Data from the backend.
+                # Arguments:
+                    data (dict): Data from the backend.
 
-            # Returns:
-                bool: Whether the process has been successful.
-            """
-            self.clientData.append('Received Data')
-            a = {}
-            a['data'] = {'data': data, 'queryID': guidGenerator()}
-            a['messageType'] = 'Data'
-            a['widget'] = 'NLP'
-            self.data.append(a)
-            print(printHeader('FFBOLab Client NLP') + "Received partial data.")
-            self.tryComms(a)
-            return True
-        print(printHeader('FFBOLab Client') + "Procedure ffbo.gfx.receive_partial Registered...")
+                # Returns:
+                    bool: Whether the process has been successful.
+                """
+                self.clientData.append('Received Data')
+                a = {}
+                a['data'] = {'data': data, 'queryID': guidGenerator()}
+                a['messageType'] = 'Data'
+                a['widget'] = 'NLP'
+                self.data.append(a)
+                print(printHeader('FFBOLab Client NLP') + "Received partial data.")
+                self.tryComms(a)
+                return True
+            print(printHeader('FFBOLab Client') + "Procedure ffbo.gfx.receive_partial Registered...")
 
         @FFBOLABClient.register('ffbo.ui.receive_msg.' + str(FFBOLABClient._async_session._session_id))
         def receiveMessage(data):
