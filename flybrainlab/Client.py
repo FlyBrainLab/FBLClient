@@ -104,7 +104,7 @@ class Client:
         except:
             pass
 
-    def __init__(self, ssl = True, debug = True, authentication = True, user = 'guest', secret = 'guestpass', url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None, legacy = False, gfx_privileges = False):
+    def __init__(self, ssl = True, debug = True, authentication = True, user = 'guest', secret = 'guestpass', url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None, legacy = False):
         """Initialization function for the ffbolabClient class.
 
         # Arguments:
@@ -351,7 +351,7 @@ class Client:
             return True
         print(printHeader('FFBOLab Client') + "Procedure ffbo.ui.receive_partial Registered...")
 
-        if gfx_privileges:
+        if legacy == False:
             @FFBOLABClient.register('ffbo.gfx.receive_partial.' + str(FFBOLABClient._async_session._session_id))
             def receivePartialGFX(data):
                 """The Receive Partial Data function that receives commands and sends them to the NLP frontend.
@@ -1339,8 +1339,10 @@ class Client:
             dict: A result dict to use with the execute_lamina_retina function.
 
         # Example:
-            res = load_retina_lamina(nm[0])
-            execute_multilpu(nm[0], res)
+            nm[0].getExperimentConfig() # In a different cell
+            experiment_configuration = nm[0].load_retina_lamina(cartridgeIndex=126)
+            experiment_configuration = experiment_configuration['success']['result']
+            nm[0].execute_multilpu(experiment_configuration)
         """
 
         inp = {"query":[
@@ -1407,6 +1409,10 @@ class Client:
 
 
         neurons = self.get_current_neurons(res)
+        if 'cartridge_' + str(cartridgeIndex) in self.simExperimentConfig:
+            if 'disabled' in self.simExperimentConfig['cartridge_' + str(cartridgeIndex)]:
+                removed_neurons = removed_neurons + self.simExperimentConfig['cartridge_' + str(cartridgeIndex)]['disabled']
+                print('Updated Disabled Neuron List: ', removed_neurons)
         removed_neurons = self.ablate_by_match(res, removed_neurons)
 
         res = self.prune_retina_lamina(removed_neurons = removed_neurons, removed_labels = removed_labels)
