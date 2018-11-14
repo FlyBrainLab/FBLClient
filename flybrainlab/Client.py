@@ -1065,6 +1065,16 @@ class Client:
                 file.write(X['data'])
         return True
 
+    def JSCall(self, messageType='getExperimentConfig', data = {}):
+        a = {}
+        a['data'] = data
+        a['messageType'] = messageType
+        a['widget'] = 'GFX'
+        self.tryComms(a)
+
+    def getExperimentConfig(self):
+        self.JSCall()
+
     def fetchSVG(self, X, local = True):
         """Deprecated function that locally saves an SVG via the backend.
            Deprecated because of connectivity issues with large files.
@@ -1286,8 +1296,40 @@ class Client:
                 print('No runner(s) were found for Diagram {}.'.format(key))
         return True
 
+    def prune_retina_lamina(self, removed_neurons = [], removed_labels=[]):
+        """Prunes the retina and lamina circuits.
 
-    def load_retina_lamina(self, cartridgeIndex=11):
+        # Arguments:
+            cartridgeIndex (int): The cartridge to load. Optional.
+
+        # Returns:
+            dict: A result dict to use with the execute_lamina_retina function.
+
+        # Example:
+            res = load_retina_lamina(nm[0])
+            execute_multilpu(nm[0], res)
+        """
+        list_of_queries = [
+        {"command":{"swap":{"states":[0,1]}},"format":"nx", "user": self.client._async_session._session_id, "server": self.naServerID},
+        {"query":[{"action":{"method":{"has":{"name": removed_neurons}}},"object":{"state":0}},{"action":{"method":{"has":{"label": removed_labels}}},"object":{"state":0}},{"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},
+                    {"action":{"method":{"get_connected_ports":{}}},"object":{"memory":0}},
+                    {"action":{"method":{"has":{"via":['+removed_via+']}}},"object":{"state":0}},{"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},
+                    {"action":{"op":{"find_matching_ports_from_selector":{"memory":0}}},"object":{"state":0}},
+                    {"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},
+                    {"action":{"method":{"gen_traversal_in":{"min_depth":1, "pass_through":["SendsTo", "SynapseModel","instanceof"]}}},"object":{"memory":0}},
+                    {"action":{"method":{"gen_traversal_out":{"min_depth":1, "pass_through":["SendsTo", "SynapseModel","instanceof"]}}},"object":{"memory":1}},
+                    {"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},{"action":{"op":{"__add__":{"memory":3}}},"object":{"memory":0}},
+                    {"action":{"op":{"__sub__":{"memory":0}}},"object":{"state":0}}],
+        "format":"nk", "user": self.client._async_session._session_id, "server": self.naServerID}
+        ]
+        res = self.client.session.call('ffbo.processor.neuroarch_query', list_of_queries[0])
+        print('Pruning ', removed_neurons)
+        print('Pruning ', removed_labels)
+        res = self.client.session.call('ffbo.processor.neuroarch_query', list_of_queries[1])
+        return res
+
+
+    def load_retina_lamina(self, cartridgeIndex=11, removed_neurons = [], removed_labels=[]):
         """Loads retina and lamina.
 
         # Arguments:
@@ -1343,6 +1385,7 @@ class Client:
                     "server": self.naServerID}
 
         res = self.client.session.call('ffbo.processor.neuroarch_query', inp)
+        
 
         inp = {"query":[
                         {"action":{"method":{"has":{}}},"object":{"state":0}}
@@ -1351,21 +1394,51 @@ class Client:
                     "user": self.client._async_session._session_id,
                     "server": self.naServerID}
 
+        
+
         res = self.client.session.call('ffbo.processor.neuroarch_query', inp)
 
-        res = self.client.session.call(u'ffbo.processor.server_information')
-
+        res_info = self.client.session.call(u'ffbo.processor.server_information')
         msg = {"user": self.client._async_session._session_id,
-            "servers": {'na': self.naServerID, 'nk': list(res['nk'].keys())[0]}}
-
+            "servers": {'na': self.naServerID, 'nk': list(res_info['nk'].keys())[0]}}
         res = self.client.session.call(u'ffbo.na.query.' + msg['servers']['na'], {'user': msg['user'],
                                 'command': {"retrieve":{"state":0}},
                                 'format': "nk"})
 
+
+        neurons = self.get_current_neurons(res)
+        removed_neurons = self.ablate_by_match(res, removed_neurons)
+
+        res = self.prune_retina_lamina(removed_neurons = removed_neurons, removed_labels = removed_labels)
+        """
+        res_info = self.client.session.call(u'ffbo.processor.server_information')
+        msg = {"user": self.client._async_session._session_id,
+            "servers": {'na': self.naServerID, 'nk': list(res_info['nk'].keys())[0]}}
+        res = self.client.session.call(u'ffbo.na.query.' + msg['servers']['na'], {'user': msg['user'],
+                                'command': {"retrieve":{"state":0}},
+                                'format': "nk"})
+        """
         # print(res['data']['LPU'].keys())
         print('Retina and lamina circuits have been successfully loaded.')
         return res
 
+    def get_current_neurons(self, res):
+        labels = []
+        for i in res['data']['LPU']:
+            for j in res['data']['LPU'][i]['nodes']:
+                if 'label' in res['data']['LPU'][i]['nodes'][j]:
+                    label = res['data']['LPU'][i]['nodes'][j]['label']
+                    if 'port' not in label and 'synapse' not in label:
+                        labels.append(label)
+        return labels
+
+    def ablate_by_match(self, res, neuron_list):
+        neurons = self.get_current_neurons(res)
+        removed_neurons = []
+        for i in neuron_list:
+            removed_neurons = removed_neurons + [j for j in neurons if i in j]
+        removed_neurons = list(set(removed_neurons))
+        return removed_neurons
 
     def execute_multilpu(self, res):
         """Executes a multilpu circuit. Requires a result dictionary.
