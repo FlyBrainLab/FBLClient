@@ -468,7 +468,7 @@ class Client:
                     return resNA
             """
 
-    def executeNAquery(self, res, language = 'en', uri = None, queryID = None, progressive = True, threshold = 1):
+    def executeNAquery(self, res, language = 'en', uri = None, queryID = None, progressive = True, threshold = 20):
         """Execute an NA query.
 
         # Arguments:
