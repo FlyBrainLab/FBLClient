@@ -1296,7 +1296,7 @@ class Client:
                 print('No runner(s) were found for Diagram {}.'.format(key))
         return True
 
-    def prune_retina_lamina(self, removed_neurons = [], removed_labels=[]):
+    def prune_retina_lamina(self, removed_neurons = [], removed_labels=[], retrieval_format="nk"):
         """Prunes the retina and lamina circuits.
 
         # Arguments:
@@ -1320,7 +1320,7 @@ class Client:
                     {"action":{"method":{"gen_traversal_out":{"min_depth":1, "pass_through":["SendsTo", "SynapseModel","instanceof"]}}},"object":{"memory":1}},
                     {"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},{"action":{"op":{"__add__":{"memory":3}}},"object":{"memory":0}},
                     {"action":{"op":{"__sub__":{"memory":0}}},"object":{"state":0}}],
-        "format":"nk", "user": self.client._async_session._session_id, "server": self.naServerID}
+        "format":retrieval_format, "user": self.client._async_session._session_id, "server": self.naServerID}
         ]
         res = self.client.session.call('ffbo.processor.neuroarch_query', list_of_queries[0])
         print('Pruning ', removed_neurons)
@@ -1329,7 +1329,7 @@ class Client:
         return res
 
 
-    def load_retina_lamina(self, cartridgeIndex=11, removed_neurons = [], removed_labels=[]):
+    def load_retina_lamina(self, cartridgeIndex=11, removed_neurons = [], removed_labels=[], retrieval_format="nk"):
         """Loads retina and lamina.
 
         # Arguments:
@@ -1415,7 +1415,7 @@ class Client:
                 print('Updated Disabled Neuron List: ', removed_neurons)
         removed_neurons = self.ablate_by_match(res, removed_neurons)
 
-        res = self.prune_retina_lamina(removed_neurons = removed_neurons, removed_labels = removed_labels)
+        res = self.prune_retina_lamina(removed_neurons = removed_neurons, removed_labels = removed_labels, retrieval_format=retrieval_format)
         """
         res_info = self.client.session.call(u'ffbo.processor.server_information')
         msg = {"user": self.client._async_session._session_id,
