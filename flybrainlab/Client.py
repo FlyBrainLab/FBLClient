@@ -440,15 +440,23 @@ class Client:
             if returnNAOutput == True:
                 return resNA
             else:
-                self.compiled = False
-                res = self.executeNAquery(resNA, queryID = queryID)
-                self.sendNeuropils()
-                a = {}
-                a['data'] = {'info': {'success': 'Finished fetching results from database'}}
-                a['messageType'] = 'Data'
-                a['widget'] = 'NLP'
-                self.tryComms(a)
-                return res
+                try:
+                    self.compiled = False
+                    res = self.executeNAquery(resNA, queryID = queryID)
+                    self.sendNeuropils()
+                    a = {}
+                    a['data'] = {'info': {'success': 'Finished fetching results from database'}}
+                    a['messageType'] = 'Data'
+                    a['widget'] = 'NLP'
+                    self.tryComms(a)
+                    return res
+                except:
+                    a = {}
+                    a['data'] = {'info': {'timeout': 'This is a timeout.'}}
+                    a['messageType'] = 'Data'
+                    a['widget'] = 'NLP'
+                    self.tryComms(a)
+                    return resNA
             """
             else:
                 msg = {}
