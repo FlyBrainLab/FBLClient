@@ -444,11 +444,13 @@ class Client:
                     self.compiled = False
                     res = self.executeNAquery(resNA, queryID = queryID)
                     self.sendNeuropils()
+                    """
                     a = {}
                     a['data'] = {'info': {'success': 'Finished fetching results from database'}}
                     a['messageType'] = 'Data'
                     a['widget'] = 'NLP'
                     self.tryComms(a)
+                    """
                     return res
                 except:
                     a = {}
