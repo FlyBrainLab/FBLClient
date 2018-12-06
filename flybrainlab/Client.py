@@ -434,7 +434,15 @@ class Client:
             # if self.legacy == False:
             uri = 'ffbo.nlp.query.' + self.nlpServerID
             queryID = guidGenerator()
-            resNA = self.client.session.call(uri , query, language)
+            try:
+                resNA = self.client.session.call(uri , query, language)
+            except:
+                a = {}
+                a['data'] = {'info': {'timeout': 'This is a timeout.'}}
+                a['messageType'] = 'Data'
+                a['widget'] = 'NLP'
+                self.tryComms(a)
+                return a
             print(printHeader('FFBOLab Client NLP') + 'NLP successfully parsed query.')
 
             if returnNAOutput == True:
