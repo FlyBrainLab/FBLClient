@@ -154,6 +154,9 @@ class Client:
         self.clientData = [] # Servers list
         self.data = [] # A buffer for data from backend; used in multiple functions so needed
         self.legacy = legacy
+        self.query_threshold = 20
+        if self.legacy:
+            self.query_threshold = 2
         st_cert=open(ca_cert_file, 'rt').read()
         c=OpenSSL.crypto
         ca_cert=c.load_certificate(c.FILETYPE_PEM, st_cert)
@@ -450,7 +453,7 @@ class Client:
             else:
                 try:
                     self.compiled = False
-                    res = self.executeNAquery(resNA, queryID = queryID)
+                    res = self.executeNAquery(resNA, queryID = queryID, threshold = self.query_threshold)
                     self.sendNeuropils()
                     """
                     a = {}
