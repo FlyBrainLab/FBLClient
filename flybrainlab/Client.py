@@ -527,7 +527,7 @@ class Client:
         res_list = []
         if self.legacy == False:
             res = self.client.session.call(uri, res, options=CallOptions(
-                    on_progress=partial(on_progress, res=res_list), timeout = 3000
+                    on_progress=partial(on_progress, res=res_list), timeout = 300000
                 ))
         else:
             res = self.client.session.call(uri, res)

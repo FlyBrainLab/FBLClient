@@ -47,6 +47,7 @@ from retina.NDComponents.MembraneModels.PhotoreceptorModel import PhotoreceptorM
 from retina.NDComponents.MembraneModels.BufferPhoton import BufferPhoton
 from retina.NDComponents.MembraneModels.BufferVoltage import BufferVoltage
 from configparser import ConfigParser
+from neurokernel.LPU.InputProcessors.StepInputProcessor import StepInputProcessor
 
 import urllib
 import requests
@@ -273,6 +274,11 @@ class neurokernel_server(object):
                 input_processors = [RetinaInputIndividual(config, prs, user_id)]
                 extra_comps = [PhotoreceptorModel]
                 retina_input_uids = [a[0] for a in prs]
+            elif k == 'EB':
+                input_processor = StepInputProcessor('I', [node[0] for node in graph.nodes(data=True) \
+                       if node[1]['class'] == 'LeakyIAF'], 40.0, 0.0, 1.0)
+                input_processors = [input_processor]
+                extra_comps = [BufferVoltage]
             else:
                 input_processors = []
                 extra_comps = [BufferVoltage]
@@ -282,6 +288,9 @@ class neurokernel_server(object):
 
 
             (comp_dict, conns) = LPU.graph_to_dicts(graph)
+
+
+
             # print(comp_dict)
             # print(conns)
             print(k)
@@ -297,6 +306,8 @@ class neurokernel_server(object):
                 print('Connecting {} and {}'.format(l1, l2))
                 pat, key_order = Pattern.from_graph(nx.DiGraph(pattern['graph']),
                                                     return_key_order = True)
+                print(l1,l2)
+                print(key_order)
                 with Timer('update of connections in Manager'):
                     manager.connect(l1, l2, pat,
                                     int_0 = key_order.index(l1),
@@ -346,11 +357,11 @@ class neurokernel_server(object):
                 output_array = output_file['V']['data'][:]
                 for i, item in enumerate(uids):
                     output = output_array[int(ignored_steps/10):,i:i+1]
-                    tmp = output.max()-output.min()
-                    if tmp <= 0.01: #mV
-                        output = (output - output.min()) + 0.5
-                    else:
-                        output = (output - output.min())/tmp*0.9+0.1
+                    # tmp = output.max()-output.min()
+                    # if tmp <= 0.01: #mV
+                    #     output = (output - output.min()) + 0.5
+                    # else:
+                    #     output = (output - output.min())/tmp*0.9+0.1
                     result['data'][item] = np.hstack(
                         (np.arange(int((steps-ignored_steps)/10)).reshape((-1,1))*dt*10, output)).tolist()
 
@@ -470,43 +481,43 @@ def mainThreadExecute(Component, server):
     #self.execution_settings = json.loads(settings)
     if len(Component.launch_queue)>0:
         user_id, task = Component.launch_queue[0]
-        try:
-            inputs, res = server.launch(user_id, task)
-            # print(res)
-            for key in res.keys():
-                if type(key) is not str:
+        # try:
+        inputs, res = server.launch(user_id, task)
+        # print(res)
+        for key in res.keys():
+            if type(key) is not str:
+                try:
+                    res[str(key)] = res[key]
+                except:
                     try:
-                        res[str(key)] = res[key]
+                        res[repr(key)] = res[key]
                     except:
-                        try:
-                            res[repr(key)] = res[key]
-                        except:
-                            pass
-                    del res[key]
-            for key in res['data'].keys():
-                if type(key) is not str:
+                        pass
+                del res[key]
+        for key in res['data'].keys():
+            if type(key) is not str:
+                try:
+                    res['data'][str(key)] = res['data'][key]
+                except:
                     try:
-                        res['data'][str(key)] = res['data'][key]
+                        res['data'][repr(key)] = res['data'][key]
                     except:
-                        try:
-                            res['data'][repr(key)] = res['data'][key]
-                        except:
-                            pass
-                    del res['data'][key]
-            # print(res['data'].keys())
-            res =  six.u(res)
-            """
-            res = {u'ydomain': 1,
-                        u'xdomain': 1,
-                        u'dt': 10,
-                        u'data': {}}
-            """
-            print('Printing task...')
-            print(task)
-            r = json.dumps(res)
-            res_to_processor = Component.client.session.call(six.u(task['forward']), r)
-        except:
-            print('There was an error...')
+                        pass
+                del res['data'][key]
+        # print(res['data'].keys())
+        res =  six.u(res)
+        """
+        res = {u'ydomain': 1,
+                    u'xdomain': 1,
+                    u'dt': 10,
+                    u'data': {}}
+        """
+        print('Printing task...')
+        print(task)
+        r = json.dumps(res)
+        res_to_processor = Component.client.session.call(six.u(task['forward']), r)
+        # except:
+        #     print('There was an error...')
         Component.launch_queue.pop(0)
     else:
         return False
