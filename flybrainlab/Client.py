@@ -757,7 +757,7 @@ class Client:
         return res
 
 
-    def sendExecuteReceiveResults(self, circuitName = "temp", dt = 1e-5, tmax = 1.0, compile = False):
+    def sendExecuteReceiveResults(self, circuitName = "temp", dt = 1e-5, tmax = 1.0, inputProcessors=[], compile = False):
         """Compiles and sends a circuit for execution in the GFX backend.
 
         # Arguments:
@@ -776,7 +776,10 @@ class Client:
         print(printHeader('FFBOLab Client GFX') + 'Circuit prepared. Sending to FFBO servers.')
         self.sendCircuitPrimitive(self.C, args = {'name': circuitName})
         print(printHeader('FFBOLab Client GFX') + 'Circuit sent. Queuing execution.')
-        res = self.client.session.call('ffbo.gfx.startExecution', {'name': circuitName, 'dt': dt, 'tmax': tmax})
+        if len(inputProcessors)>0:
+            res = self.client.session.call('ffbo.gfx.startExecution', {'name': circuitName, 'dt': dt, 'tmax': tmax, 'inputProcessors': inputProcessors})
+        else:
+            res = self.client.session.call('ffbo.gfx.startExecution', {'name': circuitName, 'dt': dt, 'tmax': tmax})
         return True
         
     def getConnectivityMatrix(self):

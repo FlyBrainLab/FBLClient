@@ -240,6 +240,7 @@ class neurokernel_server(object):
             dt = task['dt']
             print(dt)
 
+
         # add LPUs to manager
         for k, lpu in lpus.items():
             lpu_name = k
@@ -282,6 +283,8 @@ class neurokernel_server(object):
             else:
                 input_processors = []
                 extra_comps = [BufferVoltage]
+            if 'inputProcessors' in task:
+                input_processors = loadExperimentSettings(task['inputProcessors'])
             output_processor = FileOutputProcessor(
                                     [('V', lpu['output_uid_list'])],
                                     lpu['output_file'], sample_interval=10)
@@ -377,10 +380,12 @@ def loadExperimentSettings(X):
     for a in X:
         if a['name'] == 'InIGaussianNoise':
             inList.append(InIGaussianNoise(a['node_id'], a['mean'], a['std'], a['t_start'], a['t_end']))
-        if a['name'] == 'InISinusoidal':
+        elif a['name'] == 'InISinusoidal':
             inList.append(InISinusoidal(a['node_id'], a['amplitude'], a['frequency'], a['t_start'], a['t_end'], a['mean'], a['shift'], a['frequency_sweep'], a['frequency_sweep_frequency'], a['threshold_active'], a['threshold_value']))
-        if a['name'] == 'InIBoxcar':
+        elif a['name'] == 'InIBoxcar':
             inList.append(InIBoxcar(a['node_id'], a['I_val'], a['t_start'], a['t_end']))
+        else:
+            inList.append(StepInputProcessor(*a['args'], **a['kwargs']))
     return inList
 
 class ffbolabComponent:
