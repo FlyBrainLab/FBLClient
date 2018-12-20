@@ -1475,7 +1475,7 @@ class Client:
         removed_neurons = list(set(removed_neurons))
         return removed_neurons
 
-    def execute_multilpu(self, res):
+    def execute_multilpu(self, res, inputProcessors = [], steps= None, dt = None):
         """Executes a multilpu circuit. Requires a result dictionary.
 
         # Arguments:
@@ -1494,8 +1494,15 @@ class Client:
 
         res = self.client.session.call(u'ffbo.processor.server_information')
         msg = {'neuron_list': labels,
-            "user": self.client._async_session._session_id,
-            "servers": {'na': self.naServerID, 'nk': list(res['nk'].keys())[0]}}
+                "user": self.client._async_session._session_id,
+                "servers": {'na': self.naServerID, 'nk': list(res['nk'].keys())[0]}}
+            
+        if len(inputProcessors)>0:
+            msg['inputProcessors'] = inputProcessors
+        if dt is not None:
+            msg['dt'] = dt
+        if steps is not None:
+            msg['steps'] = steps
 
         print(res)
         res = []
