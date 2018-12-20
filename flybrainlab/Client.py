@@ -814,14 +814,14 @@ class Client:
         synapses = []
 
         for data in self.data:
-                    if data['messageType'] == 'Data':
-                        if 'data' in data:
-                            if 'data' in data['data']:
-                                keys = list(data['data']['data'].keys())
-                                for key in keys:
-                                    if 'uname' in data['data']['data'][key].keys():
-                                        hashids.append(key)
-                                        names.append(data['data']['data'][key]['uname'])
+            if data['messageType'] == 'Data':
+                if 'data' in data:
+                    if 'data' in data['data']:
+                        keys = list(data['data']['data'].keys())
+                        for key in keys:
+                            if 'uname' in data['data']['data'][key].keys():
+                                hashids.append(key)
+                                names.append(data['data']['data'][key]['uname'])
         
 
         for i in range(len(hashids)):
@@ -1504,6 +1504,62 @@ class Client:
                         ))
         print('Execution request sent. Please wait.')
     
+
+    def export_diagram_config(self, res):
+        """Exports a diagram configuration from Neuroarch data.
+
+        # Arguments:
+            res (dict): The result dictionary to use for export.
+
+        # Returns:
+            dict: The configuration to export.
+        """
+        newConfig = {'cx': {'disabled': []}}
+        param_names = ['reset_potential', 'capacitance', 'resting_potential', 'resistance']
+        param_names_js = ['reset_potential', 'capacitance', 'resting_potential', 'resistance']
+        state_names = ['initV']
+        state_names_js = ['initV']
+        for lpu in res['data']['LPU'].keys():
+            for node in res['data']['LPU'][lpu]['nodes']:
+                if 'name' in res['data']['LPU'][lpu]['nodes'][node]:
+                    node_data = res['data']['LPU'][lpu]['nodes'][node]
+                    new_node_data = {'params': {},'states': {}}
+                    for param_idx, param in enumerate(param_names):
+                        if param in node_data:
+                            new_node_data['params'][param_names_js[param_idx]] = node_data[param]
+                            new_node_data['name'] = 'LeakyIAF'
+                    for state_idx, state in enumerate(state_names):
+                        if state in node_data:
+                            new_node_data['states'][state_names_js[state_idx]] = node_data[state]
+                    newConfig['cx'][res['data']['LPU'][lpu]['nodes'][node]['name']] = new_node_data
+        return newConfig
+
+    def import_diagram_config(self, res, newConfig):
+        """Imports a diagram configuration from Neuroarch data.
+
+        # Arguments:
+            res (dict): The result dictionary to update.
+            newConfig (dict): The imported configuration from a diagram.
+
+        # Returns:
+            dict: The updated Neuroarch result dictionary.
+        """
+        param_names = ['reset_potential', 'capacitance', 'resting_potential', 'resistance']
+        param_names_js = ['reset_potential', 'capacitance', 'resting_potential', 'resistance']
+        state_names = ['initV']
+        state_names_js = ['initV']
+        for lpu in res['data']['LPU'].keys():
+            for node in res['data']['LPU'][lpu]['nodes']:
+                if 'name' in res['data']['LPU'][lpu]['nodes'][node]:
+                    if res['data']['LPU'][lpu]['nodes'][node]['name'] in newConfig['cx'].keys():
+                        updated_node_data = newConfig['cx'][res['data']['LPU'][lpu]['nodes'][node]['name']]
+                        for param_idx, param in enumerate(param_names_js):
+                            if param in updated_node_data:
+                                res['data']['LPU'][lpu]['nodes'][node][param_names[param_idx]] = updated_node_data[param]
+                        for state_idx, state in enumerate(state_names_js):
+                            if state in updated_node_data:
+                                res['data']['LPU'][lpu]['nodes'][node][state_names[state_idx]] = updated_node_data[state]
+        return res
 
 
 import importlib
