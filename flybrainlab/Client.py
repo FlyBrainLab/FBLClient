@@ -148,7 +148,7 @@ class Client:
         self.sendDataToGFX = True # Shall we send the received simulation data to GFX Component?
         self.executionSuccessful = False # Used to wait for data loading
         self.experimentQueue = [] # A queue for experiments
-        self.simExperimentConfig = None # Experiment configuration (disabled neurons etc.) for simulations
+        self.simExperimentConfig = {} # Experiment configuration (disabled neurons etc.) for simulations
         self.simExperimentRunners = {} # Experiment runners for simulations
         self.simData = {} # Locally loaded simulation data obtained from server
         self.clientData = [] # Servers list
@@ -1335,8 +1335,8 @@ class Client:
             dict: A result dict to use with the execute_lamina_retina function.
 
         # Example:
-            res = load_retina_lamina(nm[0])
-            execute_multilpu(nm[0], res)
+            res = nm[0].load_retina_lamina()
+            nm[0].execute_multilpu(res)
         """
         list_of_queries = [
         {"command":{"swap":{"states":[0,1]}},"format":"nx", "user": self.client._async_session._session_id, "server": self.naServerID},

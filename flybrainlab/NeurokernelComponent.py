@@ -286,7 +286,7 @@ class neurokernel_server(object):
             if 'inputProcessors' in task:
                 input_processors = loadExperimentSettings(task['inputProcessors'])
             output_processor = FileOutputProcessor(
-                                    [('spike_state', lpu['output_uid_list'])],
+                                    [('V', lpu['output_uid_list'])],
                                     lpu['output_file'], sample_interval=10)
 
 
@@ -356,8 +356,8 @@ class neurokernel_server(object):
 
         for k, lpu in lpus.items():
             with h5py.File(lpu['output_file']) as output_file:
-                uids = output_file['spike_state']['uids'][:]
-                output_array = output_file['spike_state']['data'][:]
+                uids = output_file['V']['uids'][:]
+                output_array = output_file['V']['data'][:]
                 for i, item in enumerate(uids):
                     output = output_array[int(ignored_steps/10):,i:i+1]
                     # tmp = output.max()-output.min()
@@ -510,7 +510,7 @@ def mainThreadExecute(Component, server):
                         pass
                 del res['data'][key]
         # print(res['data'].keys())
-        res =  six.u(res)
+        # res =  six.u(res)
         """
         res = {u'ydomain': 1,
                     u'xdomain': 1,
@@ -519,8 +519,16 @@ def mainThreadExecute(Component, server):
         """
         print('Printing task...')
         print(task)
-        r = json.dumps(res)
-        res_to_processor = Component.client.session.call(six.u(task['forward']), r)
+        res_keys = list(res['data'].keys())
+        batch_size = 32
+        for i in range(0,len(res_keys), batch_size):
+            res_tosend = res.copy()
+            res_tosend['data'] = {}
+            for j in range(i,min(len(res_keys),i+batch_size)):
+                res_tosend['data'][res_keys[j]] = res['data'][res_keys[j]]
+            res_tosend =  six.u(res_tosend)
+            r = json.dumps(res_tosend)
+            res_to_processor = Component.client.session.call(six.u(task['forward']), r)
         # except:
         #     print('There was an error...')
         Component.launch_queue.pop(0)
