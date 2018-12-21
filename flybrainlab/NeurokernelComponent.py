@@ -286,7 +286,7 @@ class neurokernel_server(object):
             if 'inputProcessors' in task:
                 input_processors = loadExperimentSettings(task['inputProcessors'])
             output_processor = FileOutputProcessor(
-                                    [('V', lpu['output_uid_list'])],
+                                    [('spike_state', lpu['output_uid_list'])],
                                     lpu['output_file'], sample_interval=10)
 
 
@@ -356,8 +356,8 @@ class neurokernel_server(object):
 
         for k, lpu in lpus.items():
             with h5py.File(lpu['output_file']) as output_file:
-                uids = output_file['V']['uids'][:]
-                output_array = output_file['V']['data'][:]
+                uids = output_file['spike_state']['uids'][:]
+                output_array = output_file['spike_state']['data'][:]
                 for i, item in enumerate(uids):
                     output = output_array[int(ignored_steps/10):,i:i+1]
                     # tmp = output.max()-output.min()
