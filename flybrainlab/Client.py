@@ -666,7 +666,7 @@ class Client:
         a['messageType'] = 'Data'
         a['widget'] = 'INFO'
         self.tryComms(a)
-        print(res)
+        # print(res)
 
         if self.compiled == True:
             a = {}
@@ -799,7 +799,10 @@ class Client:
                 if 'data' in data:
                     if 'data' in data['data']:
                         connectivity = data['data']['data']
+                        break
 
+        connectivity = res[-2]['data']['data']
+        print(connectivity)
         out_nodes, out_edges, out_edges_unique = self.processConnectivity(connectivity)
         self.out_nodes = out_nodes
         self.out_edges = out_edges
@@ -822,9 +825,10 @@ class Client:
                     if 'data' in data['data']:
                         keys = list(data['data']['data'].keys())
                         for key in keys:
-                            if 'uname' in data['data']['data'][key].keys():
-                                hashids.append(key)
-                                names.append(data['data']['data'][key]['uname'])
+                            if isinstance(data['data']['data'][key], dict):
+                                if 'uname' in data['data']['data'][key].keys():
+                                    hashids.append(key)
+                                    names.append(data['data']['data'][key]['uname'])
         
 
         for i in range(len(hashids)):
@@ -864,35 +868,37 @@ class Client:
         out_edges = []
         out_nodes = []
         for e_pre in edges:
-            if nodes[e_pre]['class'] == 'Neuron':
-                if 'uname' in nodes[e_pre].keys():
-                    pre = nodes[e_pre]['uname']
-                else:
-                    pre = nodes[e_pre]['name']
-            synapse_nodes = edges[e_pre]
-
-            for synapse in synapse_nodes:
-                if nodes[synapse]['class'] == 'Synapse':
-                    inferred=0
-                else:
-                    inferred=1
-                if 'N' in nodes[synapse].keys():
-                    N = nodes[synapse]['N']
-                else:
-                    N = 0
-                try:
-                    post_node = nodes[list(edges[synapse].keys())[0]]
-                    if 'uname' in post_node:
-                        post = post_node['uname']
+            if 'class' in e_pre:
+                if nodes[e_pre]['class'] == 'Neuron':
+                    if 'uname' in nodes[e_pre].keys():
+                        pre = nodes[e_pre]['uname']
                     else:
-                        post = post_node['name']
-                    csv = csv +  ('\n' + str(pre) + ',' + str(post) + ',' + str(N) + ',' + str(inferred))
-                    for i in range(N):
-                        out_edges.append((str(pre), str(post)))
-                        out_nodes.append(str(pre))
-                        out_nodes.append(str(post))
-                except:
-                    pass
+                        pre = nodes[e_pre]['name']
+                synapse_nodes = edges[e_pre]
+
+                for synapse in synapse_nodes:
+                    if 'class' in nodes[synapse]:
+                        if nodes[synapse]['class'] == 'Synapse':
+                            inferred=0
+                        else:
+                            inferred=1
+                        if 'N' in nodes[synapse].keys():
+                            N = nodes[synapse]['N']
+                        else:
+                            N = 0
+                        try:
+                            post_node = nodes[list(edges[synapse].keys())[0]]
+                            if 'uname' in post_node:
+                                post = post_node['uname']
+                            else:
+                                post = post_node['name']
+                            csv = csv +  ('\n' + str(pre) + ',' + str(post) + ',' + str(N) + ',' + str(inferred))
+                            for i in range(N):
+                                out_edges.append((str(pre), str(post)))
+                                out_nodes.append(str(pre))
+                                out_nodes.append(str(post))
+                        except:
+                            pass
         out_nodes = list(set(out_nodes))
         out_edges_unique = list(set(out_edges))
         return out_nodes, out_edges, out_edges_unique
