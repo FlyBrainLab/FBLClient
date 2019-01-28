@@ -789,7 +789,6 @@ class Client:
         return M
         
     def prepareCircuit(self, model = "auto"):
-
         """Prepares the current circuit for the Neuroballad format.
         """
         res = self.getConnectivity()
@@ -813,8 +812,11 @@ class Client:
         self.compiled = True
 
     def getSlowConnectivity(self):
-        
+        """Obtain the connectivity matrix of the current circuit in a custom dictionary format. Necessary for large circuits.
 
+        # Returns:
+            dict: The connectivity dictionary.
+        """
         hashids = []
         names = []
         synapses = []
@@ -839,7 +841,7 @@ class Client:
                 for syn in presyn:
                     synapses.append([syn['uname'], names[i], syn['number']])
 
-                postsyn = res['data']['data']['connectivity']['pre']['details']
+                postsyn = res['data']['data']['connectivity']['post']['details']
                 for syn in postsyn:
                     synapses.append([names[i], syn['uname'], syn['number']])
                 clear_output()
