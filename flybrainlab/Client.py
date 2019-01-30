@@ -590,6 +590,14 @@ class Client:
         })
         return True
 
+    def removeByUname(self, uname):
+        """Removes some neurons by the uname.
+
+        # Returns:
+            bool: True.
+        """
+        return self.addByUname(uname, verb="remove")
+
     def runLayouting(self, type="auto", model="auto"):
         """Sends a request for the running of the layouting algorithm.
 
@@ -801,12 +809,12 @@ class Client:
                         break
 
         connectivity = res[-2]['data']['data']
-        print(connectivity)
+        # print(connectivity)
         out_nodes, out_edges, out_edges_unique = self.processConnectivity(connectivity)
         self.out_nodes = out_nodes
         self.out_edges = out_edges
         self.out_edges_unique = out_edges_unique
-        C, node_keys = self.GenNB(self.out_nodes, self.out_edges, model=model)
+        C, node_keys = self.genNB(self.out_nodes, self.out_edges, model=model)
         self.C = C
         self.node_keys = node_keys
         self.compiled = True
@@ -866,18 +874,20 @@ class Client:
         edges = connectivity['edges']
         nodes = connectivity['nodes']
 
-        csv = ''
         out_edges = []
         out_nodes = []
-        for e_pre in edges:
-            if 'class' in e_pre:
+        csv = ''
+        for e_pre in nodes:
+            # e_pre = node
+            if 'class' in nodes[e_pre]:
                 if nodes[e_pre]['class'] == 'Neuron':
                     if 'uname' in nodes[e_pre].keys():
                         pre = nodes[e_pre]['uname']
                     else:
                         pre = nodes[e_pre]['name']
-                synapse_nodes = edges[e_pre]
-
+                # print(pre)
+                synapse_nodes = [i[1] for i in edges if nodes[i[0]]['name'] == pre and (nodes[i[1]]['class'] == 'Synapse' or nodes[i[1]]['class'] == 'InferredSynapse')]
+                # print(len(synapse_nodes))
                 for synapse in synapse_nodes:
                     if 'class' in nodes[synapse]:
                         if nodes[synapse]['class'] == 'Synapse':
@@ -888,8 +898,10 @@ class Client:
                             N = nodes[synapse]['N']
                         else:
                             N = 0
-                        try:
-                            post_node = nodes[list(edges[synapse].keys())[0]]
+                        # try:
+                        post_nodes = [i[1] for i in edges if i[0] == synapse and (nodes[i[1]]['class'] == 'Neuron')]
+                        for post_node in post_nodes:
+                            post_node = nodes[post_node]
                             if 'uname' in post_node:
                                 post = post_node['uname']
                             else:
@@ -899,8 +911,8 @@ class Client:
                                 out_edges.append((str(pre), str(post)))
                                 out_nodes.append(str(pre))
                                 out_nodes.append(str(post))
-                        except:
-                            pass
+                        # except:
+                        #     pass
         out_nodes = list(set(out_nodes))
         out_edges_unique = list(set(out_edges))
         return out_nodes, out_edges, out_edges_unique
@@ -970,7 +982,7 @@ class Client:
                 connDict[self.out_nodes[i]] = M[i,presynapticIndex]
         return connDict
 
-    def GenNB(self, nodes, edges, model = "auto", config = {}, default_neuron = nb.MorrisLecar(),  default_synapse = nb.AlphaSynapse()):
+    def genNB(self, nodes, edges, model = "auto", config = {}, default_neuron = nb.MorrisLecar(),  default_synapse = nb.AlphaSynapse()):
         """Processes the output of processConnectivity to generate a Neuroballad circuit.
 
         # Returns:
