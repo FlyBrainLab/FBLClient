@@ -18,6 +18,7 @@ from pathlib import Path
 from functools import partial
 from configparser import ConfigParser
 import numpy as np
+import matplotlib.pyplot as plt
 import os
 import json
 import binascii
@@ -153,8 +154,10 @@ class Client:
         self.simData = {} # Locally loaded simulation data obtained from server
         self.clientData = [] # Servers list
         self.data = [] # A buffer for data from backend; used in multiple functions so needed
+        self.uname_to_rid = {} # local map from unames to rid's
         self.legacy = legacy
         self.query_threshold = 20
+        self.naServerID = None
         if self.legacy:
             self.query_threshold = 2
         st_cert=open(ca_cert_file, 'rt').read()
@@ -328,6 +331,10 @@ class Client:
             a['messageType'] = 'Data'
             a['widget'] = 'NLP'
             self.data.append(a)
+            if 'data' in a['data']:
+                for i in a['data']['data'].keys():
+                    if 'name' in a['data']['data'][i]:
+                        self.uname_to_rid[a['data']['data'][i]['name']] = i
             print(printHeader('FFBOLab Client NLP') + "Received data.")
             self.tryComms(a)
             return True
@@ -409,9 +416,10 @@ class Client:
         res = self.client.session.call(u'ffbo.processor.server_information')
 
         for i in res['na']:
-            if 'na' in res['na'][i]['name']:
-                print(printHeader('FFBOLab Client') + 'Found working NA Server: ' + res['na'][i]['name'])
-                self.naServerID = i
+            if self.naServerID is None:
+                if 'na' in res['na'][i]['name']:
+                    print(printHeader('FFBOLab Client') + 'Found working NA Server: ' + res['na'][i]['name'])
+                    self.naServerID = i
         for i in res['nlp']:
             self.nlpServerID = i
 
@@ -431,6 +439,7 @@ class Client:
         if query is None:
             print(printHeader('FFBOLab Client') + 'No query specified. Executing test query "eb".')
             query = 'eb'
+        self.JSCall(messageType='GFXquery',data=query)
         if query.startswith("load "):
             self.sendSVG(query[5:])
         else:
@@ -554,12 +563,12 @@ class Client:
             bool: True.
         """
         metadata = {"color":{},"pinned":{},"visibility":{},"camera":{"position":{},'up':{}},'target':{}};
-        self.executeNAquery({
+        res = self.executeNAquery({
             "tag": tagName,
             "metadata": metadata,
             "uri": 'ffbo.na.create_tag'
         })
-        return True
+        return res
 
     def loadTag(self, tagName):
         """Loads a tag.
@@ -677,15 +686,18 @@ class Client:
         # print(res)
 
         if self.compiled == True:
-            a = {}
-            name = res['data']['data']['summary']['name']
-            if name in self.node_keys.keys():
-                data = self.C.G.node['uid' + str(self.node_keys[name])]
-                data['uid'] = str(self.node_keys[name])
-                a['data'] = data
-                a['messageType'] = 'Data'
-                a['widget'] = 'JSONEditor'
-                self.tryComms(a)
+            try:
+                a = {}
+                name = res['data']['data']['summary']['name']
+                if name in self.node_keys.keys():
+                    data = self.C.G.node['uid' + str(self.node_keys[name])]
+                    data['uid'] = str(self.node_keys[name])
+                    a['data'] = data
+                    a['messageType'] = 'Data'
+                    a['widget'] = 'JSONEditor'
+                    self.tryComms(a)
+            except:
+                pass
 
         return res
 
@@ -879,6 +891,7 @@ class Client:
         csv = ''
         for e_pre in nodes:
             # e_pre = node
+            pre = None
             if 'class' in nodes[e_pre]:
                 if nodes[e_pre]['class'] == 'Neuron':
                     if 'uname' in nodes[e_pre].keys():
@@ -886,33 +899,35 @@ class Client:
                     else:
                         pre = nodes[e_pre]['name']
                 # print(pre)
-                synapse_nodes = [i[1] for i in edges if nodes[i[0]]['name'] == pre and (nodes[i[1]]['class'] == 'Synapse' or nodes[i[1]]['class'] == 'InferredSynapse')]
-                # print(len(synapse_nodes))
-                for synapse in synapse_nodes:
-                    if 'class' in nodes[synapse]:
-                        if nodes[synapse]['class'] == 'Synapse':
-                            inferred=0
-                        else:
-                            inferred=1
-                        if 'N' in nodes[synapse].keys():
-                            N = nodes[synapse]['N']
-                        else:
-                            N = 0
-                        # try:
-                        post_nodes = [i[1] for i in edges if i[0] == synapse and (nodes[i[1]]['class'] == 'Neuron')]
-                        for post_node in post_nodes:
-                            post_node = nodes[post_node]
-                            if 'uname' in post_node:
-                                post = post_node['uname']
+                if pre is not None:
+                    synapse_nodes = [i[1] for i in edges if nodes[i[0]]['name'] == pre and (nodes[i[1]]['class'] == 'Synapse' or nodes[i[1]]['class'] == 'InferredSynapse')]
+                    # print(len(synapse_nodes))
+                    for synapse in synapse_nodes:
+                        if 'class' in nodes[synapse]:
+                            if nodes[synapse]['class'] == 'Synapse':
+                                inferred=0
                             else:
-                                post = post_node['name']
-                            csv = csv +  ('\n' + str(pre) + ',' + str(post) + ',' + str(N) + ',' + str(inferred))
-                            for i in range(N):
-                                out_edges.append((str(pre), str(post)))
-                                out_nodes.append(str(pre))
-                                out_nodes.append(str(post))
-                        # except:
-                        #     pass
+                                inferred=1
+                            if 'N' in nodes[synapse].keys():
+                                N = nodes[synapse]['N']
+                            else:
+                                N = 0
+                            # try:
+                            post_nodes = [i[1] for i in edges if i[0] == synapse and (nodes[i[1]]['class'] == 'Neuron')]
+                            for post_node in post_nodes:
+                                post_node = nodes[post_node]
+                                if 'uname' in post_node:
+                                    post = post_node['uname']
+                                else:
+                                    post = post_node['name']
+                                if post is not None:
+                                    csv = csv +  ('\n' + str(pre) + ',' + str(post) + ',' + str(N) + ',' + str(inferred))
+                                    for i in range(N):
+                                        out_edges.append((str(pre), str(post)))
+                                        out_nodes.append(str(pre))
+                                        out_nodes.append(str(post))
+                            # except:
+                            #     pass
         out_nodes = list(set(out_nodes))
         out_edges_unique = list(set(out_edges))
         return out_nodes, out_edges, out_edges_unique
@@ -1222,18 +1237,61 @@ class Client:
         return True
 
     def parseSimResults(self):
-        """Parses the simulation results.
+        """Parses the simulation results. Deprecated.
         """
         numpyData = {}
         for x in self.data:
-            if type(x['data']) is dict:
-                print(x['data'].keys())
-                for i in x['data'].keys():
-                    if i not in numpyData.keys():
-                        numpyData[i] = x['data'][i]
-                    else:
-                        numpyData[i] += x['data'][i]
+            if 'data' in x:
+                if type(x['data']) is dict:
+                    if 'data' in x['data']:
+                        if 'ydomain' in x['data']['data']:
+                            for i in x['data'].keys():
+                                if i not in numpyData.keys():
+                                    numpyData[i] = x['data'][i]
+                                else:
+                                    numpyData[i] += x['data'][i]
         self.simData = numpyData
+
+
+    def getSimResults(self):
+        """Computes the simulation results.
+
+        # Returns:
+            numpy array: A neurons-by-time array of results.
+            list: A list of neuron names, sorted according to the data.
+        """
+        i = -1
+        sim_output = json.loads(self.data[-1]['data']['data'])
+        sim_output_new = json.loads(self.data[i]['data']['data'])
+        while 'ydomain' in sim_output_new.keys():
+            sim_output['data'].update(sim_output_new['data'])
+            i = i - 1
+            try:
+                sim_output_new = json.loads(self.data[i]['data']['data'])
+            except:
+                break
+        bs = []
+        keys = []
+        for key in sim_output['data'].keys():
+            A = np.array(sim_output['data'][key])
+            b = A[:,1]
+            keys.append(key)
+            bs.append(b)
+            
+        B = np.array(bs)
+        print('Shape of Results:', B.shape)
+        return B, keys
+
+    def plotSimResults(self, B, keys):
+        """Plots the simulation results. A simple function to demonstrate result display.
+
+        # Arguments:
+            model (Neuroballad Model Object): The model object to test.
+        """
+        plt.figure(figsize=(22,10))
+        plt.title('Sim Results')
+        plt.plot(B.T)
+        plt.legend(keys)
 
     def FICurvePlotSimResults(self):
         """Plots some result curves for the FI curve generator example.
@@ -1536,7 +1594,7 @@ class Client:
     
 
     def export_diagram_config(self, res):
-        """Exports a diagram configuration from Neuroarch data.
+        """Exports a diagram configuration from Neuroarch data to GFX.
 
         # Arguments:
             res (dict): The result dictionary to use for export.
@@ -1562,6 +1620,8 @@ class Client:
                         if state in node_data:
                             new_node_data['states'][state_names_js[state_idx]] = node_data[state]
                     newConfig['cx'][res['data']['LPU'][lpu]['nodes'][node]['name']] = new_node_data
+        newConfig_tosend = json.dumps(newConfig)
+        self.JSCall(messageType='setExperimentConfig',data=newConfig_tosend)
         return newConfig
 
     def import_diagram_config(self, res, newConfig):
