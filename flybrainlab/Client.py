@@ -123,22 +123,57 @@ class Client:
         if os.path.exists(os.path.join(home, '.ffbolab', 'lib')):
             print(printHeader('FFBOLab Client') + "Downloading the latest certificates.")
             # CertificateDownloader = urllib.URLopener()
-            if not os.path.exists(os.path.join(home, '.ffbolab', 'config', 'FBLClient.ini')):  
-                urlRetriever("https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
-                                  os.path.join(home, '.ffbolab', 'config','FBLClient.ini'))
+            # if not os.path.exists(os.path.join(home, '.ffbolab', 'config', 'FBLClient.ini')):
+            #     urlRetriever("https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
+            #                       os.path.join(home, '.ffbolab', 'config','FBLClient.ini'))
             urlRetriever("https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
                               os.path.join(home, '.ffbolab', 'lib','caCertFile.pem'))
             urlRetriever("https://data.flybrainlab.fruitflybrain.org/lib/letsencryptauthorityx3.pem",
                               os.path.join(home, '.ffbolab', 'lib','intermediateCertFile.pem'))
-            config_file = os.path.join(home, '.ffbolab', 'config','FBLClient.ini')
+            # config_file = os.path.join(home, '.ffbolab', 'config','FBLClient.ini')
             ca_cert_file = os.path.join(home, '.ffbolab', 'lib','caCertFile.pem')
             intermediate_cert_file = os.path.join(home, '.ffbolab', 'lib','intermediateCertFile.pem')
+        # config = ConfigParser()
+        # print(config_file)
+        # config.read(config_file)
+
+        # This is a temporary fix. The configuration should be provided when instantiating a Client instance
+        root = os.path.expanduser("/")
+        home = os.path.expanduser("~")
+        filepath = os.path.dirname(os.path.abspath(__file__))
+        config_files = []
+        config_files.append(os.path.join(home, "config", "ffbo.FBLClient.ini"))
+        config_files.append(os.path.join(root, "config", "ffbo.FBLClient.ini"))
+        config_files.append(os.path.join(home, "config", "config.ini"))
+        config_files.append(os.path.join(root, "config", "config.ini"))
+        config_files.append(os.path.join(filepath, "..", "FBLClient.ini"))
         config = ConfigParser()
-        config.read(config_file)
-        user = config["ClientInfo"]["user"]
-        secret = config["ClientInfo"]["secret"]
-        if url is None:
-            url = config["ClientInfo"]["url"]
+        configured = False
+        file_type = 0
+        for config_file in config_files:
+            if os.path.exists(config_file):
+                config.read(config_file)
+                configured = True
+                break
+            file_type += 1
+        if not configured:
+            raise Exception("No config file exists for this component")
+
+        #user = config["USER"]["user"]
+        #secret = config["USER"]["secret"]
+        ssl = eval(config["AUTH"]["ssl"])
+        websockets = "wss" if ssl else "ws"
+        if "ip" in config["SERVER"]:
+            ip = config["SERVER"]["ip"]
+        else:
+            ip = "ffbo.processor"
+        port = "{}{}".format(2,config["UNI"]['digits'])
+        url =  "{}://{}:{}/ws".format(websockets, ip, port)
+        realm = config["SERVER"]["realm"]
+        authentication = eval(config["AUTH"]["authentication"])
+        debug = eval(config["DEBUG"]["debug"])
+        # end of temporary fix
+
         self.FFBOLabcomm = FFBOLabcomm # Current Communications Object
         self.C = nb.Circuit() # The Neuroballd Circuit object describing the loaded neural circuit
         self.dataPath = _FFBOLabDataPath
@@ -208,7 +243,10 @@ class Client:
             else:
                 raise Exception("Invalid authmethod {}".format(challenge.method))
 
-        FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid='guest', ssl=ssl_con) # Initialize the communication right now!
+        if ssl:
+            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user, ssl=ssl_con) # Initialize the communication right now!
+        else:
+            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user)
 
         @FFBOLABClient.subscribe('ffbo.server.update.' + str(FFBOLABClient._async_session._session_id))
         def updateServers(data):
@@ -801,13 +839,13 @@ class Client:
         else:
             res = self.client.session.call('ffbo.gfx.startExecution', {'name': circuitName, 'dt': dt, 'tmax': tmax})
         return True
-        
+
     def getConnectivityMatrix(self):
         M = np.zeros((len(self.out_nodes),len(self.out_nodes)))
         for i in self.out_edges:
             M[self.out_nodes.index(i[0]),self.out_nodes.index(i[1])] += 1
         return M
-        
+
     def prepareCircuit(self, model = "auto"):
         """Prepares the current circuit for the Neuroballad format.
         """
@@ -851,7 +889,7 @@ class Client:
                                 if 'uname' in data['data']['data'][key].keys():
                                     hashids.append(key)
                                     names.append(data['data']['data'][key]['uname'])
-        
+
 
         for i in range(len(hashids)):
             res = self.getInfo(hashids[i])
@@ -1277,7 +1315,7 @@ class Client:
             b = A[:,1]
             keys.append(key)
             bs.append(b)
-            
+
         B = np.array(bs)
         print('Shape of Results:', B.shape)
         return B, keys
@@ -1494,7 +1532,7 @@ class Client:
                     "server": self.naServerID}
 
         res = self.client.session.call('ffbo.processor.neuroarch_query', inp)
-        
+
 
         inp = {"query":[
                         {"action":{"method":{"has":{}}},"object":{"state":0}}
@@ -1503,7 +1541,7 @@ class Client:
                     "user": self.client._async_session._session_id,
                     "server": self.naServerID}
 
-        
+
 
         res = self.client.session.call('ffbo.processor.neuroarch_query', inp)
 
@@ -1574,7 +1612,7 @@ class Client:
         msg = {'neuron_list': labels,
                 "user": self.client._async_session._session_id,
                 "servers": {'na': self.naServerID, 'nk': list(res['nk'].keys())[0]}}
-            
+
         if len(inputProcessors)>0:
             msg['inputProcessors'] = inputProcessors
         if dt is not None:
@@ -1591,7 +1629,7 @@ class Client:
                             on_progress=partial(on_progress, res=res_list), timeout = 30000000000
                         ))
         print('Execution request sent. Please wait.')
-    
+
 
     def export_diagram_config(self, res):
         """Exports a diagram configuration from Neuroarch data to GFX.
@@ -1667,5 +1705,3 @@ for i in LPU_list:
 
 
 ffbolabClient = Client
-
-

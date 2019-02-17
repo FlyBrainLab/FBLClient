@@ -42,10 +42,10 @@ from neurokernel.LPU.OutputProcessors.FileOutputProcessor import FileOutputProce
 import neurokernel.LPU.utils.simpleio as si
 from neuroarch import nk
 
-from retina.configreader import ConfigReader
-from retina.NDComponents.MembraneModels.PhotoreceptorModel import PhotoreceptorModel
-from retina.NDComponents.MembraneModels.BufferPhoton import BufferPhoton
-from retina.NDComponents.MembraneModels.BufferVoltage import BufferVoltage
+#from retina.configreader import ConfigReader
+#from retina.NDComponents.MembraneModels.PhotoreceptorModel import PhotoreceptorModel
+#from retina.NDComponents.MembraneModels.BufferPhoton import BufferPhoton
+#from retina.NDComponents.MembraneModels.BufferVoltage import BufferVoltage
 from configparser import ConfigParser
 from neurokernel.LPU.InputProcessors.StepInputProcessor import StepInputProcessor
 
@@ -138,7 +138,7 @@ def create_graph_from_database_returned(x):
         g.add_edge(pre, v, **attrs)
     return g
 
-def get_config_obj(conf_name = 'configurations/retina.cfg', conf_specname = 'configurations/retina_template.cfg'):
+def get_config_obj(conf_name = 'configurations/default.cfg', conf_specname = 'configurations/default_template.cfg'):
     """Reads and returns a configuration reader object.
 
     # Arguments:
@@ -151,7 +151,7 @@ def get_config_obj(conf_name = 'configurations/retina.cfg', conf_specname = 'con
     # Append file extension if not exist
     conf_filename = conf_name if '.' in conf_name else ''.join(
         [conf_name, '.cfg'])
-    
+
 
     return ConfigReader(conf_filename, conf_specname)
 
@@ -167,14 +167,16 @@ class neurokernel_server(object):
     def launch(self, user_id, task):
         neuron_uid_list = [str(a) for a in task['neuron_list']]
 
-        conf_obj = get_config_obj()
-        config = conf_obj.conf
+        # conf_obj = get_config_obj()
+        # config = conf_obj.conf
+        config = ConfigParser()
+        config.read('configurations/default.ini')
 
-        if config['Retina']['intype'] == 'Natural':
-            coord_file = config['InputType']['Natural']['coord_file']
-            tmp = os.path.splitext(coord_file)
-            config['InputType']['Natural']['coord_file'] = '{}_{}{}'.format(
-                    tmp[0], user_id, tmp[1])
+        # if config['Retina']['intype'] == 'Natural':
+        #     coord_file = config['InputType']['Natural']['coord_file']
+        #     tmp = os.path.splitext(coord_file)
+        #     config['InputType']['Natural']['coord_file'] = '{}_{}{}'.format(
+        #             tmp[0], user_id, tmp[1])
 
         setup_logger(file_name = 'neurokernel_'+user_id+'.log', screen = True)
 
@@ -183,12 +185,12 @@ class neurokernel_server(object):
         lpus = {}
         patterns = {}
         G = task['data']
-        with open('G.pickle', 'wb') as f:
-            pickle.dump(G, f, protocol=pickle.HIGHEST_PROTOCOL)
-        print(G)
-        print(G.keys())
-        print(G['LPU'])
-        print(G['LPU'].keys())
+        # with open('G.pickle', 'wb') as f:
+        #     pickle.dump(G, f, protocol=pickle.HIGHEST_PROTOCOL)
+        # print(G)
+        # print(G.keys())
+        # print(G['LPU'])
+        # print(G['LPU'].keys())
 
         # get graph and output_uid_list for each LPU
         for k, lpu in G['LPU'].items():
@@ -235,7 +237,7 @@ class neurokernel_server(object):
                 patterns[k]['graph'] = pattern_nk.subgraph(
                     list(set(lpu_ports).intersection(set(pattern_ports))))
 
-        dt = config['General']['dt']
+        dt = float(config['General']['dt'])
         if 'dt' in task:
             dt = task['dt']
             print(dt)
@@ -256,9 +258,9 @@ class neurokernel_server(object):
                     for key in v['attr_dict']:
                         nx.set_edge_attributes(graph, {(i,j,ko): {key: v['attr_dict'][key]}})
                     graph.edges[(i,j,ko)].pop('attr_dict')
-            nx.write_gexf(graph,'name.gexf')
-            with open(lpu_name + '.pickle', 'wb') as f:
-                pickle.dump(graph, f, protocol=pickle.HIGHEST_PROTOCOL)
+            # nx.write_gexf(graph,'name.gexf')
+            # with open(lpu_name + '.pickle', 'wb') as f:
+            #     pickle.dump(graph, f, protocol=pickle.HIGHEST_PROTOCOL)
             comps =  graph.node.items()
 
             #for uid, comp in comps:
@@ -279,10 +281,10 @@ class neurokernel_server(object):
                 input_processor = StepInputProcessor('I', [node[0] for node in graph.nodes(data=True) \
                        if node[1]['class'] == 'LeakyIAF'], 40.0, 0.0, 1.0)
                 input_processors = [input_processor]
-                extra_comps = [BufferVoltage]
+                extra_comps = []#[BufferVoltage]
             else:
                 input_processors = []
-                extra_comps = [BufferVoltage]
+                extra_comps = []#[BufferVoltage]
             if 'inputProcessors' in task:
                 input_processors = loadExperimentSettings(task['inputProcessors'])
             output_processor = FileOutputProcessor(
@@ -313,12 +315,12 @@ class neurokernel_server(object):
                 print(key_order)
                 with Timer('update of connections in Manager'):
                     manager.connect(l1, l2, pat,
-                                    int_0 = key_order.index(l1),
-                                    int_1 = key_order.index(l2))
+                                    int_0 = key_order.index('{}/{}'.format(k,l1)),
+                                    int_1 = key_order.index('{}/{}'.format(k,l2)))
 
         # start simulation
-        steps = config['General']['steps']
-        ignored_steps = config['General']['ignored_steps']
+        steps = int(config['General']['steps'])
+        ignored_steps = int(config['General']['ignored_steps'])
         if 'steps' in task:
             steps = task['steps']
         if 'ignored_steps' in task:
@@ -330,7 +332,7 @@ class neurokernel_server(object):
         manager.wait()
 
         time.sleep(5)
-        print(task)
+        # print(task)
 
         # post-processing inputs (hard coded, can be better organized)
         inputs = {u'ydomain': 1.0,
@@ -393,7 +395,7 @@ class ffbolabComponent:
         if os.path.exists(os.path.join(home, '.ffbolab', 'lib')):
             print(printHeader('FFBOLab Client') + "Downloading the latest certificates.")
             # CertificateDownloader = urllib.URLopener()
-            if not os.path.exists(os.path.join(home, '.ffbolab', 'lib')):  
+            if not os.path.exists(os.path.join(home, '.ffbolab', 'lib')):
                 urlRetriever("https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
                                   os.path.join(home, '.ffbolab', 'config','FBLClient.ini'))
             urlRetriever("https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
@@ -449,7 +451,11 @@ class ffbolabComponent:
             else:
                 raise Exception("Invalid authmethod {}".format(challenge.method))
 
-        FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user, ssl=ssl_con)
+        if ssl:
+            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user, ssl=ssl_con)
+        else:
+            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user)
+
         self.client_data = []
         self.data = []
         self.launch_queue = []
@@ -481,7 +487,7 @@ class ffbolabComponent:
 
         res = FFBOLABClient.session.call(u'ffbo.server.register',FFBOLABClient._async_session._session_id,'nk','nk_server')
         print("Registered self...")
-        
+
 def mainThreadExecute(Component, server):
     #self.execution_settings = json.loads(settings)
     if len(Component.launch_queue)>0:
