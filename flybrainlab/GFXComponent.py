@@ -128,7 +128,7 @@ class ffbolabComponent:
         intermediate_cert=c.load_certificate(c.FILETYPE_PEM, st_cert)
         certs = OpenSSLCertificateAuthorities([ca_cert, intermediate_cert])
         ssl_con = CertificateOptions(trustRoot=certs)
-
+        self.log = Logger()
         FFBOLABClient = AutobahnSync()
         self.client = FFBOLABClient
 
