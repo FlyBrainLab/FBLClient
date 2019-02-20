@@ -225,7 +225,7 @@ class neurokernel_server(object):
             if l1 in lpus and l2 in lpus:
                 g_pattern_na = create_graph_from_database_returned(pat)
                 pattern_nk = nk.na_pat_to_nk(g_pattern_na)
-                print(lpus[l1]['graph'].nodes(data=True))
+                #print(lpus[l1]['graph'].nodes(data=True))
                 lpu_ports = [node[1]['selector'] \
                              for node in lpus[l1]['graph'].nodes(data=True) \
                              if node[1]['class']=='Port'] + \
@@ -298,7 +298,7 @@ class neurokernel_server(object):
 
             # print(comp_dict)
             # print(conns)
-            print(k)
+            # print(k)
             manager.add(LPU, k, dt, comp_dict, conns,
                         device = 0, input_processors = input_processors,
                         output_processors = [output_processor],
@@ -524,7 +524,7 @@ def mainThreadExecute(Component, server):
                     u'data': {}}
         """
         print('Printing task...')
-        print(task)
+        # print(task)
         res_keys = list(res['data'].keys())
         batch_size = 32
         for i in range(0,len(res_keys), batch_size):
