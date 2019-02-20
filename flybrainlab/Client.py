@@ -139,12 +139,12 @@ class Client:
 
         # This is a temporary fix. The configuration should be provided when instantiating a Client instance
         root = os.path.expanduser("/")
-        home = os.path.expanduser("~")
+        homedir = os.path.expanduser("~")
         filepath = os.path.dirname(os.path.abspath(__file__))
         config_files = []
-        config_files.append(os.path.join(home, "config", "ffbo.FBLClient.ini"))
+        config_files.append(os.path.join(homedir, "config", "ffbo.FBLClient.ini"))
         config_files.append(os.path.join(root, "config", "ffbo.FBLClient.ini"))
-        config_files.append(os.path.join(home, "config", "config.ini"))
+        config_files.append(os.path.join(homedir, "config", "config.ini"))
         config_files.append(os.path.join(root, "config", "config.ini"))
         config_files.append(os.path.join(filepath, "..", "FBLClient.ini"))
         config = ConfigParser()
@@ -229,10 +229,6 @@ class Client:
                                           challenge.extra['iterations'],
                                           challenge.extra['keylen'])
                     print(salted_key.decode('utf-8'))
-
-                if user=='guest':
-                    # A plain, unsalted secret for the guest account
-                    salted_key = u"C5/c598Gme4oALjmdhVC2H25OQPK0M2/tu8yrHpyghA="
 
                 # compute signature for challenge, using the key
                 signature = auth.compute_wcs(salted_key, challenge.extra['challenge'])
