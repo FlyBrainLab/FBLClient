@@ -210,9 +210,9 @@ class Client:
             else:
                 raise Exception("Invalid authmethod {}".format(challenge.method))
         if ssl:
-            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid='guest', ssl=ssl_con) # Initialize the communication right now!
+            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user, ssl=ssl_con) # Initialize the communication right now!
         else:
-            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid='guest', ssl=False)
+            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user, ssl=False)
 
         @FFBOLABClient.subscribe('ffbo.server.update.' + str(FFBOLABClient._async_session._session_id))
         def updateServers(data):
