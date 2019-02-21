@@ -207,8 +207,10 @@ class Client:
 
             else:
                 raise Exception("Invalid authmethod {}".format(challenge.method))
-
-        FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid='guest', ssl=ssl_con) # Initialize the communication right now!
+        if ssl:
+            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid='guest', ssl=ssl_con) # Initialize the communication right now!
+        else:
+            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid='guest')
 
         @FFBOLABClient.subscribe('ffbo.server.update.' + str(FFBOLABClient._async_session._session_id))
         def updateServers(data):
@@ -1506,21 +1508,24 @@ class Client:
         
 
         res = self.client.session.call('ffbo.processor.neuroarch_query', inp)
-
+        print(res)
+        '''
         res_info = self.client.session.call(u'ffbo.processor.server_information')
         msg = {"user": self.client._async_session._session_id,
             "servers": {'na': self.naServerID, 'nk': list(res_info['nk'].keys())[0]}}
         res = self.client.session.call(u'ffbo.na.query.' + msg['servers']['na'], {'user': msg['user'],
-                                'command': {"retrieve":{"state":0}},
-                                'format': "nk"})
+                                        'command': {"retrieve":{"state":0}},
+                                        'format': "nk"}, options=CallOptions(
+                                        timeout = 30000000000
+                                        ))
+        '''
 
-
-        neurons = self.get_current_neurons(res)
+        neurons = self.get_current_neurons(res['success']['result'])
         if 'cartridge_' + str(cartridgeIndex) in self.simExperimentConfig:
             if 'disabled' in self.simExperimentConfig['cartridge_' + str(cartridgeIndex)]:
                 removed_neurons = removed_neurons + self.simExperimentConfig['cartridge_' + str(cartridgeIndex)]['disabled']
                 print('Updated Disabled Neuron List: ', removed_neurons)
-        removed_neurons = self.ablate_by_match(res, removed_neurons)
+        removed_neurons = self.ablate_by_match(res['success']['result'], removed_neurons)
 
         res = self.prune_retina_lamina(removed_neurons = removed_neurons, removed_labels = removed_labels, retrieval_format=retrieval_format)
         """
@@ -1537,12 +1542,11 @@ class Client:
 
     def get_current_neurons(self, res):
         labels = []
-        for i in res['data']['LPU']:
-            for j in res['data']['LPU'][i]['nodes']:
-                if 'label' in res['data']['LPU'][i]['nodes'][j]:
-                    label = res['data']['LPU'][i]['nodes'][j]['label']
-                    if 'port' not in label and 'synapse' not in label:
-                        labels.append(label)
+        for j in res['data']['nodes']:
+            if 'label' in res['data']['nodes'][j]:
+                label = res['data']['nodes'][j]['label']
+                if 'port' not in label and 'synapse' not in label:
+                    labels.append(label)
         return labels
 
     def ablate_by_match(self, res, neuron_list):
