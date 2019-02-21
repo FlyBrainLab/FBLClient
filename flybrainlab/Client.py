@@ -105,7 +105,7 @@ class Client:
         except:
             pass
 
-    def __init__(self, ssl = True, debug = True, authentication = True, user = 'guest', secret = 'guestpass', url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None, legacy = False):
+    def __init__(self, ssl = True, debug = True, authentication = True, user = 'guest', secret = 'guestpass', custom_salt=None, url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None, legacy = False):
         """Initialization function for the ffbolabClient class.
 
         # Arguments:
@@ -186,18 +186,20 @@ class Client:
             if challenge.method == u"wampcra":
                 print(printHeader('FFBOLab Client') + "WAMP-CRA challenge received: {}".format(challenge))
                 print(challenge.extra['salt'])
-                if u'salt' in challenge.extra:
-                    # Salted secret
-                    print(printHeader('FFBOLab Client') + 'Deriving key...')
-                    salted_key = auth.derive_key(secret,
-                                          challenge.extra['salt'],
-                                          challenge.extra['iterations'],
-                                          challenge.extra['keylen'])
-                    print(salted_key.decode('utf-8'))
-
-                if user=='guest':
-                    # A plain, unsalted secret for the guest account
-                    salted_key = u"C5/c598Gme4oALjmdhVC2H25OQPK0M2/tu8yrHpyghA="
+                if custom_salt is not None:
+                    salted_key = custom_salt
+                else:
+                    if u'salt' in challenge.extra:
+                        # Salted secret
+                        print(printHeader('FFBOLab Client') + 'Deriving key...')
+                        salted_key = auth.derive_key(secret,
+                                            challenge.extra['salt'],
+                                            challenge.extra['iterations'],
+                                            challenge.extra['keylen'])
+                        print(salted_key.decode('utf-8'))
+                    if user=='guest':
+                        # A plain, unsalted secret for the guest account
+                        salted_key = u"C5/c598Gme4oALjmdhVC2H25OQPK0M2/tu8yrHpyghA="
 
                 # compute signature for challenge, using the key
                 signature = auth.compute_wcs(salted_key, challenge.extra['challenge'])
