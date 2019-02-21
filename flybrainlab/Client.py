@@ -212,7 +212,7 @@ class Client:
         if ssl:
             FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid='guest', ssl=ssl_con) # Initialize the communication right now!
         else:
-            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid='guest')
+            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid='guest', ssl=False)
 
         @FFBOLABClient.subscribe('ffbo.server.update.' + str(FFBOLABClient._async_session._session_id))
         def updateServers(data):
