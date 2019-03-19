@@ -39,7 +39,7 @@ if __name__ == '__main__':
     if "ip" in config["SERVER"]:
         ip = config["SERVER"]["ip"]
     else:
-        ip = "ffbo.processor"
+        ip = "localhost"
     port = "{}{}".format(1, int(config["ID"]['digits'])*10)
     url =  "{}://{}:{}/ws".format(websockets, ip, port)
     realm = config["SERVER"]["realm"]
