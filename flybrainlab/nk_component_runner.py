@@ -40,7 +40,7 @@ if __name__ == '__main__':
         ip = config["SERVER"]["ip"]
     else:
         ip = "localhost"
-    port = "{}{}".format(1, int(config["ID"]['digits'])*10)
+    port = int(config["ID"]['digits'])*10 + 10000
     url =  "{}://{}:{}/ws".format(websockets, ip, port)
     realm = config["SERVER"]["realm"]
     authentication = eval(config["AUTH"]["authentication"])
