@@ -40,7 +40,7 @@ if __name__ == '__main__':
         ip = config["SERVER"]["ip"]
     else:
         ip = "ffbo.processor"
-    port = "{}{}".format(2,config["UNI"]['digits'])
+    port = "{}{}".format(1, int(config["ID"]['digits'])*10)
     url =  "{}://{}:{}/ws".format(websockets, ip, port)
     realm = config["SERVER"]["realm"]
     authentication = eval(config["AUTH"]["authentication"])
