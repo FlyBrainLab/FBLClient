@@ -42,10 +42,10 @@ from neurokernel.LPU.OutputProcessors.FileOutputProcessor import FileOutputProce
 import neurokernel.LPU.utils.simpleio as si
 from neuroarch import nk
 
-#from retina.configreader import ConfigReader
-#from retina.NDComponents.MembraneModels.PhotoreceptorModel import PhotoreceptorModel
-#from retina.NDComponents.MembraneModels.BufferPhoton import BufferPhoton
-#from retina.NDComponents.MembraneModels.BufferVoltage import BufferVoltage
+from retina.configreader import ConfigReader
+from retina.NDComponents.MembraneModels.PhotoreceptorModel import PhotoreceptorModel
+from retina.NDComponents.MembraneModels.BufferPhoton import BufferPhoton
+from retina.NDComponents.MembraneModels.BufferVoltage import BufferVoltage
 from configparser import ConfigParser
 from neurokernel.LPU.InputProcessors.StepInputProcessor import StepInputProcessor
 
@@ -167,10 +167,10 @@ class neurokernel_server(object):
     def launch(self, user_id, task):
         neuron_uid_list = [str(a) for a in task['neuron_list']]
 
-        # conf_obj = get_config_obj()
-        # config = conf_obj.conf
-        config = ConfigParser()
-        config.read('configurations/default.ini')
+        conf_obj = get_config_obj()
+        config = conf_obj.conf
+        # config = ConfigParser()
+        # config.read('configurations/default.ini')
 
         # if config['Retina']['intype'] == 'Natural':
         #     coord_file = config['InputType']['Natural']['coord_file']
@@ -237,7 +237,7 @@ class neurokernel_server(object):
                 patterns[k]['graph'] = pattern_nk.subgraph(
                     list(set(lpu_ports).intersection(set(pattern_ports))))
 
-        dt = float(config['General']['dt'])
+        dt = config['General']['dt']
         if 'dt' in task:
             dt = task['dt']
             print(dt)
@@ -270,6 +270,11 @@ class neurokernel_server(object):
             #    if 'class' in comp:
 
             if k == 'retina':
+                if config['Retina']['intype'] == 'Natural':
+                    coord_file = config['InputType']['Natural']['coord_file']
+                    tmp = os.path.splitext(coord_file)
+                    config['InputType']['Natural']['coord_file'] = '{}_{}{}'.format(
+                            tmp[0], user_id, tmp[1])
                 prs = [node for node in graph.nodes(data=True) \
                        if node[1]['class'] == 'PhotoreceptorModel']
                 for pr in prs:
@@ -284,7 +289,7 @@ class neurokernel_server(object):
                 extra_comps = []#[BufferVoltage]
             else:
                 input_processors = []
-                extra_comps = []#[BufferVoltage]
+                extra_comps = [BufferVoltage]
             if 'inputProcessors' in task:
                 input_processors = loadExperimentSettings(task['inputProcessors'])
             output_processor = FileOutputProcessor(
@@ -314,13 +319,18 @@ class neurokernel_server(object):
                 print(l1,l2)
                 print(key_order)
                 with Timer('update of connections in Manager'):
-                    manager.connect(l1, l2, pat,
-                                    int_0 = key_order.index('{}/{}'.format(k,l1)),
-                                    int_1 = key_order.index('{}/{}'.format(k,l2)))
+                    try:
+                        manager.connect(l1, l2, pat,
+                                        int_0 = key_order.index('{}/{}'.format(k,l1)),
+                                        int_1 = key_order.index('{}/{}'.format(k,l2)))
+                    except ValueError:
+                        manager.connect(l1, l2, pat,
+                                        int_0 = key_order.index(l1),
+                                        int_1 = key_order.index(l2))
 
         # start simulation
-        steps = int(config['General']['steps'])
-        ignored_steps = int(config['General']['ignored_steps'])
+        steps = config['General']['steps']
+        ignored_steps = config['General']['ignored_steps']
         if 'steps' in task:
             steps = task['steps']
         if 'ignored_steps' in task:
