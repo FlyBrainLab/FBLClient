@@ -1436,7 +1436,9 @@ class Client:
         res = self.client.session.call('ffbo.processor.neuroarch_query', list_of_queries[0])
         print('Pruning ', removed_neurons)
         print('Pruning ', removed_labels)
-        res = self.client.session.call('ffbo.processor.neuroarch_query', list_of_queries[1])
+        res = self.client.session.call('ffbo.processor.neuroarch_query', list_of_queries[1], options=CallOptions(
+                                        timeout = 30000000000
+                                        ))
         return res
 
 
