@@ -158,6 +158,7 @@ class Client:
         self.legacy = legacy
         self.query_threshold = 20
         self.naServerID = None
+        self.experimentWatcher = None
         if self.legacy:
             self.query_threshold = 2
         st_cert=open(ca_cert_file, 'rt').read()
@@ -1386,6 +1387,8 @@ class Client:
         """
         print('Obtained Experiment Configuration: ', x)
         self.simExperimentConfig = json.loads(x)
+        if self.experimentWatcher is not None:
+            self.experimentWatcher.loadExperimentConfig(self.simExperimentConfig)
         return True
 
     def initiateExperiments(self):
