@@ -194,6 +194,7 @@ class Client:
         self.legacy = legacy
         self.query_threshold = 20
         self.naServerID = None
+        self.experimentWatcher = None
         if self.legacy:
             self.query_threshold = 2
         st_cert=open(ca_cert_file, 'rt').read()
@@ -1416,6 +1417,8 @@ class Client:
         """
         print('Obtained Experiment Configuration: ', x)
         self.simExperimentConfig = json.loads(x)
+        if self.experimentWatcher is not None:
+            self.experimentWatcher.loadExperimentConfig(self.simExperimentConfig)
         return True
 
     def initiateExperiments(self):
@@ -1466,7 +1469,9 @@ class Client:
         res = self.client.session.call('ffbo.processor.neuroarch_query', list_of_queries[0])
         print('Pruning ', removed_neurons)
         print('Pruning ', removed_labels)
-        res = self.client.session.call('ffbo.processor.neuroarch_query', list_of_queries[1])
+        res = self.client.session.call('ffbo.processor.neuroarch_query', list_of_queries[1], options=CallOptions(
+                                        timeout = 30000000000
+                                        ))
         return res
 
 
