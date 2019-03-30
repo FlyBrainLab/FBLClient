@@ -185,6 +185,17 @@ class neurokernel_server(object):
         lpus = {}
         patterns = {}
         G = task['data']
+
+        for i in list(G['Pattern'].keys()):
+            a = G['Pattern'][i]['nodes']
+            if len([k for k,v in a.items() if v['class'] == 'Port']) == 0:
+                del G['Pattern'][i]
+
+        for i in list(G['LPU'].keys()):
+            a = G['LPU'][i]['nodes']
+            if len(a) < 3:
+                del G['LPU'][i]
+
         # with open('G.pickle', 'wb') as f:
         #     pickle.dump(G, f, protocol=pickle.HIGHEST_PROTOCOL)
         # print(G)
