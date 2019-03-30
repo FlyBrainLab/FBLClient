@@ -288,16 +288,17 @@ class neurokernel_server(object):
                 input_processors = [RetinaInputIndividual(config, prs, user_id)]
                 extra_comps = [PhotoreceptorModel]
                 retina_input_uids = [a[0] for a in prs]
-            elif k == 'EB':
-                input_processor = StepInputProcessor('I', [node[0] for node in graph.nodes(data=True) \
-                       if node[1]['class'] == 'LeakyIAF'], 40.0, 0.0, 1.0)
-                input_processors = [input_processor]
-                extra_comps = []#[BufferVoltage]
+            # elif k == 'EB':
+            #     input_processor = StepInputProcessor('I', [node[0] for node in graph.nodes(data=True) \
+            #            if node[1]['class'] == 'LeakyIAF'], 40.0, 0.0, 1.0)
+            #     input_processors = [input_processor]
+            #     extra_comps = []#[BufferVoltage]
             else:
                 input_processors = []
                 extra_comps = []#[BufferVoltage]
             if 'inputProcessors' in task:
-                input_processors = loadExperimentSettings(task['inputProcessors'])
+                if lpu_name in task['inputProcessors']:
+                    input_processors = loadExperimentSettings(task['inputProcessors'][lpu_name])
             output_processor = FileOutputProcessor(
                                     [('V', lpu['output_uid_list'])],
                                     lpu['output_file'], sample_interval=10)
@@ -397,8 +398,8 @@ def loadExperimentSettings(X):
             inList.append(InISinusoidal(a['node_id'], a['amplitude'], a['frequency'], a['t_start'], a['t_end'], a['mean'], a['shift'], a['frequency_sweep'], a['frequency_sweep_frequency'], a['threshold_active'], a['threshold_value']))
         elif a['name'] == 'InIBoxcar':
             inList.append(InIBoxcar(a['node_id'], a['I_val'], a['t_start'], a['t_end']))
-        else:
-            inList.append(StepInputProcessor(*a['args'], **a['kwargs']))
+        elif a['name'] == 'StepInputProcessor':
+            inList.append(StepInputProcessor(a['variable'], a['uids'], a['val'], a['start'], a['stop']))
     return inList
 
 class ffbolabComponent:
