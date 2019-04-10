@@ -37,6 +37,10 @@ import neurokernel.core_gpu as core
 from neurokernel.pattern import Pattern
 from neurokernel.tools.timing import Timer
 from neurokernel.LPU.LPU import LPU
+
+import importlib
+import inspect
+
 from retina.InputProcessors.RetinaInputIndividual import RetinaInputIndividual
 from neurokernel.LPU.OutputProcessors.FileOutputProcessor import FileOutputProcessor
 import neurokernel.LPU.utils.simpleio as si
@@ -47,7 +51,8 @@ from neuroarch import nk
 #from retina.NDComponents.MembraneModels.BufferPhoton import BufferPhoton
 #from retina.NDComponents.MembraneModels.BufferVoltage import BufferVoltage
 from configparser import ConfigParser
-from neurokernel.LPU.InputProcessors.StepInputProcessor import StepInputProcessor
+# from neurokernel.LPU.InputProcessors.StepInputProcessor import StepInputProcessor
+# from cx_fbl.cx_input import BU_InputProcessor, PB_InputProcessor
 
 import urllib
 import requests
@@ -165,7 +170,7 @@ class neurokernel_server(object):
             raise ValueError("No GPU found on this device")
 
     def launch(self, user_id, task):
-        neuron_uid_list = [str(a) for a in task['neuron_list']]
+        # neuron_uid_list = [str(a) for a in task['neuron_list']]
 
         # conf_obj = get_config_obj()
         # config = conf_obj.conf
@@ -209,10 +214,10 @@ class neurokernel_server(object):
             g_lpu_na = create_graph_from_database_returned(lpu)
             lpu_nk_graph = nk.na_lpu_to_nk_new(g_lpu_na)
             lpus[k]['graph'] = lpu_nk_graph
-            lpus[k]['output_uid_list'] = list(
-                        set(lpu_nk_graph.nodes()).intersection(
-                            set(neuron_uid_list)))
-            lpus[k]['output_file'] = '{}_output_{}.h5'.format(k, user_id)
+            # lpus[k]['output_uid_list'] = list(
+            #             set(lpu_nk_graph.nodes()).intersection(
+            #                 set(neuron_uid_list)))
+            # lpus[k]['output_file'] = '{}_output_{}.h5'.format(k, user_id)
 
         for kkey, lpu in lpus.items():
             graph = lpu['graph']
@@ -298,22 +303,26 @@ class neurokernel_server(object):
                 extra_comps = []#[BufferVoltage]
             if 'inputProcessors' in task:
                 if lpu_name in task['inputProcessors']:
-                    input_processors = loadExperimentSettings(task['inputProcessors'][lpu_name])
-            output_processor = FileOutputProcessor(
-                                    [('V', lpu['output_uid_list'])],
-                                    lpu['output_file'], sample_interval=10)
+                    input_processors = loadInputProcessors(task['inputProcessors'][lpu_name])
+            lpus[k]['output_file'] = '{}_output_{}.h5'.format(k, user_id)
+            output_processors = []
+            if 'outputProcessors' in task:
+                if lpu_name in task['outputProcessors']:
+                    output_processors, record = loadOutputProcessors(
+                                            lpus[k]['output_file'],
+                                            task['outputProcessors'][lpu_name])
+                    if len(record):
+                        lpus[k]['output_uid_dict'] = record
+            # output_processor = FileOutputProcessor(
+            #                         [('V', lpu['output_uid_list'])],
+            #                         lpu['output_file'], sample_interval=10)
 
 
             (comp_dict, conns) = LPU.graph_to_dicts(graph)
-
-
-
-            # print(comp_dict)
-            # print(conns)
-            # print(k)
+            print(k)
             manager.add(LPU, k, dt, comp_dict, conns,
                         device = 0, input_processors = input_processors,
-                        output_processors = [output_processor],
+                        output_processors = output_processors,
                         extra_comps = extra_comps, debug=True)
 
         # connect LPUs by Patterns
@@ -365,23 +374,39 @@ class neurokernel_server(object):
         # post-processing outputs from all LPUs and combine them into one dictionary
         result = {u'ydomain': 1,
                   u'xdomain': dt*(steps-ignored_steps),
-                  u'dt': dt*10,
+                  u'dt': dt,
                   u'data': {}}
 
         for k, lpu in lpus.items():
-            with h5py.File(lpu['output_file']) as output_file:
-                uids = output_file['V']['uids'][:]
-                output_array = output_file['V']['data'][:]
-                for i, item in enumerate(uids):
-                    output = output_array[int(ignored_steps/10):,i:i+1]
-                    # tmp = output.max()-output.min()
-                    # if tmp <= 0.01: #mV
-                    #     output = (output - output.min()) + 0.5
-                    # else:
-                    #     output = (output - output.min())/tmp*0.9+0.1
-                    result['data'][item] = np.hstack(
-                        (np.arange(int((steps-ignored_steps)/10)).reshape((-1,1))*dt*10, output)).tolist()
-
+            uid_dict = lpu.get('output_uid_dict', None)
+            if uid_dict is not None:
+                with h5py.File(lpu['output_file']) as output_file:
+                    for var in uid_dict:
+                        uids = output_file[var]['uids'][:]
+                        output_array = output_file[var]['data'][:]
+                        for i, item in enumerate(uids):
+                            if var == 'spike_state':
+                                output = np.nonzero(output_array[ignored_steps:, i:i+1].reshape(-1))[0]*dt
+                                if item in result['data']:
+                                    result['data'][item]['spike_time'] = {
+                                        'data': output.tolist(),
+                                        'dt': dt}
+                                else:
+                                    result['data'][item] = {'spike_time': {
+                                        'data': output.tolist(),
+                                        'dt': dt}}
+                            else:
+                                sample_interval = uid_dict[var].get(
+                                                        'sample_interval', 1)
+                                output = output_array[ignored_steps//sample_interval::sample_interval, i:i+1]
+                                if item in result['data']:
+                                    result['data'][item][var] = {
+                                        'data': output.tolist(),
+                                        'dt': dt*sample_interval}
+                                else:
+                                    result['data'][item] = {var: {
+                                        'data': output.tolist(),
+                                        'dt': dt*sample_interval}}
         return inputs, result
 
 def printHeader(name):
@@ -389,18 +414,70 @@ def printHeader(name):
 
 
 
-def loadExperimentSettings(X):
+def loadInputProcessors(X):
+    """
+    Load Input Processors for 1 LPU.
+
+    Parameters
+    ----------
+    X: List of dictionaries
+       Each dictionary contains the following key/value pairs:
+       'module': str,
+                 specifying the module that the InputProcessor class
+                 can be imported
+       'class': str,
+                name of the InputProcessor class.
+       and other keys should correspond to the arguments of the InputProcessor
+    """
     inList = []
     for a in X:
-        if a['name'] == 'InIGaussianNoise':
-            inList.append(InIGaussianNoise(a['node_id'], a['mean'], a['std'], a['t_start'], a['t_end']))
-        elif a['name'] == 'InISinusoidal':
-            inList.append(InISinusoidal(a['node_id'], a['amplitude'], a['frequency'], a['t_start'], a['t_end'], a['mean'], a['shift'], a['frequency_sweep'], a['frequency_sweep_frequency'], a['threshold_active'], a['threshold_value']))
-        elif a['name'] == 'InIBoxcar':
-            inList.append(InIBoxcar(a['node_id'], a['I_val'], a['t_start'], a['t_end']))
-        elif a['name'] == 'StepInputProcessor':
-            inList.append(StepInputProcessor(a['variable'], a['uids'], a['val'], a['start'], a['stop']))
+        d = importlib.import_module(a.pop('module'))
+        processor = getattr(d, a.pop('class'))
+        sig = inspect.signature(processor)
+        arg_dict = {param_name: a.pop(param_name) if param.default is param.empty\
+                    else a.pop(param_name, param.default) \
+                    for param_name, param in sig.parameters.items()}
+        inList.append(processor(**arg_dict))
+    # for a in X:
+    #     if a['name'] == 'InIGaussianNoise':
+    #         inList.append(InIGaussianNoise(a['node_id'], a['mean'], a['std'], a['t_start'], a['t_end']))
+    #     elif a['name'] == 'InISinusoidal':
+    #         inList.append(InISinusoidal(a['node_id'], a['amplitude'], a['frequency'], a['t_start'], a['t_end'], a['mean'], a['shift'], a['frequency_sweep'], a['frequency_sweep_frequency'], a['threshold_active'], a['threshold_value']))
+    #     elif a['name'] == 'InIBoxcar':
+    #         inList.append(InIBoxcar(a['node_id'], a['I_val'], a['t_start'], a['t_end']))
+    #     elif a['name'] == 'StepInputProcessor':
+    #         inList.append(StepInputProcessor(a['variable'], a['uids'], a['val'], a['start'], a['stop']))
+    #     elif a['name'] == 'BU_InputProcessor':
+    #         inList.append(BU_InputProcessor(a['shape'], a['dt'], a['dur'], a['id'], a['video_config'],
+    #                                         a['rf_config'], a['neurons']))
+    #     elif a['name'] == 'PB_InputProcessor':
+    #         inList.append(PB_InputProcessor(a['shape'], a['dt'], a['dur'], a['id'], a['video_config'],
+    #                                         a['rf_config'], a['neurons']))
     return inList
+
+
+def loadOutputProcessors(filename, outputProcessor_dicts):
+    outList = []
+    record = {}
+    for a in outputProcessor_dicts:
+        outprocessor_class = a.pop('class')
+        if outprocessor_class == 'Record':
+            to_record = [(k, v['uids']) for k, v in a['uid_dict'].items()]
+            processor = FileOutputProcessor(to_record,
+                                            filename,
+                                            sample_interval=1)
+            outList.append(processor)
+            record = a['uid_dict']
+        else:
+            d = importlib.import_module(a.pop('module'))
+            processor = getattr(d, outprocessor_class)
+            sig = inspect.signature(processor)
+            arg_dict = {param_name: a.pop(param_name) if param.default is param.empty\
+                        else a.pop(param_name, param.default) \
+                        for param_name, param in sig.parameters.items()}
+            outList.append(processor(**arg_dict))
+    return outList, record
+
 
 class ffbolabComponent:
     def __init__(self, ssl = True, debug = True, authentication = True, user = u"ffbo", secret = u"", url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None):
@@ -449,7 +526,6 @@ class ffbolabComponent:
                                           challenge.extra['iterations'],
                                           challenge.extra['keylen'])
                     salted_key = (salted_key).decode('utf-8')
-                    print(salted_key)
                 #if user==u'ffbo':
                     # plain, unsalted secret
                 #    salted_key = u"kMU73GH4GS1WGUpEaSdDYwN57bdLdB58PK1Brb25UCE="
