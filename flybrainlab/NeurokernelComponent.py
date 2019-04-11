@@ -303,7 +303,11 @@ class neurokernel_server(object):
                 extra_comps = []#[BufferVoltage]
             if 'inputProcessors' in task:
                 if lpu_name in task['inputProcessors']:
-                    input_processors = loadInputProcessors(task['inputProcessors'][lpu_name])
+                    input_processors, record = \
+                        loadInputProcessors(task['inputProcessors'][lpu_name])
+                    lpus[k]['input_record'] = record
+
+            # configure output processors
             lpus[k]['output_file'] = '{}_output_{}.h5'.format(k, user_id)
             output_processors = []
             if 'outputProcessors' in task:
@@ -313,10 +317,6 @@ class neurokernel_server(object):
                                             task['outputProcessors'][lpu_name])
                     if len(record):
                         lpus[k]['output_uid_dict'] = record
-            # output_processor = FileOutputProcessor(
-            #                         [('V', lpu['output_uid_list'])],
-            #                         lpu['output_file'], sample_interval=10)
-
 
             (comp_dict, conns) = LPU.graph_to_dicts(graph)
             print(k)
@@ -356,26 +356,59 @@ class neurokernel_server(object):
         # print(task)
 
         # post-processing inputs (hard coded, can be better organized)
-        inputs = {u'ydomain': 1.0,
-                      u'xdomain': dt*(steps-ignored_steps),
-                      u'dt': dt*10,
-                      u'data': {}}
-        if 'retina' in lpus:
-            input_array = si.read_array(
-                    '{}_{}.h5'.format(config['Retina']['input_file'], user_id))
-            inputs[u'ydomain'] = input_array.max()
-            for i, item in enumerate(retina_input_uids):
-                inputs['data'][item] = np.hstack(
-                    (np.arange(int((steps-ignored_steps)/10)).reshape((-1,1))*dt*10,
-                     input_array[ignored_steps::10,i:i+1])).tolist()
+        result = {u'sensory': {}, u'input': {}, u'output': {}}
+        for k, lpu in lpus.items():
+            records = lpu.get('input_record', [])
+            for record in records:
+                if record['sensory_file'] is not None:
+                    if k not in result['sensory']:
+                        result['sensory'][k] = []
+                    with h5py.File(record['sensory_file']) as sensory_file:
+                        result['sensory'][k].append({'dt': record['sensory_interval']*dt,
+                                                     'data': sensory_file['sensory'][:].tolist()})
+                if record['input_file'] is not None:
+                    with h5py.File(record['input_file']) as input_file:
+                        for var in input_file.keys():
+                            if var == 'metadata': continue
+                            uids = input_file[var]['uids'][:]
+                            input_array = input_file[var]['data'][:]
+                            for i, item in enumerate(uids):
+                                if var == 'spike_state':
+                                    input = np.nonzero(input_array[ignored_steps:, i:i+1].reshape(-1))[0]*dt
+                                    if item in result['input']:
+                                        result['input'][item]['spike_time'] = {
+                                            'data': input.tolist(),
+                                            'dt': dt}
+                                    else:
+                                        result['input'][item] = {'spike_time': {
+                                            'data': input.tolist(),
+                                            'dt': dt}}
+                                else:
+                                    sample_interval = record.get(
+                                                            'input_interval', 1)
+                                    input = input_array[ignored_steps//sample_interval::sample_interval, i:i+1]
+                                    if item in result['input']:
+                                        result['input'][item][var] = {
+                                            'data': input.tolist(),
+                                            'dt': dt*sample_interval}
+                                    else:
+                                        result['input'][item] = {var: {
+                                            'data': input.tolist(),
+                                            'dt': dt*sample_interval}}
 
-            del input_array
+        # if 'retina' in lpus:
+        #     input_array = si.read_array(
+        #             '{}_{}.h5'.format(config['Retina']['input_file'], user_id))
+        #     inputs[u'ydomain'] = input_array.max()
+        #     for i, item in enumerate(retina_input_uids):
+        #         inputs['data'][item] = np.hstack(
+        #             (np.arange(int((steps-ignored_steps)/10)).reshape((-1,1))*dt*10,
+        #              input_array[ignored_steps::10,i:i+1])).tolist()
+        #
+        #     del input_array
 
         # post-processing outputs from all LPUs and combine them into one dictionary
-        result = {u'ydomain': 1,
-                  u'xdomain': dt*(steps-ignored_steps),
-                  u'dt': dt,
-                  u'data': {}}
+        # result = {u'data': {}}
 
         for k, lpu in lpus.items():
             uid_dict = lpu.get('output_uid_dict', None)
@@ -387,27 +420,27 @@ class neurokernel_server(object):
                         for i, item in enumerate(uids):
                             if var == 'spike_state':
                                 output = np.nonzero(output_array[ignored_steps:, i:i+1].reshape(-1))[0]*dt
-                                if item in result['data']:
-                                    result['data'][item]['spike_time'] = {
+                                if item in result['output']:
+                                    result['output'][item]['spike_time'] = {
                                         'data': output.tolist(),
                                         'dt': dt}
                                 else:
-                                    result['data'][item] = {'spike_time': {
+                                    result['output'][item] = {'spike_time': {
                                         'data': output.tolist(),
                                         'dt': dt}}
                             else:
                                 sample_interval = uid_dict[var].get(
                                                         'sample_interval', 1)
                                 output = output_array[ignored_steps//sample_interval::sample_interval, i:i+1]
-                                if item in result['data']:
-                                    result['data'][item][var] = {
+                                if item in result['output']:
+                                    result['output'][item][var] = {
                                         'data': output.tolist(),
                                         'dt': dt*sample_interval}
                                 else:
-                                    result['data'][item] = {var: {
+                                    result['output'][item] = {var: {
                                         'data': output.tolist(),
                                         'dt': dt*sample_interval}}
-        return inputs, result
+        return result
 
 def printHeader(name):
     return '[' + name + ' ' + strftime("%Y-%m-%d %H:%M:%S", gmtime()) + '] '
@@ -430,14 +463,17 @@ def loadInputProcessors(X):
        and other keys should correspond to the arguments of the InputProcessor
     """
     inList = []
+    record = []
     for a in X:
         d = importlib.import_module(a.pop('module'))
         processor = getattr(d, a.pop('class'))
         sig = inspect.signature(processor)
-        arg_dict = {param_name: a.pop(param_name) if param.default is param.empty\
-                    else a.pop(param_name, param.default) \
+        arg_dict = {param_name: a.get(param_name) if param.default is param.empty\
+                    else a.get(param_name, param.default) \
                     for param_name, param in sig.parameters.items()}
-        inList.append(processor(**arg_dict))
+        input_processor = processor(**arg_dict)
+        inList.append(input_processor)
+        record.append(input_processor.record_settings)
     # for a in X:
     #     if a['name'] == 'InIGaussianNoise':
     #         inList.append(InIGaussianNoise(a['node_id'], a['mean'], a['std'], a['t_start'], a['t_end']))
@@ -453,14 +489,14 @@ def loadInputProcessors(X):
     #     elif a['name'] == 'PB_InputProcessor':
     #         inList.append(PB_InputProcessor(a['shape'], a['dt'], a['dur'], a['id'], a['video_config'],
     #                                         a['rf_config'], a['neurons']))
-    return inList
+    return inList, record
 
 
 def loadOutputProcessors(filename, outputProcessor_dicts):
     outList = []
     record = {}
     for a in outputProcessor_dicts:
-        outprocessor_class = a.pop('class')
+        outprocessor_class = a.get('class')
         if outprocessor_class == 'Record':
             to_record = [(k, v['uids']) for k, v in a['uid_dict'].items()]
             processor = FileOutputProcessor(to_record,
@@ -469,11 +505,11 @@ def loadOutputProcessors(filename, outputProcessor_dicts):
             outList.append(processor)
             record = a['uid_dict']
         else:
-            d = importlib.import_module(a.pop('module'))
+            d = importlib.import_module(a.get('module'))
             processor = getattr(d, outprocessor_class)
             sig = inspect.signature(processor)
-            arg_dict = {param_name: a.pop(param_name) if param.default is param.empty\
-                        else a.pop(param_name, param.default) \
+            arg_dict = {param_name: a.get(param_name) if param.default is param.empty\
+                        else a.get(param_name, param.default) \
                         for param_name, param in sig.parameters.items()}
             outList.append(processor(**arg_dict))
     return outList, record
@@ -581,8 +617,8 @@ def mainThreadExecute(Component, server):
     if len(Component.launch_queue)>0:
         user_id, task = Component.launch_queue[0]
         # try:
-        inputs, res = server.launch(user_id, task)
-        # print(res)
+        res = server.launch(user_id, task)
+        #print(res)
         for key in res.keys():
             if type(key) is not str:
                 try:
@@ -593,36 +629,47 @@ def mainThreadExecute(Component, server):
                     except:
                         pass
                 del res[key]
-        for key in res['data'].keys():
-            if type(key) is not str:
-                try:
-                    res['data'][str(key)] = res['data'][key]
-                except:
+        for v in res.keys():
+            for key in res[v].keys():
+                if type(key) is not str:
                     try:
-                        res['data'][repr(key)] = res['data'][key]
+                        res[v][str(key)] = res[v][key]
                     except:
-                        pass
-                del res['data'][key]
+                        try:
+                            res[v][repr(key)] = res[v][key]
+                        except:
+                            pass
+                    del res[v][key]
         # print(res['data'].keys())
         # res =  six.u(res)
-        """
-        res = {u'ydomain': 1,
-                    u'xdomain': 1,
-                    u'dt': 10,
-                    u'data': {}}
-        """
-        print('Printing task...')
-        # print(task)
-        res_keys = list(res['data'].keys())
+
+        input_keys = list(res['input'].keys())
+        output_keys = list(res['output'].keys())
+        sensory_keys = list(res['sensory'].keys())
         batch_size = 32
-        for i in range(0,len(res_keys), batch_size):
-            res_tosend = res.copy()
-            res_tosend['data'] = {}
-            for j in range(i,min(len(res_keys),i+batch_size)):
-                res_tosend['data'][res_keys[j]] = res['data'][res_keys[j]]
+        start_message = json.dumps(six.u({'start': {}}))
+        res_to_processor = Component.client.session.call(six.u(task['forward']),
+                                                         start_message)
+        for i in range(0, len(input_keys), batch_size):
+            res_tosend = {'input': {}}
+            for j in range(i,min(len(input_keys),i+batch_size)):
+                res_tosend['input'][input_keys[j]] = res['input'][input_keys[j]]
             res_tosend =  six.u(res_tosend)
             r = json.dumps(res_tosend)
             res_to_processor = Component.client.session.call(six.u(task['forward']), r)
+        for i in range(0, len(output_keys), batch_size):
+            res_tosend = {'output': {}}
+            for j in range(i,min(len(output_keys),i+batch_size)):
+                res_tosend['output'][output_keys[j]] = res['output'][output_keys[j]]
+            res_tosend =  six.u(res_tosend)
+            r = json.dumps(res_tosend)
+            res_to_processor = Component.client.session.call(six.u(task['forward']), r)
+        for i in range(len(sensory_keys)):
+            res_tosend = {'sensory': {sensory_keys[i]: res['sensory'][sensory_keys[i]]}}
+            res_tosend =  six.u(res_tosend)
+            r = json.dumps(res_tosend)
+            res_to_processor = Component.client.session.call(six.u(task['forward']), r)
+
         # except:
         #     print('There was an error...')
         Component.launch_queue.pop(0)
