@@ -1269,7 +1269,14 @@ class Client:
         sim_output = json.loads(self.data[-1]['data']['data'])
         sim_output_new = json.loads(self.data[i]['data']['data'])
         while 'ydomain' in sim_output_new.keys():
-            sim_output['data'].update(sim_output_new['data'])
+            if not i == -1:
+                for j in sim_output_new['data'].keys():
+                    if j in sim_output['data'].keys():
+                        sim_output['data'][j] = np.concatenate([sim_output_new['data'][j], sim_output['data'][j]])
+                    else:
+                        sim_output['data'][j] = sim_output_new['data'][j]
+            # sim_output['data'].update(sim_output_new['data'])
+            # print(sim_output_new['data'].keys())
             i = i - 1
             try:
                 sim_output_new = json.loads(self.data[i]['data']['data'])

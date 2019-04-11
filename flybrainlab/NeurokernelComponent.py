@@ -510,7 +510,7 @@ def mainThreadExecute(Component, server):
                         pass
                 del res['data'][key]
         # print(res['data'].keys())
-        # res =  six.u(res)
+        res =  six.u(res)
         """
         res = {u'ydomain': 1,
                     u'xdomain': 1,
@@ -521,14 +521,18 @@ def mainThreadExecute(Component, server):
         print(task)
         res_keys = list(res['data'].keys())
         batch_size = 32
+        time_range = 32
         for i in range(0,len(res_keys), batch_size):
             res_tosend = res.copy()
             res_tosend['data'] = {}
             for j in range(i,min(len(res_keys),i+batch_size)):
                 res_tosend['data'][res_keys[j]] = res['data'][res_keys[j]]
-            res_tosend =  six.u(res_tosend)
-            r = json.dumps(res_tosend)
-            res_to_processor = Component.client.session.call(six.u(task['forward']), r)
+            for k in range(0,len(res_tosend['data'][res_keys[j]]),time_range):
+                res_tosend_time_batch = res_tosend.copy()
+                for j in range(i,min(len(res_keys),i+batch_size)):
+                    res_tosend_time_batch['data'][res_keys[j]] = res['data'][res_keys[j]][k:k+time_range]
+                r = json.dumps(res_tosend)
+                res_to_processor = Component.client.session.call(six.u(task['forward']), r)
         # except:
         #     print('There was an error...')
         Component.launch_queue.pop(0)
