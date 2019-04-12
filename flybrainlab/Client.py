@@ -1268,13 +1268,9 @@ class Client:
         i = -1
         sim_output = json.loads(self.data[-1]['data']['data'])
         sim_output_new = json.loads(self.data[i]['data']['data'])
-        while 'ydomain' in sim_output_new.keys():
+        while True:
             if not i == -1:
-                for j in sim_output_new['data'].keys():
-                    if j in sim_output['data'].keys():
-                        sim_output['data'][j] = np.concatenate([sim_output_new['data'][j], sim_output['data'][j]])
-                    else:
-                        sim_output['data'][j] = sim_output_new['data'][j]
+                sim_output['data'] = sim_output_new['data'] + sim_output['data']
             # sim_output['data'].update(sim_output_new['data'])
             # print(sim_output_new['data'].keys())
             i = i - 1
@@ -1282,6 +1278,7 @@ class Client:
                 sim_output_new = json.loads(self.data[i]['data']['data'])
             except:
                 break
+        sim_output['data'] = json.loads(sim_output['data'])
         bs = []
         keys = []
         for key in sim_output['data'].keys():
@@ -1293,6 +1290,7 @@ class Client:
         B = np.array(bs)
         print('Shape of Results:', B.shape)
         return B, keys
+
 
     def plotSimResults(self, B, keys):
         """Plots the simulation results. A simple function to demonstrate result display.

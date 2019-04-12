@@ -520,11 +520,14 @@ def mainThreadExecute(Component, server):
         print('Printing task...')
         print(task)
         res_keys = list(res['data'].keys())
-        batch_size = 32
-        time_range = 32
-        for i in range(0,len(res_keys), batch_size):
-            res_tosend = res.copy()
-            res_tosend['data'] = {}
+        resed = json.dumps(res['data'])
+        batch_size = 256
+        # time_range = 32
+        for i in range(0,len(resed), batch_size):
+            res_tosend = {'data': ''}
+            res_tosend['data'] = resed[i:i+batch_size]
+            r = json.dumps(res_tosend)
+            """
             for j in range(i,min(len(res_keys),i+batch_size)):
                 res_tosend['data'][res_keys[j]] = res['data'][res_keys[j]]
             for k in range(0,len(res_tosend['data'][res_keys[j]]),time_range):
@@ -532,7 +535,8 @@ def mainThreadExecute(Component, server):
                 for j in range(i,min(len(res_keys),i+batch_size)):
                     res_tosend_time_batch['data'][res_keys[j]] = res['data'][res_keys[j]][k:k+time_range]
                 r = json.dumps(res_tosend)
-                res_to_processor = Component.client.session.call(six.u(task['forward']), r)
+            """
+            res_to_processor = Component.client.session.call(six.u(task['forward']), r)
         # except:
         #     print('There was an error...')
         Component.launch_queue.pop(0)
