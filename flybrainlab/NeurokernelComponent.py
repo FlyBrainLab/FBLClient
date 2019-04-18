@@ -440,7 +440,8 @@ class neurokernel_server(object):
                                     result['output'][item] = {var: {
                                         'data': output.tolist(),
                                         'dt': dt*sample_interval}}
-        return result
+        meta = {'dur': steps*dt}
+        return result, meta
 
 def printHeader(name):
     return '[' + name + ' ' + strftime("%Y-%m-%d %H:%M:%S", gmtime()) + '] '
@@ -617,7 +618,7 @@ def mainThreadExecute(Component, server):
     if len(Component.launch_queue)>0:
         user_id, task = Component.launch_queue[0]
         # try:
-        res = server.launch(user_id, task)
+        res, meta = server.launch(user_id, task)
         #print(res)
         for key in res.keys():
             if type(key) is not str:
@@ -641,37 +642,17 @@ def mainThreadExecute(Component, server):
                             pass
                     del res[v][key]
         # print(res['data'].keys())
-        # res =  six.u(res)
-
-        input_keys = list(res['input'].keys())
-        output_keys = list(res['output'].keys())
-        sensory_keys = list(res['sensory'].keys())
-        batch_size = 32
-        start_message = json.dumps(six.u({'start': {}}))
+        res =  six.u(res)
+        resed = json.dumps(res)
+        batch_size = 1024*1024
+        start_message = json.dumps(six.u(meta))
         res_to_processor = Component.client.session.call(six.u(task['forward']),
                                                          start_message)
-        for i in range(0, len(input_keys), batch_size):
-            res_tosend = {'input': {}}
-            for j in range(i,min(len(input_keys),i+batch_size)):
-                res_tosend['input'][input_keys[j]] = res['input'][input_keys[j]]
-            res_tosend =  six.u(res_tosend)
-            r = json.dumps(res_tosend)
-            res_to_processor = Component.client.session.call(six.u(task['forward']), r)
-        for i in range(0, len(output_keys), batch_size):
-            res_tosend = {'output': {}}
-            for j in range(i,min(len(output_keys),i+batch_size)):
-                res_tosend['output'][output_keys[j]] = res['output'][output_keys[j]]
-            res_tosend =  six.u(res_tosend)
-            r = json.dumps(res_tosend)
-            res_to_processor = Component.client.session.call(six.u(task['forward']), r)
-        for i in range(len(sensory_keys)):
-            res_tosend = {'sensory': {sensory_keys[i]: res['sensory'][sensory_keys[i]]}}
-            res_tosend =  six.u(res_tosend)
+        for i in range(0,len(resed), batch_size):
+            res_tosend = resed[i:i+batch_size]
             r = json.dumps(res_tosend)
             res_to_processor = Component.client.session.call(six.u(task['forward']), r)
 
-        # except:
-        #     print('There was an error...')
         Component.launch_queue.pop(0)
     else:
         return False
