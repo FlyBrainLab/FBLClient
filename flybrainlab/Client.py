@@ -32,6 +32,8 @@ import importlib
 from time import gmtime, strftime
 
 
+# import txaio
+# txaio.start_logging(level='info')
 
 ## Create the home directory
 import os
@@ -144,6 +146,7 @@ class Client:
         self.dataPath = _FFBOLabDataPath
         extra = {'auth': authentication}
         self.lmsg = 0
+        self.enableResets = True # Enable resets
         self.experimentInputs = [] # List of current experiment inputs
         self.compiled = False # Whether the current circuit has been compiled into a NetworkX Graph
         self.sendDataToGFX = True # Shall we send the received simulation data to GFX Component?
@@ -244,7 +247,13 @@ class Client:
             a['widget'] = 'NLP'
             self.data.append(a)
             print(printHeader('FFBOLab Client NLP') + "Received a command.")
-            self.tryComms(a)
+            to_send = True
+            if self.enableResets == False:
+                if 'commands' in data:
+                    if 'reset' in data['commands']:
+                        to_send = False
+            if to_send == True:
+                self.tryComms(a)
             return True
         print(printHeader('FFBOLab Client') + "Procedure ffbo.ui.receive_cmd Registered...")
 
@@ -539,7 +548,7 @@ class Client:
         res['threshold'] = threshold
         res['data_callback_uri'] = 'ffbo.ui.receive_data'
         res_list = []
-        if self.legacy == False:
+        if self.legacy == False and progressive==True:
             res = self.client.session.call(uri, res, options=CallOptions(
                     on_progress=partial(on_progress, res=res_list), timeout = 300000
                 ))
