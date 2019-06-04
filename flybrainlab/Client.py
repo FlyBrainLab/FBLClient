@@ -147,6 +147,7 @@ class Client:
         extra = {'auth': authentication}
         self.lmsg = 0
         self.enableResets = True # Enable resets
+        self.addToRemove = False # Switch adds to removals
         self.experimentInputs = [] # List of current experiment inputs
         self.compiled = False # Whether the current circuit has been compiled into a NetworkX Graph
         self.sendDataToGFX = True # Shall we send the received simulation data to GFX Component?
@@ -344,11 +345,19 @@ class Client:
                 a['data'] = data
             a['messageType'] = 'Data'
             a['widget'] = 'NLP'
+            if self.addToRemove == True:
+                if 'data' in data:
+                    keys = list(data['data'].keys())
+                    data['commands'] = {'remove': [keys, []]}
+                    del data['data']
+                    a['data'] = data
+                    a['messageType'] = 'Command'
             self.data.append(a)
-            if 'data' in a['data']:
-                for i in a['data']['data'].keys():
-                    if 'name' in a['data']['data'][i]:
-                        self.uname_to_rid[a['data']['data'][i]['name']] = i
+            if a['messageType'] == 'Data':
+                if 'data' in a['data']:
+                    for i in a['data']['data'].keys():
+                        if 'name' in a['data']['data'][i]:
+                            self.uname_to_rid[a['data']['data'][i]['name']] = i
             print(printHeader('FFBOLab Client NLP') + "Received data.")
             self.tryComms(a)
             return True
