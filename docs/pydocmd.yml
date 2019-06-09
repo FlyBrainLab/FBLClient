@@ -3,7 +3,7 @@ site_name: "FlyBrainLab Documentation"
 generate:
 - flybrainlab/flybrainlab-main.md:
   - flybrainlab:
-    - flybrainlab.ffbolabClient+
+    - flybrainlab.Client+
 
 
 pages:

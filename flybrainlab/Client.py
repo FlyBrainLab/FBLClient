@@ -193,6 +193,7 @@ class Client:
         self.legacy = legacy
         self.query_threshold = 20
         self.naServerID = None
+        self.experimentWatcher = None
         if self.legacy:
             self.query_threshold = 2
         st_cert=open(ca_cert_file, 'rt').read()
@@ -1415,6 +1416,8 @@ class Client:
         """
         print('Obtained Experiment Configuration: ', x)
         self.simExperimentConfig = json.loads(x)
+        if self.experimentWatcher is not None:
+            self.experimentWatcher.loadExperimentConfig(self.simExperimentConfig)
         return True
 
     def initiateExperiments(self):
@@ -1465,7 +1468,9 @@ class Client:
         res = self.client.session.call('ffbo.processor.neuroarch_query', list_of_queries[0])
         print('Pruning ', removed_neurons)
         print('Pruning ', removed_labels)
-        res = self.client.session.call('ffbo.processor.neuroarch_query', list_of_queries[1])
+        res = self.client.session.call('ffbo.processor.neuroarch_query', list_of_queries[1], options=CallOptions(
+                                        timeout = 30000000000
+                                        ))
         return res
 
 
@@ -1588,7 +1593,8 @@ class Client:
         removed_neurons = list(set(removed_neurons))
         return removed_neurons
 
-    def execute_multilpu(self, res, inputProcessors = [], steps= None, dt = None):
+    def execute_multilpu(self, res, inputProcessors = {}, outputProcessors = {},
+                         steps= None, dt = None):
         """Executes a multilpu circuit. Requires a result dictionary.
 
         # Arguments:
@@ -1597,21 +1603,23 @@ class Client:
         # Returns:
             bool: A success indicator.
         """
-        labels = []
-        for i in res['data']['LPU']:
-            for j in res['data']['LPU'][i]['nodes']:
-                if 'label' in res['data']['LPU'][i]['nodes'][j]:
-                    label = res['data']['LPU'][i]['nodes'][j]['label']
-                    if 'port' not in label and 'synapse' not in label:
-                        labels.append(label)
+        # labels = []
+        # for i in res['data']['LPU']:
+        #     for j in res['data']['LPU'][i]['nodes']:
+        #         if 'label' in res['data']['LPU'][i]['nodes'][j]:
+        #             label = res['data']['LPU'][i]['nodes'][j]['label']
+        #             if 'port' not in label and 'synapse' not in label:
+        #                 labels.append(label)
 
         res = self.client.session.call(u'ffbo.processor.server_information')
-        msg = {'neuron_list': labels,
+        msg = {#'neuron_list': labels,
                 "user": self.client._async_session._session_id,
                 "servers": {'na': self.naServerID, 'nk': list(res['nk'].keys())[0]}}
 
         if len(inputProcessors)>0:
             msg['inputProcessors'] = inputProcessors
+        if len(outputProcessors)>0:
+            msg['outputProcessors'] = outputProcessors
         if dt is not None:
             msg['dt'] = dt
         if steps is not None:
