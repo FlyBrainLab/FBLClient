@@ -32,6 +32,8 @@ import importlib
 from time import gmtime, strftime
 
 
+# import txaio
+# txaio.start_logging(level='info')
 
 ## Create the home directory
 import os
@@ -179,6 +181,8 @@ class Client:
         self.dataPath = _FFBOLabDataPath
         extra = {'auth': authentication}
         self.lmsg = 0
+        self.enableResets = True # Enable resets
+        self.addToRemove = False # Switch adds to removals
         self.experimentInputs = [] # List of current experiment inputs
         self.compiled = False # Whether the current circuit has been compiled into a NetworkX Graph
         self.sendDataToGFX = True # Shall we send the received simulation data to GFX Component?
@@ -273,7 +277,13 @@ class Client:
             a['widget'] = 'NLP'
             self.data.append(a)
             print(printHeader('FFBOLab Client NLP') + "Received a command.")
-            self.tryComms(a)
+            to_send = True
+            if self.enableResets == False:
+                if 'commands' in data:
+                    if 'reset' in data['commands']:
+                        to_send = False
+            if to_send == True:
+                self.tryComms(a)
             return True
         print(printHeader('FFBOLab Client') + "Procedure ffbo.ui.receive_cmd Registered...")
 
@@ -364,11 +374,19 @@ class Client:
                 a['data'] = data
             a['messageType'] = 'Data'
             a['widget'] = 'NLP'
+            if self.addToRemove == True:
+                if 'data' in data:
+                    keys = list(data['data'].keys())
+                    data['commands'] = {'remove': [keys, []]}
+                    del data['data']
+                    a['data'] = data
+                    a['messageType'] = 'Command'
             self.data.append(a)
-            if 'data' in a['data']:
-                for i in a['data']['data'].keys():
-                    if 'name' in a['data']['data'][i]:
-                        self.uname_to_rid[a['data']['data'][i]['name']] = i
+            if a['messageType'] == 'Data':
+                if 'data' in a['data']:
+                    for i in a['data']['data'].keys():
+                        if 'name' in a['data']['data'][i]:
+                            self.uname_to_rid[a['data']['data'][i]['name']] = i
             print(printHeader('FFBOLab Client NLP') + "Received data.")
             self.tryComms(a)
             return True
@@ -568,7 +586,7 @@ class Client:
         res['threshold'] = threshold
         res['data_callback_uri'] = 'ffbo.ui.receive_data'
         res_list = []
-        if self.legacy == False:
+        if self.legacy == False and progressive==True:
             res = self.client.session.call(uri, res, options=CallOptions(
                     on_progress=partial(on_progress, res=res_list), timeout = 300000
                 ))
@@ -1297,13 +1315,17 @@ class Client:
         i = -1
         sim_output = json.loads(self.data[-1]['data']['data'])
         sim_output_new = json.loads(self.data[i]['data']['data'])
-        while 'ydomain' in sim_output_new.keys():
-            sim_output['data'].update(sim_output_new['data'])
+        while True:
+            if not i == -1:
+                sim_output['data'] = sim_output_new['data'] + sim_output['data']
+            # sim_output['data'].update(sim_output_new['data'])
+            # print(sim_output_new['data'].keys())
             i = i - 1
             try:
                 sim_output_new = json.loads(self.data[i]['data']['data'])
             except:
                 break
+        sim_output['data'] = json.loads(sim_output['data'])
         bs = []
         keys = []
         for key in sim_output['data'].keys():
@@ -1315,6 +1337,7 @@ class Client:
         B = np.array(bs)
         print('Shape of Results:', B.shape)
         return B, keys
+
 
     def plotSimResults(self, B, keys):
         """Plots the simulation results. A simple function to demonstrate result display.
