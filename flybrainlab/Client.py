@@ -677,14 +677,14 @@ class Client:
 
     def getStats(self, neuron_name):
         displayDict = {"totalLength": 'Total Length (µm)',
-            "totalSurfaceArea": 'Total Surface Area (µm<sup>2</sup>)',
-            "totalVolume": 'Total Volume (µm<sup>3</sup>)',
-            "maximumEuclideanDistance": 'Maximum Euclidean Distance (µm)',
-            "width": 'Width (µm)',
-            "height": 'Height (µm)',
-            "depth": 'Depth (µm)',
-            "maxPathDistance": 'Max Path Distance (µm)',
-            "averageDiameter": "Average Diameter (µm)"}
+                       "totalSurfaceArea": 'Total Surface Area (µm^2)',
+                       "totalVolume": 'Total Volume (µm^3)',
+                       "maximumEuclideanDistance": 'Maximum Euclidean Distance (µm)',
+                       "width": 'Width (µm)',
+                       "height": 'Height (µm)',
+                       "depth": 'Depth (µm)',
+                       "maxPathDistance": 'Max Path Distance (µm)',
+                       "averageDiameter": "Average Diameter (µm)"}
         if neuron_name in self.neuronStats.keys():
             print('Statistics for ' + neuron_name + ':')
             print('-----------')
