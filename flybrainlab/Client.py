@@ -160,11 +160,20 @@ class Client:
         self.data = [] # A buffer for data from backend; used in multiple functions so needed
         self.uname_to_rid = {} # local map from unames to rid's
         self.legacy = legacy
+        self.neuronStats = {}
         self.query_threshold = 20
         self.naServerID = None
         self.experimentWatcher = None
         if self.legacy:
             self.query_threshold = 2
+        self.x_scale = 1.
+        self.y_scale = 1.
+        self.z_scale = 1.
+        self.r_scale = 1.
+        self.x_shift = 0.
+        self.y_shift = 0.
+        self.z_shift = 0.
+        self.r_shift = 0.
         st_cert=open(ca_cert_file, 'rt').read()
         c=OpenSSL.crypto
         ca_cert=c.load_certificate(c.FILETYPE_PEM, st_cert)
@@ -352,12 +361,33 @@ class Client:
                     del data['data']
                     a['data'] = data
                     a['messageType'] = 'Command'
+            # Change scales
+            if a['messageType'] == 'Data':
+                if 'data' in a['data']:
+                    for i in a['data']['data'].keys():
+                        if 'name' in a['data']['data'][i]:
+                            a['data']['data'][i]['x'] = [i*self.x_scale+self.x_shift for i in a['data']['data'][i]['x']]
+                            a['data']['data'][i]['y'] = [i*self.y_scale+self.y_shift for i in a['data']['data'][i]['y']]
+                            a['data']['data'][i]['z'] = [i*self.z_scale+self.z_shift for i in a['data']['data'][i]['z']]
+                            a['data']['data'][i]['r'] = [i*self.r_scale+self.r_shift for i in a['data']['data'][i]['r']]
             self.data.append(a)
+            displayDict = {"totalLength": 'Total Length (µm)',
+                       "totalSurfaceArea": 'Total Surface Area (µm<sup>2</sup>)',
+                       "totalVolume": 'Total Volume (µm<sup>3</sup>)',
+                       "maximumEuclideanDistance": 'Maximum Euclidean Distance (µm)',
+                       "width": 'Width (µm)',
+                       "height": 'Height (µm)',
+                       "depth": 'Depth (µm)',
+                       "maxPathDistance": 'Max Path Distance (µm)',
+                       "averageDiameter": "Average Diameter (µm)"}
             if a['messageType'] == 'Data':
                 if 'data' in a['data']:
                     for i in a['data']['data'].keys():
                         if 'name' in a['data']['data'][i]:
                             self.uname_to_rid[a['data']['data'][i]['name']] = i
+                            self.neuronStats[a['data']['data'][i]['name']] = {}
+                            for displayKey in displayDict.keys():
+                                self.neuronStats[a['data']['data'][i]['name']][displayKey] = a['data']['data'][i][displayKey]
             print(printHeader('FFBOLab Client NLP') + "Received data.")
             self.tryComms(a)
             return True
@@ -644,6 +674,25 @@ class Client:
         a['widget'] = 'GFX'
         self.tryComms(a)
         return True
+
+    def getStats(self, neuron_name):
+        displayDict = {"totalLength": 'Total Length (µm)',
+            "totalSurfaceArea": 'Total Surface Area (µm<sup>2</sup>)',
+            "totalVolume": 'Total Volume (µm<sup>3</sup>)',
+            "maximumEuclideanDistance": 'Maximum Euclidean Distance (µm)',
+            "width": 'Width (µm)',
+            "height": 'Height (µm)',
+            "depth": 'Depth (µm)',
+            "maxPathDistance": 'Max Path Distance (µm)',
+            "averageDiameter": "Average Diameter (µm)"}
+        if neuron_name in self.neuronStats.keys():
+            print('Statistics for ' + neuron_name + ':')
+            print('-----------')
+            for i in displayDict.keys():
+                print(displayDict[i] + ':', self.neuronStats[neuron_name][i])
+        else:
+            print('No statistics found for ' + str(neuron_name) + '.')
+        return None
 
     def getNeuropils(self):
         """Get the neuropils the neurons in the workspace reside in.
