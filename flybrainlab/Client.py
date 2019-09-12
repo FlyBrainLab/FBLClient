@@ -387,7 +387,10 @@ class Client:
                             self.uname_to_rid[a['data']['data'][i]['name']] = i
                             self.neuronStats[a['data']['data'][i]['name']] = {}
                             for displayKey in displayDict.keys():
-                                self.neuronStats[a['data']['data'][i]['name']][displayKey] = a['data']['data'][i][displayKey]
+                                try:
+                                    self.neuronStats[a['data']['data'][i]['name']][displayKey] = a['data']['data'][i][displayKey]
+                                except:
+                                    pass
             print(printHeader('FFBOLab Client NLP') + "Received data.")
             self.tryComms(a)
             return True
