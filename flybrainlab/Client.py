@@ -150,6 +150,18 @@ class MetaClient:
                 idx = self.clients[client_name]['widgets'].index(widget_name)
                 del self.clients[client_name]['widgets'][idx]
 
+    def get_client(self, client_name)
+        """Delete a widget to a client in the MetaClient.
+
+        # Arguments:
+            client_name (str): Name of the FlyBrainLab client.
+
+        # Returns:
+            obj: The associated FlyBrainLab client.
+        """
+        return self.clients[client_name]['client']
+
+
 class Client:
     """FlyBrainLab Client class. This class communicates with JupyterLab frontend and connects to FFBO components.
 
