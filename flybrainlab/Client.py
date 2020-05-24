@@ -85,6 +85,71 @@ def printHeader(name):
     """
     return '[' + name + ' ' + strftime("%Y-%m-%d %H:%M:%S", gmtime()) + '] '
 
+
+class MetaClient:
+    """FlyBrainLab MetaClient class that tracks available FBL clients and connected frontend widgets.
+
+    # Attributes:
+        clients (obj): A list of dictionaries with the following keys: (i) 'name': Contains the common name of the client. (ii) 'client': A reference to the client object. (iii) 'widgets': List of widget names associated with the client.
+    """
+    def __init__(self, initializer = None):
+        """Initialization function for the FBL MetaClient class.
+
+        # Arguments:
+            initializer (list): A list of dictionaries with initialization data for connections.
+        """
+        self.clients = []
+        if initializer is not None:
+            for i in list(initializer.keys()):
+                self.clients[i] = initializer[i]
+
+
+    def add_client(self, client_name, client, client_widgets = []):
+        """Adds a client with optional existing widgets to the MetaClient.
+
+        # Arguments:
+            client_name (str): Name of the FlyBrainLab client.
+            client (obj): A FlyBrainLab client object.
+            client_widgets (list): A list of strings corresponding to the names of the currently connected client widgets. Defaults to empty list.
+        """
+        new_client = {}
+        new_client['name'] = client_name
+        new_client['client'] = client
+        new_client['widgets'] = client_widgets
+        self.clients.append(new_client)
+
+    def delete_client(self, client_name):
+        """Delete a client from the MetaClient.
+
+        # Arguments:
+            client_name (str): Name of the FlyBrainLab client.
+        """
+        if client_name in list(self.clients.keys()):
+            del self.clients[client_name]
+
+
+    def add_widget(self, client_name, widget_name):
+        """Add a widget to a client in the MetaClient.
+
+        # Arguments:
+            client_name (str): Name of the FlyBrainLab client.
+            widget_name (str): Name of the new NeuroMynerva widget.
+        """
+        if client_name in self.client_names:
+            self.clients[client_name]['widgets'].append(widget_name)
+
+    def delete_widget(self, client_name, widget_name):
+        """Delete a widget to a client in the MetaClient.
+
+        # Arguments:
+            client_name (str): Name of the FlyBrainLab client.
+            widget_name (str): Name of the new NeuroMynerva widget.
+        """
+        if client_name in self.client_names:
+            if widget_name in self.clients[client_name]['widgets']:
+                idx = self.clients[client_name]['widgets'].index(widget_name)
+                del self.clients[client_name]['widgets'][idx]
+
 class Client:
     """FlyBrainLab Client class. This class communicates with JupyterLab frontend and connects to FFBO components.
 
@@ -108,7 +173,7 @@ class Client:
             pass
 
     def __init__(self, ssl = True, debug = True, authentication = True, user = 'guest', secret = 'guestpass', custom_salt=None, url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None, legacy = False):
-        """Initialization function for the ffbolabClient class.
+        """Initialization function for the FBL Client class.
 
         # Arguments:
             ssl (bool): Whether the FFBO server uses SSL.
@@ -120,7 +185,7 @@ class Client:
             realm (str): Realm to be connected to.
             ca_cert_file (str): Path to the certificate for establishing connection.
             intermediate_cert_file (str): Path to the intermediate certificate for establishing connection.
-            FFBOLabcomm (obj) Communications object for the frontend.
+            FFBOLabcomm (obj): Communications object for the frontend.
         """
         if os.path.exists(os.path.join(home, '.ffbolab', 'lib')):
             print(printHeader('FFBOLab Client') + "Downloading the latest certificates.")
