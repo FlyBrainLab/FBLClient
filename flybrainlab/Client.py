@@ -169,7 +169,7 @@ class Client:
             ip = config["SERVER"]["ip"]
         else:
             ip = "localhost"
-        port = int(config["ID"]['digits'])*10 + 10000
+        port = int(config["NLP"]['expose-port'])
         url =  "{}://{}:{}/ws".format(websockets, ip, port)
         realm = config["SERVER"]["realm"]
         authentication = eval(config["AUTH"]["authentication"])
