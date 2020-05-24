@@ -2,9 +2,11 @@ from time import sleep
 import txaio
 import random
 import h5py
+import pickle
 from autobahn.twisted.util import sleep
 from autobahn.twisted.wamp import ApplicationSession, ApplicationRunner
 from autobahn.wamp.exception import ApplicationError
+from autobahn.websocket.protocol import WebSocketClientFactory
 from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 import OpenSSL.crypto
@@ -85,6 +87,83 @@ def printHeader(name):
     """
     return '[' + name + ' ' + strftime("%Y-%m-%d %H:%M:%S", gmtime()) + '] '
 
+
+class MetaClient:
+    """FlyBrainLab MetaClient class that tracks available FBL clients and connected frontend widgets.
+
+    # Attributes:
+        clients (obj): A list of dictionaries with the following keys: (i) 'name': Contains the common name of the client. (ii) 'client': A reference to the client object. (iii) 'widgets': List of widget names associated with the client.
+    """
+    def __init__(self, initializer = None):
+        """Initialization function for the FBL MetaClient class.
+
+        # Arguments:
+            initializer (list): A list of dictionaries with initialization data for connections.
+        """
+        self.clients = []
+        if initializer is not None:
+            for i in list(initializer.keys()):
+                self.clients[i] = initializer[i]
+
+
+    def add_client(self, client_name, client, client_widgets = []):
+        """Adds a client with optional existing widgets to the MetaClient.
+
+        # Arguments:
+            client_name (str): Name of the FlyBrainLab client.
+            client (obj): A FlyBrainLab client object.
+            client_widgets (list): A list of strings corresponding to the names of the currently connected client widgets. Defaults to empty list.
+        """
+        new_client = {}
+        new_client['name'] = client_name
+        new_client['client'] = client
+        new_client['widgets'] = client_widgets
+        self.clients.append(new_client)
+
+    def delete_client(self, client_name):
+        """Delete a client from the MetaClient.
+
+        # Arguments:
+            client_name (str): Name of the FlyBrainLab client.
+        """
+        if client_name in list(self.clients.keys()):
+            del self.clients[client_name]
+
+
+    def add_widget(self, client_name, widget_name):
+        """Add a widget to a client in the MetaClient.
+
+        # Arguments:
+            client_name (str): Name of the FlyBrainLab client.
+            widget_name (str): Name of the new NeuroMynerva widget.
+        """
+        if client_name in self.client_names:
+            self.clients[client_name]['widgets'].append(widget_name)
+
+    def delete_widget(self, client_name, widget_name):
+        """Delete a widget to a client in the MetaClient.
+
+        # Arguments:
+            client_name (str): Name of the FlyBrainLab client.
+            widget_name (str): Name of the new NeuroMynerva widget.
+        """
+        if client_name in self.client_names:
+            if widget_name in self.clients[client_name]['widgets']:
+                idx = self.clients[client_name]['widgets'].index(widget_name)
+                del self.clients[client_name]['widgets'][idx]
+
+    def get_client(self, client_name)
+        """Delete a widget to a client in the MetaClient.
+
+        # Arguments:
+            client_name (str): Name of the FlyBrainLab client.
+
+        # Returns:
+            obj: The associated FlyBrainLab client.
+        """
+        return self.clients[client_name]['client']
+
+
 class Client:
     """FlyBrainLab Client class. This class communicates with JupyterLab frontend and connects to FFBO components.
 
@@ -107,8 +186,8 @@ class Client:
         except:
             pass
 
-    def __init__(self, ssl = True, debug = True, authentication = True, user = 'guest', secret = 'guestpass', url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None, legacy = False):
-        """Initialization function for the ffbolabClient class.
+    def __init__(self, ssl = True, debug = True, authentication = True, user = 'guest', secret = 'guestpass', custom_salt=None, url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None, legacy = False):
+        """Initialization function for the FBL Client class.
 
         # Arguments:
             ssl (bool): Whether the FFBO server uses SSL.
@@ -120,14 +199,14 @@ class Client:
             realm (str): Realm to be connected to.
             ca_cert_file (str): Path to the certificate for establishing connection.
             intermediate_cert_file (str): Path to the intermediate certificate for establishing connection.
-            FFBOLabcomm (obj) Communications object for the frontend.
+            FFBOLabcomm (obj): Communications object for the frontend.
         """
         if os.path.exists(os.path.join(home, '.ffbolab', 'lib')):
             print(printHeader('FFBOLab Client') + "Downloading the latest certificates.")
             # CertificateDownloader = urllib.URLopener()
-            # if not os.path.exists(os.path.join(home, '.ffbolab', 'config', 'FBLClient.ini')):
-            #     urlRetriever("https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
-            #                       os.path.join(home, '.ffbolab', 'config','FBLClient.ini'))
+            if not os.path.exists(os.path.join(home, '.ffbolab', 'config', 'FBLClient.ini')):
+                urlRetriever("https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
+                                  os.path.join(home, '.ffbolab', 'config','FBLClient.ini'))
             urlRetriever("https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
                               os.path.join(home, '.ffbolab', 'lib','caCertFile.pem'))
             urlRetriever("https://data.flybrainlab.fruitflybrain.org/lib/letsencryptauthorityx3.pem",
@@ -256,6 +335,11 @@ class Client:
             FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user, ssl=ssl_con) # Initialize the communication right now!
         else:
             FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user)
+
+        setProtocolOptions(FFBOLABClient._async_session._transport,
+                           maxFramePayloadSize = 0,
+                           maxMessagePayloadSize = 0,
+                           autoFragmentSize = 65536)
 
         @FFBOLABClient.subscribe('ffbo.server.update.' + str(FFBOLABClient._async_session._session_id))
         def updateServers(data):
@@ -529,7 +613,7 @@ class Client:
             self.sendSVG(query[5:])
         else:
             # if self.legacy == False:
-            uri = 'ffbo.nlp.query.' + self.nlpServerID
+            uri = 'ffbo.nlp.query.{}'.format(self.nlpServerID)
             queryID = guidGenerator()
             try:
                 resNA = self.client.session.call(uri , query, language)
@@ -607,9 +691,9 @@ class Client:
         if isinstance(res, str):
             res = json.loads(res)
         if uri == None:
-            uri = 'ffbo.na.query.' + self.naServerID
+            uri = 'ffbo.na.query.{}'.format(self.naServerID)
             if "uri" in res.keys():
-                uri = res["uri"] + "." + self.naServerID
+                uri = "{}.{}".format(res["uri"], self.naServerID)
         if queryID == None:
             queryID = guidGenerator()
         # del self.data # Reset the data in the backend
@@ -1768,6 +1852,117 @@ class Client:
                             if state in updated_node_data:
                                 res['data']['LPU'][lpu]['nodes'][node][state_names[state_idx]] = updated_node_data[state]
         return res
+
+
+def setProtocolOptions(transport,
+                       version=None,
+                       utf8validateIncoming=None,
+                       acceptMaskedServerFrames=None,
+                       maskClientFrames=None,
+                       applyMask=None,
+                       maxFramePayloadSize=None,
+                       maxMessagePayloadSize=None,
+                       autoFragmentSize=None,
+                       failByDrop=None,
+                       echoCloseCodeReason=None,
+                       serverConnectionDropTimeout=None,
+                       openHandshakeTimeout=None,
+                       closeHandshakeTimeout=None,
+                       tcpNoDelay=None,
+                       perMessageCompressionOffers=None,
+                       perMessageCompressionAccept=None,
+                       autoPingInterval=None,
+                       autoPingTimeout=None,
+                       autoPingSize=None):
+    """ from autobahn.websocket.protocol.WebSocketClientFactory.setProtocolOptions """
+    transport.factory.setProtocolOptions(
+            version = version,
+            utf8validateIncoming = utf8validateIncoming,
+            acceptMaskedServerFrames = acceptMaskedServerFrames,
+            maskClientFrames = maskClientFrames,
+            applyMask = applyMask,
+            maxFramePayloadSize = maxFramePayloadSize,
+            maxMessagePayloadSize = maxMessagePayloadSize,
+            autoFragmentSize = autoFragmentSize,
+            failByDrop = failByDrop,
+            echoCloseCodeReason = echoCloseCodeReason,
+            serverConnectionDropTimeout = serverConnectionDropTimeout,
+            openHandshakeTimeout = openHandshakeTimeout,
+            closeHandshakeTimeout = closeHandshakeTimeout,
+            tcpNoDelay = tcpNoDelay,
+            perMessageCompressionOffers = perMessageCompressionOffers,
+            perMessageCompressionAccept = perMessageCompressionAccept,
+            autoPingInterval = autoPingInterval,
+            autoPingTimeout = autoPingTimeout,
+            autoPingSize = autoPingSize)
+
+    if version is not None:
+        if version not in WebSocketProtocol.SUPPORTED_SPEC_VERSIONS:
+            raise Exception("invalid WebSocket draft version %s (allowed values: %s)" % (version, str(WebSocketProtocol.SUPPORTED_SPEC_VERSIONS)))
+        if version != transport.version:
+            transport.version = version
+
+    if utf8validateIncoming is not None and utf8validateIncoming != transport.utf8validateIncoming:
+        transport.utf8validateIncoming = utf8validateIncoming
+
+    if acceptMaskedServerFrames is not None and acceptMaskedServerFrames != transport.acceptMaskedServerFrames:
+        transport.acceptMaskedServerFrames = acceptMaskedServerFrames
+
+    if maskClientFrames is not None and maskClientFrames != transport.maskClientFrames:
+        transport.maskClientFrames = maskClientFrames
+
+    if applyMask is not None and applyMask != transport.applyMask:
+        transport.applyMask = applyMask
+
+    if maxFramePayloadSize is not None and maxFramePayloadSize != transport.maxFramePayloadSize:
+        transport.maxFramePayloadSize = maxFramePayloadSize
+
+    if maxMessagePayloadSize is not None and maxMessagePayloadSize != transport.maxMessagePayloadSize:
+        transport.maxMessagePayloadSize = maxMessagePayloadSize
+
+    if autoFragmentSize is not None and autoFragmentSize != transport.autoFragmentSize:
+        transport.autoFragmentSize = autoFragmentSize
+
+    if failByDrop is not None and failByDrop != transport.failByDrop:
+        transport.failByDrop = failByDrop
+
+    if echoCloseCodeReason is not None and echoCloseCodeReason != transport.echoCloseCodeReason:
+        transport.echoCloseCodeReason = echoCloseCodeReason
+
+    if serverConnectionDropTimeout is not None and serverConnectionDropTimeout != transport.serverConnectionDropTimeout:
+        transport.serverConnectionDropTimeout = serverConnectionDropTimeout
+
+    if openHandshakeTimeout is not None and openHandshakeTimeout != transport.openHandshakeTimeout:
+        transport.openHandshakeTimeout = openHandshakeTimeout
+
+    if closeHandshakeTimeout is not None and closeHandshakeTimeout != transport.closeHandshakeTimeout:
+        transport.closeHandshakeTimeout = closeHandshakeTimeout
+
+    if tcpNoDelay is not None and tcpNoDelay != transport.tcpNoDelay:
+        transport.tcpNoDelay = tcpNoDelay
+
+    if perMessageCompressionOffers is not None and pickle.dumps(perMessageCompressionOffers) != pickle.dumps(transport.perMessageCompressionOffers):
+        if type(perMessageCompressionOffers) == list:
+            #
+            # FIXME: more rigorous verification of passed argument
+            #
+            transport.perMessageCompressionOffers = copy.deepcopy(perMessageCompressionOffers)
+        else:
+            raise Exception("invalid type %s for perMessageCompressionOffers - expected list" % type(perMessageCompressionOffers))
+
+    if perMessageCompressionAccept is not None and perMessageCompressionAccept != transport.perMessageCompressionAccept:
+        transport.perMessageCompressionAccept = perMessageCompressionAccept
+
+    if autoPingInterval is not None and autoPingInterval != transport.autoPingInterval:
+        transport.autoPingInterval = autoPingInterval
+
+    if autoPingTimeout is not None and autoPingTimeout != transport.autoPingTimeout:
+        transport.autoPingTimeout = autoPingTimeout
+
+    if autoPingSize is not None and autoPingSize != transport.autoPingSize:
+        assert(type(autoPingSize) == float or type(autoPingSize) == int)
+        assert(4 <= autoPingSize <= 125)
+        transport.autoPingSize = autoPingSize
 
 
 import importlib
