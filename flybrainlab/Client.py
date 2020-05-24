@@ -202,7 +202,7 @@ class Client:
         if os.path.exists(os.path.join(home, '.ffbolab', 'lib')):
             print(printHeader('FFBOLab Client') + "Downloading the latest certificates.")
             # CertificateDownloader = urllib.URLopener()
-            if not os.path.exists(os.path.join(home, '.ffbolab', 'config', 'FBLClient.ini')):  
+            if not os.path.exists(os.path.join(home, '.ffbolab', 'config', 'FBLClient.ini')):
                 urlRetriever("https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
                                   os.path.join(home, '.ffbolab', 'config','FBLClient.ini'))
             urlRetriever("https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
@@ -577,7 +577,7 @@ class Client:
             self.sendSVG(query[5:])
         else:
             # if self.legacy == False:
-            uri = 'ffbo.nlp.query.' + self.nlpServerID
+            uri = 'ffbo.nlp.query.{}'.format(self.nlpServerID)
             queryID = guidGenerator()
             try:
                 resNA = self.client.session.call(uri , query, language)
@@ -655,9 +655,9 @@ class Client:
         if isinstance(res, str):
             res = json.loads(res)
         if uri == None:
-            uri = 'ffbo.na.query.' + self.naServerID
+            uri = 'ffbo.na.query.{}'.format(self.naServerID)
             if "uri" in res.keys():
-                uri = res["uri"] + "." + self.naServerID
+                uri = "{}.{}".format(res["uri"], self.naServerID)
         if queryID == None:
             queryID = guidGenerator()
         # del self.data # Reset the data in the backend
@@ -953,13 +953,13 @@ class Client:
         else:
             res = self.client.session.call('ffbo.gfx.startExecution', {'name': circuitName, 'dt': dt, 'tmax': tmax})
         return True
-        
+
     def getConnectivityMatrix(self):
         M = np.zeros((len(self.out_nodes),len(self.out_nodes)))
         for i in self.out_edges:
             M[self.out_nodes.index(i[0]),self.out_nodes.index(i[1])] += 1
         return M
-        
+
     def prepareCircuit(self, model = "auto"):
         """Prepares the current circuit for the Neuroballad format.
         """
@@ -1003,7 +1003,7 @@ class Client:
                                 if 'uname' in data['data']['data'][key].keys():
                                     hashids.append(key)
                                     names.append(data['data']['data'][key]['uname'])
-        
+
 
         for i in range(len(hashids)):
             res = self.getInfo(hashids[i])
@@ -1433,7 +1433,7 @@ class Client:
             b = A[:,1]
             keys.append(key)
             bs.append(b)
-            
+
         B = np.array(bs)
         print('Shape of Results:', B.shape)
         return B, keys
@@ -1655,7 +1655,7 @@ class Client:
                     "server": self.naServerID}
 
         res = self.client.session.call('ffbo.processor.neuroarch_query', inp)
-        
+
 
         inp = {"query":[
                         {"action":{"method":{"has":{}}},"object":{"state":0}}
@@ -1664,7 +1664,7 @@ class Client:
                     "user": self.client._async_session._session_id,
                     "server": self.naServerID}
 
-        
+
 
         res = self.client.session.call('ffbo.processor.neuroarch_query', inp)
         print(res)
@@ -1737,7 +1737,7 @@ class Client:
         msg = {'neuron_list': labels,
                 "user": self.client._async_session._session_id,
                 "servers": {'na': self.naServerID, 'nk': list(res['nk'].keys())[0]}}
-            
+
         if len(inputProcessors)>0:
             msg['inputProcessors'] = inputProcessors
         if dt is not None:
@@ -1754,7 +1754,7 @@ class Client:
                             on_progress=partial(on_progress, res=res_list), timeout = 30000000000
                         ))
         print('Execution request sent. Please wait.')
-    
+
 
     def export_diagram_config(self, res):
         """Exports a diagram configuration from Neuroarch data to GFX.
@@ -1830,5 +1830,3 @@ for i in LPU_list:
 
 
 ffbolabClient = Client
-
-
