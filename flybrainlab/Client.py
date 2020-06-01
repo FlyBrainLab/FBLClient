@@ -152,7 +152,7 @@ class MetaClient:
                 idx = self.clients[client_name]['widgets'].index(widget_name)
                 del self.clients[client_name]['widgets'][idx]
 
-    def get_client(self, client_name)
+    def get_client(self, client_name):
         """Delete a widget to a client in the MetaClient.
 
         # Arguments:
