@@ -34,62 +34,6 @@ import importlib
 from time import gmtime, strftime
 import warnings
 
-try:
-    from ipykernel.comm import Comm
-    from collections import OrderedDict
-    import dataclasses
-    if 'Widget' not in globals():
-        @dataclasses.dataclass
-        class Widget:
-            widget_type: str # neu3d, neugfx, etc.
-            comm: Comm
-            widget_id: str
-            model: 'typing.Any'
-            msg_data: 'typing.Any'
-            isDisposed: bool = False
-    
-    if 'WidgetManager' not in globals():
-        class WidgetManager(object):
-            def __init__(self):
-                self._comms = OrderedDict()
-                self.widgets = OrderedDict()
-        
-            def add_comm(self, widget_id, widget_type, comm_target):
-                comm = Comm(target_name=comm_target)
-                self._comms[widget_id] = comm
-                self.widgets[widget_id] = Widget(
-                    widget_type=widget_type,
-                    widget_id=widget_id,
-                    model=None,
-                    comm=comm,
-                    isDisposed=False,
-                    msg_data=None
-                )
-        
-                @comm.on_msg
-                def handle_msg(msg):
-                    comm_id = msg['content']['comm_id']
-                    data = msg['content']['data']
-                    nonlocal self
-                    widget_id = [w_id for w_id,w in self.widgets.items() if w.comm.comm_id==comm_id]
-                    if len(widget_id) != 1: # should be unique
-                        return
-                    self.widgets[widget_id].msg_data = data
-                    if data == 'dispose':
-                        self.widgets[widget_id].isDisposed = True
-        
-            def send_data(self, widget_id, data):
-                self.widgets[widget_id].comm.send(data)
-    
-    if 'fbl_widget_manager' not in globals():
-        fbl_widget_manager = WidgetManager()
-    
-    if '${this.id}' not in fbl_widget_manager.widgets:
-        fbl_widget_manager.add_comm('${this.id}', '${this.constructor.name}', '${this._commTarget}')
-    fbl_widget_manager.send_data('${this.id}', 'comm sent message')
-except:
-    warnings.warn("Could not load the widget manager modules for the frontend. Ignore this warning if using FlyBrainLab Client outside of a JupyterLab environment.")
-
 
 # import txaio
 # txaio.start_logging(level='info')
@@ -243,7 +187,10 @@ class Client:
         except:
             pass
 
-    def __init__(self, ssl = True, debug = True, authentication = True, user = 'guest', secret = 'guestpass', custom_salt=None, url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None, legacy = False, initialize_client=True):
+    def __init__(self, ssl = True, debug = True, authentication = True, user = 'guest', 
+        secret = 'guestpass', custom_salt=None, url = u'wss://neuronlp.fruitflybrain.org:7777/ws', 
+        realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem',
+        FFBOLabcomm = None, legacy = False, initialize_client=True):
         """Initialization function for the FBL Client class.
 
         # Arguments:
