@@ -10,7 +10,8 @@ install_requires=[
       'autobahn_sync',
       'jupyter',
       'seaborn',
-      'requests'
+      'requests',
+      'dataclasses'
 ]
 
 setup(name='FlyBrainLab',
