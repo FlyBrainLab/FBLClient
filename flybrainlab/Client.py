@@ -2001,7 +2001,8 @@ for i in LPU_list:
         sim_func = getattr(module, 'sim')
         sim_func({'hello': 'world'})
     except:
-        print('Failed to load LPU {}.'.format(i))
+        # print('Failed to load LPU {}.'.format(i))
+        pass
 
 
 ffbolabClient = Client
