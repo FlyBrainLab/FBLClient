@@ -2,17 +2,19 @@ from ipykernel.comm import Comm
 from collections import OrderedDict
 import dataclasses
 
+
 @dataclasses.dataclass
 class Widget:
-    '''Widget instance
+    """Widget instance
 
     Keeps track of all the information regarding a widget
-    '''
-    widget_type: str # neu3d, neugfx, etc.
+    """
+
+    widget_type: str  # neu3d, neugfx, etc.
     comm: Comm
     widget_id: str
-    model: 'typing.Any'
-    msg_data: 'typing.Any'
+    model: "typing.Any"
+    msg_data: "typing.Any"
     isDisposed: bool = False
     commOpen: bool = True
 
@@ -20,24 +22,26 @@ class Widget:
         if self.comm:
             self.comm.send(data)
 
+
 class WidgetManager(object):
-    '''Widget Manager
+    """Widget Manager
     Keeps track of all widgets associated with the current FBLClient session
 
     # Attributes
         widgets (dict): a dictionary of instances of Widget
         _comms (dict): all comm objects opend for this client
-    '''
+    """
+
     def __init__(self):
         self._comms = OrderedDict()
         self.widgets = OrderedDict()
 
     def add_widget(self, widget_id, widget_type, comm_target):
-        '''Add a widget to manager
+        """Add a widget to manager
         
         # Return:
             
-        '''
+        """
         # create comm if does not exist
         comm = self.find_comm(comm_target=comm_target)
         if not comm:
@@ -46,18 +50,18 @@ class WidgetManager(object):
 
             @comm.on_msg
             def handle_msg(msg):
-                comm_id = msg['content']['comm_id']
-                data = msg['content']['data']
+                comm_id = msg["content"]["comm_id"]
+                data = msg["content"]["data"]
                 nonlocal self
                 widget = self.find_widget_by_comm_id(comm_id)
 
                 widget.msg_data = data
-                if data == 'dispose':
+                if data == "dispose":
                     widget.isDisposed = True
-            
+
             @comm.on_close
             def handle_close(msg):
-                comm_id = msg['content']['comm_id']
+                comm_id = msg["content"]["comm_id"]
                 nonlocal self
                 widget = self.find_widget_by_comm_id(comm_id)
                 widget.commOpen = False
@@ -69,12 +73,12 @@ class WidgetManager(object):
                 model=None,
                 comm=comm,
                 isDisposed=False,
-                msg_data=None
+                msg_data=None,
             )
 
     def find_comm(self, comm_id=None, comm_target=None):
-        '''Find a comm object either by id or by target name
-        '''
+        """Find a comm object either by id or by target name
+        """
         if comm_id:
             comm = [c for c in self._comms.values() if c.comm_id == comm_id]
         elif comm_target:

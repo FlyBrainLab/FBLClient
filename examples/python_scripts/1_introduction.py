@@ -6,13 +6,14 @@
 # A Client object is generated for each.
 
 # You can address the two clients independently as follows:
-client_adult = nm[0] # This is the adult client
-client_larva = nm[1] # This is the larva client
+client_adult = nm[0]  # This is the adult client
+client_larva = nm[1]  # This is the larva client
 # Execute an NLP query directly:
-nm[0].executeNLPquery('show neurons in the ellipsoid body')
+nm[0].executeNLPquery("show neurons in the ellipsoid body")
 # Auto-completion in JupyterLab will be helpful.
 # Sometimes you may need to import FBL directly:
 import flybrainlab as fbl
+
 # And create a new client:
 my_client = fbl.Client()
 # You can write scripts to override the default client:
