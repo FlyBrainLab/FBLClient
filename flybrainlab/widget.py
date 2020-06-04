@@ -5,9 +5,7 @@ import dataclasses
 
 @dataclasses.dataclass
 class Widget:
-    """Widget instance
-
-    Keeps track of all the information regarding a widget
+    """Widget class that keeps track of all the information regarding a widget.
     """
 
     widget_type: str  # neu3d, neugfx, etc.
@@ -22,29 +20,82 @@ class Widget:
         if self.comm:
             self.comm.send(data)
 
+class CallbackManager:
+    """Callback manager class that stores a number of callbacks that try to access messages sent from frontend to the Python kernel.
 
+    # Example:
+        # Start by creating a Neu3D widget in the frontend, then execute this code in a Jupyter notebook running the same kernel.
+        my_data = []
+        def process_data(data): # Example callback function
+            if 'hello' in data:
+                my_data.append(data)
+        fbl.widget_manager.callback_manager.reset() # Remove old callbacks
+        fbl.widget_manager.callback_manager.add(process_data)
+        print(fbl.widget_manager.widgets)
+        # in JS, execute:
+        # window.neu3d_widget.comm.send('hello world')
+        # window.neu3d_widget.comm.send('my world')
+        print(my_data) # returns ['hello world']
+
+    # Attributes:
+        callbacks (list): A list of functions.
+
+    """
+    def __init__(self):
+        """Initializer function for the callback manager.
+        
+        # Returns:
+            
+        """
+        self.callbacks = []
+
+    def reset(self):
+        """Removes existing callbacks.
+        
+        # Returns:
+            
+        """
+        self.callbacks = []
+
+    def add(self, func):
+        """Add a function to the callback manager.
+        
+        # Returns:
+            
+        """
+        self.callbacks.append(func)
+
+    def run(self, comm_id, data):
+        """Executes the stored callbacks one by one. Automatically called by WidgetManager.
+        
+        # Returns:
+            
+        """
+        for func in self.callbacks:
+            func(data)
+
+    
 class WidgetManager(object):
-    """Widget Manager
-    Keeps track of all widgets associated with the current FBLClient session
+    """Widget Manager class that keeps track of all widgets associated with the current FBLClient session.
 
-    # Attributes
-        widgets (dict): a dictionary of instances of Widget
-        _comms (dict): all comm objects opend for this client
+    # Attributes:
+        widgets (dict): a dictionary of instances of Widget.
+        _comms (dict): all comm objects opend for this client.
     """
 
     def __init__(self):
         self._comms = OrderedDict()
         self.widgets = OrderedDict()
+        self.callback_manager = CallbackManager()
 
     def add_widget(self, widget_id, widget_type, comm_target):
-        """Add a widget to manager
+        """Add a widget to manager.
         
-        # Return:
+        # Returns:
             
         """
-        # create comm if does not exist
-        comm = self.find_comm(comm_target=comm_target)
-        if not comm:
+        comm = self.find_comm(comm_target=comm_target) # Try to find a comm object
+        if not comm: # Create comm if does not exist
             comm = Comm(target_name=comm_target)
             self._comms[widget_id] = comm
 
@@ -58,6 +109,7 @@ class WidgetManager(object):
                 widget.msg_data = data
                 if data == "dispose":
                     widget.isDisposed = True
+                self.callback_manager.run(comm_id, data)
 
             @comm.on_close
             def handle_close(msg):
