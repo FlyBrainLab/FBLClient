@@ -31,6 +31,10 @@ class CallbackManager:
                 my_data.append(data)
         fbl.widget_manager.callback_manager.reset() # Remove old callbacks
         fbl.widget_manager.callback_manager.add(process_data)
+        # fbl.widget_manager.callback_manager.add(process_data, "69409cc87c344c9db06654848821b58a") # If you want a specific comm id, give it as the second argument
+        # The comm id corresponds to _id attribute of the CommHandler in the frontend, or to one of
+        # print([i.comm.comm_id for i in fbl.widget_manager.widgets.values()])
+        # in the backend.
         print(fbl.widget_manager.widgets)
         # in JS, execute:
         # window.neu3d_widget.comm.send('hello world')
@@ -47,7 +51,8 @@ class CallbackManager:
         # Returns:
             
         """
-        self.callbacks = []
+        self.callbacks = {}
+        self.global_callbacks = []
 
     def reset(self):
         """Removes existing callbacks.
@@ -55,15 +60,22 @@ class CallbackManager:
         # Returns:
             
         """
-        self.callbacks = []
+        self.global_callbacks = []
+        self.callbacks = {}
 
-    def add(self, func):
+    def add(self, func, comm_id  = None):
         """Add a function to the callback manager.
         
         # Returns:
             
         """
-        self.callbacks.append(func)
+        if comm_id is None:
+            self.global_callbacks.append(func)
+        else:
+            if comm_id not in self.callbacks:
+                self.callbacks[comm_id] = []
+            self.callbacks[comm_id].append(func)
+            
 
     def run(self, comm_id, data):
         """Executes the stored callbacks one by one. Automatically called by WidgetManager.
@@ -71,7 +83,10 @@ class CallbackManager:
         # Returns:
             
         """
-        for func in self.callbacks:
+        if comm_id in self.callbacks:
+            for func in self.callbacks[comm_id]:
+                func(data)
+        for func in self.global_callbacks:
             func(data)
 
     
