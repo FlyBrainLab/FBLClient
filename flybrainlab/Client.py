@@ -109,7 +109,7 @@ class MetaClient:
         # Arguments:
             initializer (list): A list of dictionaries with initialization data for connections.
         """
-        self.clients = []
+        self.clients = {}
         if initializer is not None:
             for i in list(initializer.keys()):
                 self.clients[i] = initializer[i]
@@ -123,10 +123,9 @@ class MetaClient:
             client_widgets (list): A list of strings corresponding to the names of the currently connected client widgets. Defaults to empty list.
         """
         new_client = {}
-        new_client["name"] = client_name
         new_client["client"] = client
         new_client["widgets"] = client_widgets
-        self.clients.append(new_client)
+        self.clients[new_client] = new_client
 
     def delete_client(self, client_name):
         """Delete a client from the MetaClient.
@@ -144,7 +143,7 @@ class MetaClient:
             client_name (str): Name of the FlyBrainLab client.
             widget_name (str): Name of the new NeuroMynerva widget.
         """
-        if client_name in self.client_names:
+        if client_name in self.clients:
             self.clients[client_name]["widgets"].append(widget_name)
 
     def delete_widget(self, client_name, widget_name):
@@ -154,7 +153,7 @@ class MetaClient:
             client_name (str): Name of the FlyBrainLab client.
             widget_name (str): Name of the new NeuroMynerva widget.
         """
-        if client_name in self.client_names:
+        if client_name in self.clients:
             if widget_name in self.clients[client_name]["widgets"]:
                 idx = self.clients[client_name]["widgets"].index(widget_name)
                 del self.clients[client_name]["widgets"][idx]
