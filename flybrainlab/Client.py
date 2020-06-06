@@ -125,7 +125,7 @@ class MetaClient:
         new_client = {}
         new_client["client"] = client
         new_client["widgets"] = client_widgets
-        self.clients[new_client] = new_client
+        self.clients[client_name] = new_client
 
     def delete_client(self, client_name):
         """Delete a client from the MetaClient.
