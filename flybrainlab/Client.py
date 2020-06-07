@@ -219,7 +219,8 @@ class Client:
         FFBOLabcomm=None,
         legacy=False,
         initialize_client=True,
-        name = None
+        name = None,
+        default_key = True,
     ):
         """Initialization function for the FBL Client class.
 
@@ -234,6 +235,10 @@ class Client:
             ca_cert_file (str): Path to the certificate for establishing connection.
             intermediate_cert_file (str): Path to the intermediate certificate for establishing connection.
             FFBOLabcomm (obj): Communications object for the frontend.
+            legacy (bool): Whether the server uses the old FFBO server standard or not. Should be False for most cases. Defaults to False.
+            initialize_client (bool): Whether to connect to the database or not. Defaults to True.
+            name (str): Name for the client. String. Defaults to None.
+            default_key (bool): Whether to use a default key during connections. Defaults to True. Recommended for new users.
         """
         self.name = name
         if os.path.exists(os.path.join(home, ".ffbolab", "lib")):
@@ -318,10 +323,10 @@ class Client:
         certs = OpenSSLCertificateAuthorities([ca_cert, intermediate_cert])
         ssl_con = CertificateOptions(trustRoot=certs)
         if initialize_client:
-            self.init_client(ssl, user, secret, custom_salt, url, ssl_con, legacy)
+            self.init_client(ssl, user, secret, custom_salt, url, ssl_con, legacy, default_key)
             self.findServerIDs()  # Get current server IDs
 
-    def init_client(self, ssl, user, secret, custom_salt, url, ssl_con, legacy):
+    def init_client(self, ssl, user, secret, custom_salt, url, ssl_con, legacy, default_key):
         FFBOLABClient = AutobahnSync()
 
         @FFBOLABClient.on_challenge
@@ -354,7 +359,7 @@ class Client:
                             challenge.extra["keylen"],
                         )
                         print(salted_key.decode("utf-8"))
-                    if user == "guest":
+                    if user == "guest" and default_key:
                         # A plain, unsalted secret for the guest account
                         salted_key = u"C5/c598Gme4oALjmdhVC2H25OQPK0M2/tu8yrHpyghA="
 
@@ -372,7 +377,7 @@ class Client:
                 url=url, authmethods=[u"wampcra"], authid=user, ssl=ssl_con
             )  # Initialize the communication right now!
         else:
-            FFBOLABClient.run(url=url, authmethods=[u"wampcra"], authid=user, ssl=False)
+            FFBOLABClient.run(url=url, authmethods=[u"wampcra"], authid=user, ssl=None)
 
         setProtocolOptions(
             FFBOLABClient._async_session._transport,
