@@ -110,6 +110,7 @@ class MetaClient:
             initializer (list): A list of dictionaries with initialization data for connections.
         """
         self.clients = {}
+        self.latest_client = None # latest active client
         if initializer is not None:
             for i in list(initializer.keys()):
                 self.clients[i] = initializer[i]
@@ -159,7 +160,7 @@ class MetaClient:
                 del self.clients[client_name]["widgets"][idx]
 
     def get_client(self, client_name):
-        """Delete a widget to a client in the MetaClient.
+        """Get a client in the MetaClient by name.
 
         # Arguments:
             client_name (str): Name of the FlyBrainLab client.
@@ -168,6 +169,16 @@ class MetaClient:
             obj: The associated FlyBrainLab client.
         """
         return self.clients[client_name]["client"]
+
+class MetaComm:
+    def __init__(self, name, manager):
+        self.name = name
+        self.manager = manager
+
+    
+    def send(self, data=None):
+        for widget_name in self.manager.client_manager.clients[self.name]['widgets']:
+            self.manager.widget_manager.widgets[widget_name].comm.send(data=data)
 
 
 class Client:
@@ -208,6 +219,7 @@ class Client:
         FFBOLabcomm=None,
         legacy=False,
         initialize_client=True,
+        name = None
     ):
         """Initialization function for the FBL Client class.
 
@@ -223,6 +235,7 @@ class Client:
             intermediate_cert_file (str): Path to the intermediate certificate for establishing connection.
             FFBOLabcomm (obj): Communications object for the frontend.
         """
+        self.name = name
         if os.path.exists(os.path.join(home, ".ffbolab", "lib")):
             print(
                 printHeader("FFBOLab Client") + "Downloading the latest certificates."

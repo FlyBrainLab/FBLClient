@@ -9,12 +9,14 @@ class Widget:
     """
 
     widget_type: str  # neu3d, neugfx, etc.
-    comm: Comm
     widget_id: str
+    client_id: str
     model: "typing.Any"
+    comm: Comm
     msg_data: "typing.Any"
     isDisposed: bool = False
     commOpen: bool = True
+    
 
     def send_data(self, data):
         if self.comm:
@@ -103,7 +105,7 @@ class WidgetManager(object):
         self.widgets = OrderedDict()
         self.callback_manager = CallbackManager()
 
-    def add_widget(self, widget_id, widget_type, comm_target):
+    def add_widget(self, widget_id, client_id, widget_type, comm_target):
         """Add a widget to manager.
         
         # Returns:
@@ -137,6 +139,7 @@ class WidgetManager(object):
             self.widgets[widget_id] = Widget(
                 widget_type=widget_type,
                 widget_id=widget_id,
+                client_id = client_id,
                 model=None,
                 comm=comm,
                 isDisposed=False,
@@ -167,3 +170,5 @@ class WidgetManager(object):
     def send_data(self, widget_id, data):
         if widget_id in self.widgets:
             self.widgets[widget_id].send_data(data)
+
+
