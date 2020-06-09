@@ -170,6 +170,38 @@ class MetaClient:
         """
         return self.clients[client_name]["client"]
 
+    def update_client_names(self):
+        """Update all client names with naming scheme from the frontend. Used for synchronization.
+        """
+        for i in self.clients:
+            self.clients[i]['client'].name = i
+            self.clients[i]['client'].widgets = self.clients[i]['widgets']
+
+    def get_client_info(self):
+        """Receives client data.
+
+        # Example:
+            fbl.client_manager.get_client_info()
+            cl = fbl.client_manager.clients['client-Neu3D-1-473e4837-8b1d-440a-a361-172507db1b38']['client']
+            cl.get_client_info()
+
+        # Arguments:
+            client_name (str): Name of the FlyBrainLab client.
+
+        # Returns:
+            obj: The associated FlyBrainLab client.
+        """
+        self.update_client_names()
+        res = {}
+        for i in self.clients:
+            client = self.clients[i]
+            client_data = {}
+            client_data['widgets'] = client['widgets']
+            client_data['name'] = i
+            client_data['species'] = client['client'].species
+            res[client['client'].name] = client_data
+        return res
+
 class MetaComm:
     def __init__(self, name, manager):
         self.name = name
@@ -221,6 +253,8 @@ class Client:
         initialize_client=True,
         name = None,
         default_key = True,
+        species = '',
+        widgets = []
     ):
         """Initialization function for the FBL Client class.
 
@@ -239,8 +273,13 @@ class Client:
             initialize_client (bool): Whether to connect to the database or not. Defaults to True.
             name (str): Name for the client. String. Defaults to None.
             default_key (bool): Whether to use a default key during connections. Defaults to True. Recommended for new users.
+            species (str): Name of the species to use for client information. Defaults to ''.
+            widgets (list): List of widgets associated with this client. Optional.
         """
         self.name = name
+        self.species = species
+        self.url = url
+        self.widgets = widgets
         if os.path.exists(os.path.join(home, ".ffbolab", "lib")):
             print(
                 printHeader("FFBOLab Client") + "Downloading the latest certificates."
@@ -711,6 +750,37 @@ class Client:
                     self.naServerID = i
         for i in res["nlp"]:
             self.nlpServerID = i
+
+
+    def get_client_info(self, fbl=None):
+        """Receive client data for this client only.
+
+        # Arguments:
+            fbl (Object): MetaClient object. Optional. Gives us.
+
+        # Returns:
+            dict: dict of dicts with client name as key and widgets, name and species as keys of the value.
+        """
+        if fbl is None:
+            res = {}
+            client_data = {}
+            client_data['widgets'] = self.widgets
+            client_data['name'] = self.name
+            client_data['species'] = self.species
+            res[self.name] = client_data
+            return res
+        else:
+            fbl.client_manager.update_client_names()
+            res = {}
+            for i in fbl.client_manager.clients:
+                client = fbl.client_manager.clients[i]
+                client_data = {}
+                client_data['widgets'] = client['widgets']
+                client_data['name'] = i
+                client_data['species'] = client['client'].species
+                res[client['client'].name] = client_data
+            return res
+
 
     def executeNLPquery(
         self, query=None, language="en", uri=None, queryID=None, returnNAOutput=False
