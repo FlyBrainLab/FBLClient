@@ -40,6 +40,7 @@ from neurokernel.LPU.LPU import LPU
 
 import importlib
 import inspect
+from .utils import setProtocolOptions
 
 from retina.InputProcessors.RetinaInputIndividual import RetinaInputIndividual
 from neurokernel.LPU.OutputProcessors.FileOutputProcessor import FileOutputProcessor
@@ -590,6 +591,11 @@ class ffbolabComponent:
             FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user, ssl=ssl_con)
         else:
             FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user)
+
+        setProtocolOptions(FFBOLABClient._async_session._transport,
+                           maxFramePayloadSize = 0,
+                           maxMessagePayloadSize = 0,
+                           autoFragmentSize = 65536)
 
         self.client_data = []
         self.data = []
