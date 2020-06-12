@@ -40,7 +40,7 @@ from neurokernel.LPU.LPU import LPU
 
 import importlib
 import inspect
-from .utils import setProtocolOptions
+from flybrainlab.utils import setProtocolOptions
 
 from retina.InputProcessors.RetinaInputIndividual import RetinaInputIndividual
 from neurokernel.LPU.OutputProcessors.FileOutputProcessor import FileOutputProcessor

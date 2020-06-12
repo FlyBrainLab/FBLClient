@@ -1,4 +1,4 @@
-from NeurokernelComponent import *
+from flybrainlab.NeurokernelComponent import *
 import time
 from configparser import ConfigParser
 
