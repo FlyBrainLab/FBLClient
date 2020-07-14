@@ -284,32 +284,36 @@ class neurokernel_server(object):
                 #        print('changed',uid)
                 #    if 'class' in comp:
 
-                if k == 'retina':
-                    if config['Retina']['intype'] == 'Natural':
-                        coord_file = config['InputType']['Natural']['coord_file']
-                        tmp = os.path.splitext(coord_file)
-                        config['InputType']['Natural']['coord_file'] = '{}_{}{}'.format(
-                                tmp[0], user_id, tmp[1])
-                    prs = [node for node in graph.nodes(data=True) \
-                           if node[1]['class'] == 'PhotoreceptorModel']
-                    for pr in prs:
-                        graph.node[pr[0]]['num_microvilli'] = 3000
-                    input_processors = [RetinaInputIndividual(config, prs, user_id)]
-                    extra_comps = [PhotoreceptorModel]
-                    retina_input_uids = [a[0] for a in prs]
-                # elif k == 'EB':
-                #     input_processor = StepInputProcessor('I', [node[0] for node in graph.nodes(data=True) \
-                #            if node[1]['class'] == 'LeakyIAF'], 40.0, 0.0, 1.0)
-                #     input_processors = [input_processor]
-                #     extra_comps = []#[BufferVoltage]
-                else:
-                    input_processors = []
-                    extra_comps = [BufferVoltage]
+                # if k == 'retina':
+                #     if config['Retina']['intype'] == 'Natural':
+                #         coord_file = config['InputType']['Natural']['coord_file']
+                #         tmp = os.path.splitext(coord_file)
+                #         config['InputType']['Natural']['coord_file'] = '{}_{}{}'.format(
+                #                 tmp[0], user_id, tmp[1])
+                #     prs = [node for node in graph.nodes(data=True) \
+                #            if node[1]['class'] == 'PhotoreceptorModel']
+                #     for pr in prs:
+                #         graph.node[pr[0]]['num_microvilli'] = 3000
+                #     input_processors = [RetinaInputIndividual(config, prs, user_id)]
+                #     extra_comps = [PhotoreceptorModel]
+                #     retina_input_uids = [a[0] for a in prs]
+                # # elif k == 'EB':
+                # #     input_processor = StepInputProcessor('I', [node[0] for node in graph.nodes(data=True) \
+                # #            if node[1]['class'] == 'LeakyIAF'], 40.0, 0.0, 1.0)
+                # #     input_processors = [input_processor]
+                # #     extra_comps = []#[BufferVoltage]
+                # else:
+                #     input_processors = []
+                #     extra_comps = [BufferVoltage]
                 if 'inputProcessors' in task:
                     if lpu_name in task['inputProcessors']:
                         input_processors, record = \
                             loadInputProcessors(task['inputProcessors'][lpu_name])
                         lpus[k]['input_record'] = record
+                    else:
+                        input_processors = []
+                else:
+                    input_processors = []
 
                 # configure output processors
                 lpus[k]['output_file'] = '{}_output_{}.h5'.format(k, user_id)
@@ -326,7 +330,7 @@ class neurokernel_server(object):
                 manager.add(LPU, k, dt, 'pickle', pickle.dumps(graph),#comp_dict, conns,
                             device = 0, input_processors = input_processors,
                             output_processors = output_processors,
-                            extra_comps = extra_comps, debug = False)
+                            extra_comps = [PhotoreceptorModel, BufferVoltage], debug = False)
 
             # connect LPUs by Patterns
             for k, pattern in patterns.items():

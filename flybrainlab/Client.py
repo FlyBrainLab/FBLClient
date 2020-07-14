@@ -21,6 +21,7 @@ from configparser import ConfigParser
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import sys
 import json
 import binascii
 import seaborn as sns
@@ -1769,7 +1770,7 @@ class Client:
 
 
         res = self.client.session.call('ffbo.processor.neuroarch_query', inp)
-        print(res)
+        # print(res)
         '''
         res_info = self.client.session.call(u'ffbo.processor.server_information')
         msg = {"user": self.client._async_session._session_id,
@@ -1837,6 +1838,8 @@ class Client:
         #                 labels.append(label)
 
         res = self.client.session.call(u'ffbo.processor.server_information')
+        if len(res['nk']) == 0:
+            raise RuntimeError('Neurokernel Server not found. If it halts, please restart it.')
         msg = {#'neuron_list': labels,
                 "user": self.client._async_session._session_id,
                 "name": name,
@@ -1860,6 +1863,62 @@ class Client:
                             on_progress=partial(on_progress, res=res_list), timeout = 30000000000
                         ))
         print('Execution request sent. Please wait.')
+
+    def updateSimResultLabel(self, result_name, label_dict):
+        result = self.exec_result[result_name]
+        input_keys = list(result['input'].keys())
+        for k in input_keys:
+            if k in label_dict:
+                result['input'][label_dict[k]] = result['input'].pop(k)
+        output_keys = list(result['output'].keys())
+        for k in output_keys:
+            if k in label_dict:
+                result['output'][label_dict[k]] = result['output'].pop(k)
+
+    def plotExecResult(self, result_name, inputs = None, outputs = None):
+        # inputs
+        res_input = self.exec_result[result_name]['input']
+        if inputs is None:
+            inputs = res_input.keys()
+            input_vars = list(set(sum([list(v.keys()) for k, v in res_input.items()],[])))
+        else:
+            input_vars = list(set(sum([list(v.keys()) for k, v in res_input.items() if k in inputs],[])))
+        if len(input_vars):
+            plt.figure(figsize=(22,10))
+            ax = {var: plt.subplot(len(input_vars), 1, i+1) for i, var in enumerate(input_vars)}
+            legends = {var: [] for var in input_vars}
+            for k, v in res_input.items():
+                if k in inputs:
+                    for var, d in v.items():
+                        ax[var].plot(np.arange(len(d['data']))*d['dt'], d['data'])
+                        legends[var].append(k)
+            for var in ax:
+                ax[var].set_title('{}: Input - {}'.format(result_name, var))
+                ax[var].legend(legends[var])
+                ax[var].set_xlabel('time (s)')
+            plt.show()
+
+        # outputs
+        res_output = self.exec_result[result_name]['output']
+        if outputs is None:
+            outputs = res_output.keys()
+            output_vars = list(set(sum([list(v.keys()) for k, v in res_output.items()],[])))
+        else:
+            output_vars = list(set(sum([list(v.keys()) for k, v in res_output.items() if k in outputs],[])))
+        if len(output_vars):
+            plt.figure(figsize=(22,10))
+            ax = {var: plt.subplot(len(output_vars), 1, i+1) for i, var in enumerate(output_vars)}
+            legends = {var: [] for var in output_vars}
+            for k, v in res_output.items():
+                if k in outputs:
+                    for var, d in v.items():
+                        ax[var].plot(np.arange(len(d['data']))*d['dt'], d['data'])
+                        legends[var].append(k)
+            for var in ax:
+                ax[var].set_title('{}: Output - {}'.format(result_name, var))
+                ax[var].legend(legends[var])
+                ax[var].set_xlabel('time (s)')
+            plt.show()
 
 
     def export_diagram_config(self, res):
