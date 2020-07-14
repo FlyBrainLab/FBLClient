@@ -1,4 +1,4 @@
-# In this demo we will show the basics of interfacing with GFX. 
+# In this demo we will show the basics of interfacing with GFX.
 
 # Enter into lamina (LAM), then double-click one of the circles ('cartridges').
 # Click on some neurons to enable/disable them.
@@ -9,4 +9,4 @@ print(nm[0].simExperimentConfig)
 # nm[0].import_diagram_config
 
 # Your queries will be reflected on the diagram if possible:
-nm[0].executeNLPquery('remove L1')
+nm[0].executeNLPquery("remove L1")

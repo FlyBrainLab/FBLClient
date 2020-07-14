@@ -25,6 +25,7 @@ import sys
 import json
 import binascii
 import seaborn as sns
+
 sns.set(color_codes=True)
 import pandas as pd
 import numpy as np
@@ -37,7 +38,7 @@ import msgpack_numpy
 msgpack_numpy.patch()
 
 from .utils import setProtocolOptions
-
+import warnings
 
 # import txaio
 # txaio.start_logging(level='info')
@@ -46,30 +47,33 @@ from .utils import setProtocolOptions
 import os
 import urllib
 import requests
+
 home = str(Path.home())
-if not os.path.exists(os.path.join(home, '.ffbolab')):
-    os.makedirs(os.path.join(home, '.ffbolab'), mode=0o777)
-if not os.path.exists(os.path.join(home, '.ffbolab','data')):
-    os.makedirs(os.path.join(home, '.ffbolab', 'data'), mode=0o777)
-if not os.path.exists(os.path.join(home, '.ffbolab','config')):
-    os.makedirs(os.path.join(home, '.ffbolab', 'config'), mode=0o777)
-if not os.path.exists(os.path.join(home, '.ffbolab','lib')):
-    os.makedirs(os.path.join(home, '.ffbolab', 'lib'), mode=0o777)
+if not os.path.exists(os.path.join(home, ".ffbolab")):
+    os.makedirs(os.path.join(home, ".ffbolab"), mode=0o777)
+if not os.path.exists(os.path.join(home, ".ffbolab", "data")):
+    os.makedirs(os.path.join(home, ".ffbolab", "data"), mode=0o777)
+if not os.path.exists(os.path.join(home, ".ffbolab", "config")):
+    os.makedirs(os.path.join(home, ".ffbolab", "config"), mode=0o777)
+if not os.path.exists(os.path.join(home, ".ffbolab", "lib")):
+    os.makedirs(os.path.join(home, ".ffbolab", "lib"), mode=0o777)
 
 # Generate the data path to be used for imports
-_FFBOLabDataPath = os.path.join(home, '.ffbolab', 'data')
-_FFBOLabConfigPath = os.path.join(home, '.ffbolab', 'config', 'ffbo.flybrainlab.ini')
+_FFBOLabDataPath = os.path.join(home, ".ffbolab", "data")
+_FFBOLabConfigPath = os.path.join(home, ".ffbolab", "config", "ffbo.flybrainlab.ini")
 
-def urlRetriever(url, savePath, verify = False):
+
+def urlRetriever(url, savePath, verify=False):
     """Retrieves and saves a url in Python 3.
 
     # Arguments:
         url (str): File url.
         savePath (str): Path to save the file to.
     """
-    with open(savePath, 'wb') as f:
+    with open(savePath, "wb") as f:
         resp = requests.get(url, verify=verify)
         f.write(resp.content)
+
 
 def guidGenerator():
     """Unique query ID generator for handling the backend queries
@@ -77,9 +81,12 @@ def guidGenerator():
     # Returns:
         str: The string with time format and brackets.
     """
+
     def S4():
-        return str(((1+random.random())*0x10000))[1]
-    return (S4()+S4()+"-"+S4()+"-"+S4()+"-"+S4()+"-"+S4()+S4()+S4())
+        return str(((1 + random.random()) * 0x10000))[1]
+
+    return S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4()
+
 
 def printHeader(name):
     """Header printer for the console messages. Useful for debugging.
@@ -90,7 +97,7 @@ def printHeader(name):
     # Returns:
         str: The string with time format and brackets.
     """
-    return '[' + name + ' ' + strftime("%Y-%m-%d %H:%M:%S", gmtime()) + '] '
+    return "[" + name + " " + strftime("%Y-%m-%d %H:%M:%S", gmtime()) + "] "
 
 
 class MetaClient:
@@ -99,19 +106,20 @@ class MetaClient:
     # Attributes:
         clients (obj): A list of dictionaries with the following keys: (i) 'name': Contains the common name of the client. (ii) 'client': A reference to the client object. (iii) 'widgets': List of widget names associated with the client.
     """
-    def __init__(self, initializer = None):
+
+    def __init__(self, initializer=None):
         """Initialization function for the FBL MetaClient class.
 
         # Arguments:
             initializer (list): A list of dictionaries with initialization data for connections.
         """
-        self.clients = []
+        self.clients = {}
+        self.latest_client = None # latest active client
         if initializer is not None:
             for i in list(initializer.keys()):
                 self.clients[i] = initializer[i]
 
-
-    def add_client(self, client_name, client, client_widgets = []):
+    def add_client(self, client_name, client, client_widgets=[]):
         """Adds a client with optional existing widgets to the MetaClient.
 
         # Arguments:
@@ -120,10 +128,9 @@ class MetaClient:
             client_widgets (list): A list of strings corresponding to the names of the currently connected client widgets. Defaults to empty list.
         """
         new_client = {}
-        new_client['name'] = client_name
-        new_client['client'] = client
-        new_client['widgets'] = client_widgets
-        self.clients.append(new_client)
+        new_client["client"] = client
+        new_client["widgets"] = client_widgets
+        self.clients[client_name] = new_client
 
     def delete_client(self, client_name):
         """Delete a client from the MetaClient.
@@ -134,7 +141,6 @@ class MetaClient:
         if client_name in list(self.clients.keys()):
             del self.clients[client_name]
 
-
     def add_widget(self, client_name, widget_name):
         """Add a widget to a client in the MetaClient.
 
@@ -142,8 +148,8 @@ class MetaClient:
             client_name (str): Name of the FlyBrainLab client.
             widget_name (str): Name of the new NeuroMynerva widget.
         """
-        if client_name in self.client_names:
-            self.clients[client_name]['widgets'].append(widget_name)
+        if client_name in self.clients:
+            self.clients[client_name]["widgets"].append(widget_name)
 
     def delete_widget(self, client_name, widget_name):
         """Delete a widget to a client in the MetaClient.
@@ -152,13 +158,13 @@ class MetaClient:
             client_name (str): Name of the FlyBrainLab client.
             widget_name (str): Name of the new NeuroMynerva widget.
         """
-        if client_name in self.client_names:
-            if widget_name in self.clients[client_name]['widgets']:
-                idx = self.clients[client_name]['widgets'].index(widget_name)
-                del self.clients[client_name]['widgets'][idx]
+        if client_name in self.clients:
+            if widget_name in self.clients[client_name]["widgets"]:
+                idx = self.clients[client_name]["widgets"].index(widget_name)
+                del self.clients[client_name]["widgets"][idx]
 
     def get_client(self, client_name):
-        """Delete a widget to a client in the MetaClient.
+        """Get a client in the MetaClient by name.
 
         # Arguments:
             client_name (str): Name of the FlyBrainLab client.
@@ -166,7 +172,49 @@ class MetaClient:
         # Returns:
             obj: The associated FlyBrainLab client.
         """
-        return self.clients[client_name]['client']
+        return self.clients[client_name]["client"]
+
+    def update_client_names(self):
+        """Update all client names with naming scheme from the frontend. Used for synchronization.
+        """
+        for i in self.clients:
+            self.clients[i]['client'].name = i
+            self.clients[i]['client'].widgets = self.clients[i]['widgets']
+
+    def get_client_info(self):
+        """Receives client data.
+
+        # Example:
+            fbl.client_manager.get_client_info()
+            cl = fbl.client_manager.clients['client-Neu3D-1-473e4837-8b1d-440a-a361-172507db1b38']['client']
+            cl.get_client_info()
+
+        # Arguments:
+            client_name (str): Name of the FlyBrainLab client.
+
+        # Returns:
+            obj: The associated FlyBrainLab client.
+        """
+        self.update_client_names()
+        res = {}
+        for i in self.clients:
+            client = self.clients[i]
+            client_data = {}
+            client_data['widgets'] = client['widgets']
+            client_data['name'] = i
+            client_data['species'] = client['client'].species
+            res[client['client'].name] = client_data
+        return res
+
+class MetaComm:
+    def __init__(self, name, manager):
+        self.name = name
+        self.manager = manager
+
+
+    def send(self, data=None):
+        for widget_name in self.manager.client_manager.clients[self.name]['widgets']:
+            self.manager.widget_manager.widgets[widget_name].comm.send(data=data)
 
 
 class Client:
@@ -180,6 +228,7 @@ class Client:
         compiled (bool): Circuits need to be compiled into networkx graphs before being sent for simulation. This is necessary as circuit compilation is a slow process.
         sendDataToGFX (bool): Whether the data received from the backend should be sent to the frontend. Useful for code-only projects.
     """
+
     def tryComms(self, a):
         """Communication function to communicate with a JupyterLab frontend if one exists.
 
@@ -191,7 +240,26 @@ class Client:
         except:
             pass
 
-    def __init__(self, ssl = True, debug = True, authentication = True, user = 'guest', secret = 'guestpass', custom_salt=None, url = u'wss://neuronlp.fruitflybrain.org:7777/ws', realm = u'realm1', ca_cert_file = 'isrgrootx1.pem', intermediate_cert_file = 'letsencryptauthorityx3.pem', FFBOLabcomm = None, legacy = False):
+    def __init__(
+        self,
+        ssl=True,
+        debug=True,
+        authentication=True,
+        user="guest",
+        secret="guestpass",
+        custom_salt=None,
+        url=u"wss://neuronlp.fruitflybrain.org:7777/ws",
+        realm=u"realm1",
+        ca_cert_file="isrgrootx1.pem",
+        intermediate_cert_file="letsencryptauthorityx3.pem",
+        FFBOLabcomm=None,
+        legacy=False,
+        initialize_client=True,
+        name = None,
+        default_key = True,
+        species = '',
+        widgets = []
+    ):
         """Initialization function for the FBL Client class.
 
         # Arguments:
@@ -205,20 +273,42 @@ class Client:
             ca_cert_file (str): Path to the certificate for establishing connection.
             intermediate_cert_file (str): Path to the intermediate certificate for establishing connection.
             FFBOLabcomm (obj): Communications object for the frontend.
+            legacy (bool): Whether the server uses the old FFBO server standard or not. Should be False for most cases. Defaults to False.
+            initialize_client (bool): Whether to connect to the database or not. Defaults to True.
+            name (str): Name for the client. String. Defaults to None.
+            default_key (bool): Whether to use a default key during connections. Defaults to True. Recommended for new users.
+            species (str): Name of the species to use for client information. Defaults to ''.
+            widgets (list): List of widgets associated with this client. Optional.
         """
-        if os.path.exists(os.path.join(home, '.ffbolab', 'lib')):
-            print(printHeader('FFBOLab Client') + "Downloading the latest certificates.")
+        self.name = name
+        self.species = species
+        self.url = url
+        self.widgets = widgets
+        if os.path.exists(os.path.join(home, ".ffbolab", "lib")):
+            print(
+                printHeader("FFBOLab Client") + "Downloading the latest certificates."
+            )
             # CertificateDownloader = urllib.URLopener()
-            if not os.path.exists(os.path.join(home, '.ffbolab', 'config', 'FBLClient.ini')):
-                urlRetriever("https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
-                                  os.path.join(home, '.ffbolab', 'config','FBLClient.ini'))
-            urlRetriever("https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
-                              os.path.join(home, '.ffbolab', 'lib','caCertFile.pem'))
-            urlRetriever("https://data.flybrainlab.fruitflybrain.org/lib/letsencryptauthorityx3.pem",
-                              os.path.join(home, '.ffbolab', 'lib','intermediateCertFile.pem'))
-            # config_file = os.path.join(home, '.ffbolab', 'config','FBLClient.ini')
-            ca_cert_file = os.path.join(home, '.ffbolab', 'lib','caCertFile.pem')
-            intermediate_cert_file = os.path.join(home, '.ffbolab', 'lib','intermediateCertFile.pem')
+            if not os.path.exists(
+                os.path.join(home, ".ffbolab", "config", "FBLClient.ini")
+            ):
+                urlRetriever(
+                    "https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
+                    os.path.join(home, ".ffbolab", "config", "FBLClient.ini"),
+                )
+            urlRetriever(
+                "https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
+                os.path.join(home, ".ffbolab", "lib", "caCertFile.pem"),
+            )
+            urlRetriever(
+                "https://data.flybrainlab.fruitflybrain.org/lib/letsencryptauthorityx3.pem",
+                os.path.join(home, ".ffbolab", "lib", "intermediateCertFile.pem"),
+            )
+            config_file = os.path.join(home, ".ffbolab", "config", "FBLClient.ini")
+            ca_cert_file = os.path.join(home, ".ffbolab", "lib", "caCertFile.pem")
+            intermediate_cert_file = os.path.join(
+                home, ".ffbolab", "lib", "intermediateCertFile.pem"
+            )
         # config = ConfigParser()
         # print(config_file)
         # config.read(config_file)
@@ -261,25 +351,34 @@ class Client:
         # end of temporary fix
 
         self.FFBOLabcomm = FFBOLabcomm # Current Communications Object
-        self.C = nb.Circuit() # The Neuroballd Circuit object describing the loaded neural circuit
+        self.C = (
+            nb.Circuit()
+        )  # The Neuroballd Circuit object describing the loaded neural circuit
         self.dataPath = _FFBOLabDataPath
-        extra = {'auth': authentication}
+        extra = {"auth": authentication}
         self.lmsg = 0
-        self.enableResets = True # Enable resets
-        self.addToRemove = False # Switch adds to removals
-        self.experimentInputs = [] # List of current experiment inputs
-        self.compiled = False # Whether the current circuit has been compiled into a NetworkX Graph
-        self.sendDataToGFX = True # Shall we send the received simulation data to GFX Component?
-        self.executionSuccessful = False # Used to wait for data loading
-        self.experimentQueue = [] # A queue for experiments
-        self.simExperimentConfig = {} # Experiment configuration (disabled neurons etc.) for simulations
-        self.simExperimentRunners = {} # Experiment runners for simulations
-        self.simData = {} # Locally loaded simulation data obtained from server
-        self.clientData = [] # Servers list
-        self.data = [] # A buffer for data from backend; used in multiple functions so needed
-        self.exec_result = {}
-        self.current_exec_result = None
-        self.uname_to_rid = {} # local map from unames to rid's
+
+        self.enableResets = True  # Enable resets
+        self.addToRemove = False  # Switch adds to removals
+        self.experimentInputs = []  # List of current experiment inputs
+        self.compiled = (
+            False  # Whether the current circuit has been compiled into a NetworkX Graph
+        )
+        self.sendDataToGFX = (
+            True  # Shall we send the received simulation data to GFX Component?
+        )
+        self.executionSuccessful = False  # Used to wait for data loading
+        self.experimentQueue = []  # A queue for experiments
+        self.simExperimentConfig = (
+            {}
+        )  # Experiment configuration (disabled neurons etc.) for simulations
+        self.simExperimentRunners = {}  # Experiment runners for simulations
+        self.simData = {}  # Locally loaded simulation data obtained from server
+        self.clientData = []  # Servers list
+        self.data = (
+            []
+        )  # A buffer for data from backend; used in multiple functions so needed
+        self.uname_to_rid = {}  # local map from unames to rid's
         self.legacy = legacy
         self.neuronStats = {}
         self.query_threshold = 20
@@ -287,24 +386,26 @@ class Client:
         self.experimentWatcher = None
         if self.legacy:
             self.query_threshold = 2
-        self.x_scale = 1.
-        self.y_scale = 1.
-        self.z_scale = 1.
-        self.r_scale = 1.
-        self.x_shift = 0.
-        self.y_shift = 0.
-        self.z_shift = 0.
-        self.r_shift = 0.
-        st_cert=open(ca_cert_file, 'rt').read()
-        c=OpenSSL.crypto
-        ca_cert=c.load_certificate(c.FILETYPE_PEM, st_cert)
-        st_cert=open(intermediate_cert_file, 'rt').read()
-        intermediate_cert=c.load_certificate(c.FILETYPE_PEM, st_cert)
+        self.x_scale = 1.0
+        self.y_scale = 1.0
+        self.z_scale = 1.0
+        self.r_scale = 1.0
+        self.x_shift = 0.0
+        self.y_shift = 0.0
+        self.z_shift = 0.0
+        self.r_shift = 0.0
+        st_cert = open(ca_cert_file, "rt").read()
+        c = OpenSSL.crypto
+        ca_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
+        st_cert = open(intermediate_cert_file, "rt").read()
+        intermediate_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
         certs = OpenSSLCertificateAuthorities([ca_cert, intermediate_cert])
         ssl_con = CertificateOptions(trustRoot=certs)
+        if initialize_client:
+            self.init_client(ssl, user, secret, custom_salt, url, ssl_con, legacy, default_key)
+            self.findServerIDs()  # Get current server IDs
 
-
-
+    def init_client(self, ssl, user, secret, custom_salt, url, ssl_con, legacy, default_key):
         FFBOLABClient = AutobahnSync()
 
         @FFBOLABClient.on_challenge
@@ -317,29 +418,35 @@ class Client:
             # Returns:
                 str: The signature sent to the router for verification.
             """
-            print(printHeader('FFBOLab Client') + 'Initiating authentication.')
+            print(printHeader("FFBOLab Client") + "Initiating authentication.")
             if challenge.method == u"wampcra":
                 print(printHeader('FFBOLab Client') + "WAMP-CRA challenge received: {}".format(challenge))
                 print(challenge.extra['salt'])
-                if u'salt' in challenge.extra:
-                    # Salted secret
-                    print(printHeader('FFBOLab Client') + 'Deriving key...')
-                    salted_key = auth.derive_key(secret,
-                                          challenge.extra['salt'],
-                                          challenge.extra['iterations'],
-                                          challenge.extra['keylen'])
-                    print(salted_key.decode('utf-8'))
+                if custom_salt is not None:
+                    salted_key = custom_salt
+                else:
+                    if u'salt' in challenge.extra:
+                        # Salted secret
+                        print(printHeader('FFBOLab Client') + 'Deriving key...')
+                        salted_key = auth.derive_key(secret,
+                                              challenge.extra['salt'],
+                                              challenge.extra['iterations'],
+                                              challenge.extra['keylen'])
+                        print(salted_key.decode('utf-8'))
 
                 # compute signature for challenge, using the key
-                signature = auth.compute_wcs(salted_key, challenge.extra['challenge'])
+                signature = auth.compute_wcs(salted_key, challenge.extra["challenge"])
 
                 # return the signature to the router for verification
                 return signature
 
             else:
                 raise Exception("Invalid authmethod {}".format(challenge.method))
+
         if ssl:
-            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user, ssl=ssl_con) # Initialize the communication right now!
+            FFBOLABClient.run(
+                url=url, authmethods=[u"wampcra"], authid=user, ssl=ssl_con
+            )  # Initialize the communication right now!
         else:
             FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user)
 
@@ -348,7 +455,10 @@ class Client:
                            maxMessagePayloadSize = 0,
                            autoFragmentSize = 65536)
 
-        @FFBOLABClient.subscribe('ffbo.server.update.' + str(FFBOLABClient._async_session._session_id))
+        @FFBOLABClient.subscribe(
+            'ffbo.server.update.' + str(FFBOLABClient._async_session._session_id)
+            )
+
         def updateServers(data):
             """Updates available servers.
 
@@ -360,7 +470,10 @@ class Client:
             print("Updated the Servers")
 
         print("Subscribed to topic 'ffbo.server.update'")
-        @FFBOLABClient.register('ffbo.ui.receive_cmd.' + str(FFBOLABClient._async_session._session_id))
+
+        @FFBOLABClient.register(
+            "ffbo.ui.receive_cmd." + str(FFBOLABClient._async_session._session_id)
+        )
         def receiveCommand(data):
             """The Receive Command function that receives commands and sends them to the frontend.
 
@@ -370,24 +483,30 @@ class Client:
             # Returns:
                 bool: Whether the data has been received.
             """
-            self.clientData.append('Received Command')
+            self.clientData.append("Received Command")
             a = {}
-            a['data'] = data
-            a['messageType'] = 'Command'
-            a['widget'] = 'NLP'
+            a["data"] = data
+            a["messageType"] = "Command"
+            a["widget"] = "NLP"
             self.data.append(a)
-            print(printHeader('FFBOLab Client NLP') + "Received a command.")
+            print(printHeader("FFBOLab Client NLP") + "Received a command.")
             to_send = True
             if self.enableResets == False:
-                if 'commands' in data:
-                    if 'reset' in data['commands']:
+                if "commands" in data:
+                    if "reset" in data["commands"]:
                         to_send = False
             if to_send == True:
                 self.tryComms(a)
             return True
-        print(printHeader('FFBOLab Client') + "Procedure ffbo.ui.receive_cmd Registered...")
 
-        @FFBOLABClient.register('ffbo.ui.receive_gfx.' + str(FFBOLABClient._async_session._session_id))
+        print(
+            printHeader("FFBOLab Client")
+            + "Procedure ffbo.ui.receive_cmd Registered..."
+        )
+
+        @FFBOLABClient.register(
+            "ffbo.ui.receive_gfx." + str(FFBOLABClient._async_session._session_id)
+        )
         def receiveGFX(data):
             """The Receive GFX function that receives commands and sends them to the GFX frontend.
 
@@ -397,28 +516,46 @@ class Client:
             # Returns:
                 bool: Whether the data has been received.
             """
-            self.clientData.append('Received GFX Data')
+            self.clientData.append("Received GFX Data")
             self.data.append(data)
-            print(printHeader('FFBOLab Client GFX') + "Received a message for GFX.")
+            print(printHeader("FFBOLab Client GFX") + "Received a message for GFX.")
             if self.sendDataToGFX == True:
                 self.tryComms(data)
             else:
-                if 'messageType' in data.keys():
-                    if data['messageType'] == 'showServerMessage':
-                        print(printHeader('FFBOLab Client GFX') + "Execution successful for GFX.")
-                        if len(self.experimentQueue)>0:
-                            print(printHeader('FFBOLab Client GFX') + "Next execution now underway. Remaining simulations: " + str(len(self.experimentQueue)))
+                if "messageType" in data.keys():
+                    if data["messageType"] == "showServerMessage":
+                        print(
+                            printHeader("FFBOLab Client GFX")
+                            + "Execution successful for GFX."
+                        )
+                        if len(self.experimentQueue) > 0:
+                            print(
+                                printHeader("FFBOLab Client GFX")
+                                + "Next execution now underway. Remaining simulations: "
+                                + str(len(self.experimentQueue))
+                            )
                             a = self.experimentQueue.pop(0)
-                            res = self.client.session.call('ffbo.gfx.sendExperiment', a)
-                            res = self.client.session.call('ffbo.gfx.startExecution', {'name': a['name']})
+                            res = self.client.session.call("ffbo.gfx.sendExperiment", a)
+                            res = self.client.session.call(
+                                "ffbo.gfx.startExecution", {"name": a["name"]}
+                            )
                         else:
                             self.executionSuccessful = True
                             self.parseSimResults()
-                            print(printHeader('FFBOLab Client GFX') + "GFX results successfully parsed.")
+                            print(
+                                printHeader("FFBOLab Client GFX")
+                                + "GFX results successfully parsed."
+                            )
             return True
-        print(printHeader('FFBOLab Client') + "Procedure ffbo.ui.receive_gfx Registered...")
 
-        @FFBOLABClient.register('ffbo.ui.get_circuit.' + str(FFBOLABClient._async_session._session_id))
+        print(
+            printHeader("FFBOLab Client")
+            + "Procedure ffbo.ui.receive_gfx Registered..."
+        )
+
+        @FFBOLABClient.register(
+            "ffbo.ui.get_circuit." + str(FFBOLABClient._async_session._session_id)
+        )
         def get_circuit(X):
             """Obtain a circuit and save it to the local FFBOLab folder.
 
@@ -428,14 +565,17 @@ class Client:
             # Returns:
                 bool: Whether the process has been successful.
             """
-            name = X['name']
-            G = binascii.unhexlify(X['graph'].encode())
-            with open(os.path.join(_FFBOLabDataPath, name + '.gexf.gz'), "wb") as file:
+            name = X["name"]
+            G = binascii.unhexlify(X["graph"].encode())
+            with open(os.path.join(_FFBOLabDataPath, name + ".gexf.gz"), "wb") as file:
                 file.write(G)
             return True
+
         print("Procedure ffbo.ui.get_circuit Registered...")
 
-        @FFBOLABClient.register('ffbo.ui.get_experiment' + str(FFBOLABClient._async_session._session_id))
+        @FFBOLABClient.register(
+            "ffbo.ui.get_experiment" + str(FFBOLABClient._async_session._session_id)
+        )
         def get_experiment(X):
             """Obtain an experiment and save it to the local FFBOLab folder.
 
@@ -445,18 +585,21 @@ class Client:
             # Returns:
                 bool: Whether the process has been successful.
             """
-            print(printHeader('FFBOLab Client GFX') + "get_experiment called.")
-            name = X['name']
-            data = json.dumps(X['experiment'])
-            with open(os.path.join(_FFBOLabDataPath, name + '.json'), "w") as file:
+            print(printHeader("FFBOLab Client GFX") + "get_experiment called.")
+            name = X["name"]
+            data = json.dumps(X["experiment"])
+            with open(os.path.join(_FFBOLabDataPath, name + ".json"), "w") as file:
                 file.write(data)
             output = {}
-            output['success'] = True
-            print(printHeader('FFBOLab Client GFX') + "Experiment save successful.")
+            output["success"] = True
+            print(printHeader("FFBOLab Client GFX") + "Experiment save successful.")
             return True
+
         print("Procedure ffbo.ui.get_experiment Registered...")
 
-        @FFBOLABClient.register('ffbo.ui.receive_data.' + str(FFBOLABClient._async_session._session_id))
+        @FFBOLABClient.register(
+            "ffbo.ui.receive_data." + str(FFBOLABClient._async_session._session_id)
+        )
         def receiveData(data):
             """The Receive Data function that receives commands and sends them to the NLP frontend.
 
@@ -466,57 +609,79 @@ class Client:
             # Returns:
                 bool: Whether the process has been successful.
             """
-            self.clientData.append('Received Data')
+            self.clientData.append("Received Data")
             a = {}
             if self.legacy == True:
-                a['data'] = {'data': data, 'queryID': guidGenerator()}
+                a["data"] = {"data": data, "queryID": guidGenerator()}
             else:
-                a['data'] = data
-            a['messageType'] = 'Data'
-            a['widget'] = 'NLP'
+                a["data"] = data
+            a["messageType"] = "Data"
+            a["widget"] = "NLP"
             if self.addToRemove == True:
-                if 'data' in data:
-                    keys = list(data['data'].keys())
-                    data['commands'] = {'remove': [keys, []]}
-                    del data['data']
-                    a['data'] = data
-                    a['messageType'] = 'Command'
+                if "data" in data:
+                    keys = list(data["data"].keys())
+                    data["commands"] = {"remove": [keys, []]}
+                    del data["data"]
+                    a["data"] = data
+                    a["messageType"] = "Command"
             # Change scales
-            if a['messageType'] == 'Data':
-                if 'data' in a['data']:
-                    for i in a['data']['data'].keys():
-                        if 'name' in a['data']['data'][i]:
-                            a['data']['data'][i]['x'] = [i*self.x_scale+self.x_shift for i in a['data']['data'][i]['x']]
-                            a['data']['data'][i]['y'] = [i*self.y_scale+self.y_shift for i in a['data']['data'][i]['y']]
-                            a['data']['data'][i]['z'] = [i*self.z_scale+self.z_shift for i in a['data']['data'][i]['z']]
-                            a['data']['data'][i]['r'] = [i*self.r_scale+self.r_shift for i in a['data']['data'][i]['r']]
+            if a["messageType"] == "Data":
+                if "data" in a["data"]:
+                    for i in a["data"]["data"].keys():
+                        if "name" in a["data"]["data"][i]:
+                            a["data"]["data"][i]["x"] = [
+                                i * self.x_scale + self.x_shift
+                                for i in a["data"]["data"][i]["x"]
+                            ]
+                            a["data"]["data"][i]["y"] = [
+                                i * self.y_scale + self.y_shift
+                                for i in a["data"]["data"][i]["y"]
+                            ]
+                            a["data"]["data"][i]["z"] = [
+                                i * self.z_scale + self.z_shift
+                                for i in a["data"]["data"][i]["z"]
+                            ]
+                            a["data"]["data"][i]["r"] = [
+                                i * self.r_scale + self.r_shift
+                                for i in a["data"]["data"][i]["r"]
+                            ]
             self.data.append(a)
-            displayDict = {"totalLength": 'Total Length (µm)',
-                       "totalSurfaceArea": 'Total Surface Area (µm<sup>2</sup>)',
-                       "totalVolume": 'Total Volume (µm<sup>3</sup>)',
-                       "maximumEuclideanDistance": 'Maximum Euclidean Distance (µm)',
-                       "width": 'Width (µm)',
-                       "height": 'Height (µm)',
-                       "depth": 'Depth (µm)',
-                       "maxPathDistance": 'Max Path Distance (µm)',
-                       "averageDiameter": "Average Diameter (µm)"}
-            if a['messageType'] == 'Data':
-                if 'data' in a['data']:
-                    for i in a['data']['data'].keys():
-                        if 'name' in a['data']['data'][i]:
-                            self.uname_to_rid[a['data']['data'][i]['name']] = i
-                            self.neuronStats[a['data']['data'][i]['name']] = {}
+            displayDict = {
+                "totalLength": "Total Length (µm)",
+                "totalSurfaceArea": "Total Surface Area (µm<sup>2</sup>)",
+                "totalVolume": "Total Volume (µm<sup>3</sup>)",
+                "maximumEuclideanDistance": "Maximum Euclidean Distance (µm)",
+                "width": "Width (µm)",
+                "height": "Height (µm)",
+                "depth": "Depth (µm)",
+                "maxPathDistance": "Max Path Distance (µm)",
+                "averageDiameter": "Average Diameter (µm)",
+            }
+            if a["messageType"] == "Data":
+                if "data" in a["data"]:
+                    for i in a["data"]["data"].keys():
+                        if "name" in a["data"]["data"][i]:
+                            self.uname_to_rid[a["data"]["data"][i]["name"]] = i
+                            self.neuronStats[a["data"]["data"][i]["name"]] = {}
                             for displayKey in displayDict.keys():
                                 try:
-                                    self.neuronStats[a['data']['data'][i]['name']][displayKey] = a['data']['data'][i][displayKey]
+                                    self.neuronStats[a["data"]["data"][i]["name"]][
+                                        displayKey
+                                    ] = a["data"]["data"][i][displayKey]
                                 except:
                                     pass
-            print(printHeader('FFBOLab Client NLP') + "Received data.")
+            print(printHeader("FFBOLab Client NLP") + "Received data.")
             self.tryComms(a)
             return True
-        print(printHeader('FFBOLab Client') + "Procedure ffbo.ui.receive_data Registered...")
 
-        @FFBOLABClient.register('ffbo.ui.receive_partial.' + str(FFBOLABClient._async_session._session_id))
+        print(
+            printHeader("FFBOLab Client")
+            + "Procedure ffbo.ui.receive_data Registered..."
+        )
+
+        @FFBOLABClient.register(
+            "ffbo.ui.receive_partial." + str(FFBOLABClient._async_session._session_id)
+        )
         def receivePartial(data):
             """The Receive Partial Data function that receives commands and sends them to the NLP frontend.
 
@@ -526,16 +691,20 @@ class Client:
             # Returns:
                 bool: Whether the process has been successful.
             """
-            self.clientData.append('Received Data')
+            self.clientData.append("Received Data")
             a = {}
-            a['data'] = {'data': data, 'queryID': guidGenerator()}
-            a['messageType'] = 'Data'
-            a['widget'] = 'NLP'
+            a["data"] = {"data": data, "queryID": guidGenerator()}
+            a["messageType"] = "Data"
+            a["widget"] = "NLP"
             self.data.append(a)
-            print(printHeader('FFBOLab Client NLP') + "Received partial data.")
+            print(printHeader("FFBOLab Client NLP") + "Received partial data.")
             self.tryComms(a)
             return True
-        print(printHeader('FFBOLab Client') + "Procedure ffbo.ui.receive_partial Registered...")
+
+        print(
+            printHeader("FFBOLab Client")
+            + "Procedure ffbo.ui.receive_partial Registered..."
+        )
 
         if legacy == False:
             # @FFBOLABClient.register('ffbo.gfx.receive_partial.' + str(FFBOLABClient._async_session._session_id))
@@ -616,10 +785,15 @@ class Client:
                         else:
                             self.exec_result[self.current_exec_result].append(data)
                 return True
-            print(printHeader('FFBOLab Client') + "Procedure ffbo.gfx.receive_partial Registered...")
 
+            print(
+                printHeader("FFBOLab Client")
+                + "Procedure ffbo.gfx.receive_partial Registered..."
+            )
 
-        @FFBOLABClient.register('ffbo.ui.receive_msg.' + str(FFBOLABClient._async_session._session_id))
+        @FFBOLABClient.register(
+            "ffbo.ui.receive_msg." + str(FFBOLABClient._async_session._session_id)
+        )
         def receiveMessage(data):
             """The Receive Message function that receives commands and sends them to the NLP frontend.
 
@@ -629,37 +803,74 @@ class Client:
             # Returns:
                 bool: Whether the process has been successful.
             """
-            self.clientData.append('Received Message')
+            self.clientData.append("Received Message")
             a = {}
-            a['data'] = data
-            a['messageType'] = 'Message'
-            a['widget'] = 'NLP'
+            a["data"] = data
+            a["messageType"] = "Message"
+            a["widget"] = "NLP"
             self.data.append(a)
-            print(printHeader('FFBOLab Client NLP') + "Received a message.")
+            print(printHeader("FFBOLab Client NLP") + "Received a message.")
             self.tryComms(a)
             return True
-        print(printHeader('FFBOLab Client') + "Procedure ffbo.ui.receive_msg Registered...")
 
-        self.client = FFBOLABClient # Set current client to the FFBOLAB Client
+        print(
+            printHeader("FFBOLab Client")
+            + "Procedure ffbo.ui.receive_msg Registered..."
+        )
 
-        self.findServerIDs() # Get current server IDs
-
-
+        self.client = FFBOLABClient  # Set current client to the FFBOLAB Client
 
     def findServerIDs(self):
         """Find server IDs to be used for the utility functions.
         """
-        res = self.client.session.call(u'ffbo.processor.server_information')
+        res = self.client.session.call(u"ffbo.processor.server_information")
 
-        for i in res['na']:
+        for i in res["na"]:
             if self.naServerID is None:
-                if 'na' in res['na'][i]['name']:
-                    print(printHeader('FFBOLab Client') + 'Found working NA Server: ' + res['na'][i]['name'])
+                if "na" in res["na"][i]["name"]:
+                    print(
+                        printHeader("FFBOLab Client")
+                        + "Found working NA Server: "
+                        + res["na"][i]["name"]
+                    )
                     self.naServerID = i
-        for i in res['nlp']:
+        for i in res["nlp"]:
             self.nlpServerID = i
 
-    def executeNLPquery(self, query = None, language = 'en', uri = None, queryID = None, returnNAOutput = False):
+
+    def get_client_info(self, fbl=None):
+        """Receive client data for this client only.
+
+        # Arguments:
+            fbl (Object): MetaClient object. Optional. Gives us.
+
+        # Returns:
+            dict: dict of dicts with client name as key and widgets, name and species as keys of the value.
+        """
+        if fbl is None:
+            res = {}
+            client_data = {}
+            client_data['widgets'] = self.widgets
+            client_data['name'] = self.name
+            client_data['species'] = self.species
+            res[self.name] = client_data
+            return res
+        else:
+            fbl.client_manager.update_client_names()
+            res = {}
+            for i in fbl.client_manager.clients:
+                client = fbl.client_manager.clients[i]
+                client_data = {}
+                client_data['widgets'] = client['widgets']
+                client_data['name'] = i
+                client_data['species'] = client['client'].species
+                res[client['client'].name] = client_data
+            return res
+
+
+    def executeNLPquery(
+        self, query=None, language="en", uri=None, queryID=None, returnNAOutput=False
+    ):
         """Execute an NLP query.
 
         # Arguments:
@@ -673,32 +884,37 @@ class Client:
             dict: NA output or the NA query itself, depending on the returnNAOutput setting.
         """
         if query is None:
-            print(printHeader('FFBOLab Client') + 'No query specified. Executing test query "eb".')
-            query = 'eb'
-        self.JSCall(messageType='GFXquery',data=query)
+            print(
+                printHeader("FFBOLab Client")
+                + 'No query specified. Executing test query "eb".'
+            )
+            query = "eb"
+        self.JSCall(messageType="GFXquery", data=query)
         if query.startswith("load "):
             self.sendSVG(query[5:])
         else:
             # if self.legacy == False:
-            uri = 'ffbo.nlp.query.{}'.format(self.nlpServerID)
+            uri = "ffbo.nlp.query.{}".format(self.nlpServerID)
             queryID = guidGenerator()
             try:
-                resNA = self.client.session.call(uri , query, language)
+                resNA = self.client.session.call(uri, query, language)
             except:
                 a = {}
-                a['data'] = {'info': {'timeout': 'This is a timeout.'}}
-                a['messageType'] = 'Data'
-                a['widget'] = 'NLP'
+                a["data"] = {"info": {"timeout": "This is a timeout."}}
+                a["messageType"] = "Data"
+                a["widget"] = "NLP"
                 self.tryComms(a)
                 return a
-            print(printHeader('FFBOLab Client NLP') + 'NLP successfully parsed query.')
+            print(printHeader("FFBOLab Client NLP") + "NLP successfully parsed query.")
 
             if returnNAOutput == True:
                 return resNA
             else:
                 try:
                     self.compiled = False
-                    res = self.executeNAquery(resNA, queryID = queryID, threshold = self.query_threshold)
+                    res = self.executeNAquery(
+                        resNA, queryID=queryID, threshold=self.query_threshold
+                    )
                     self.sendNeuropils()
                     """
                     a = {}
@@ -710,9 +926,9 @@ class Client:
                     return res
                 except:
                     a = {}
-                    a['data'] = {'info': {'timeout': 'This is a timeout.'}}
-                    a['messageType'] = 'Data'
-                    a['widget'] = 'NLP'
+                    a["data"] = {"info": {"timeout": "This is a timeout."}}
+                    a["messageType"] = "Data"
+                    a["widget"] = "NLP"
                     self.tryComms(a)
                     return resNA
             """
@@ -739,7 +955,9 @@ class Client:
                     return resNA
             """
 
-    def executeNAquery(self, res, language = 'en', uri = None, queryID = None, progressive = True, threshold = 20):
+    def executeNAquery(
+        self, res, language="en", uri=None, queryID=None, progressive=True, threshold=20
+    ):
         """Execute an NA query.
 
         # Arguments:
@@ -753,12 +971,14 @@ class Client:
         # Returns:
             bool: Whether the process has been successful.
         """
+
         def on_progress(x, res):
             res.append(x)
+
         if isinstance(res, str):
             res = json.loads(res)
         if uri == None:
-            uri = 'ffbo.na.query.{}'.format(self.naServerID)
+            uri = "ffbo.na.query.{}".format(self.naServerID)
             if "uri" in res.keys():
                 uri = "{}.{}".format(res["uri"], self.naServerID)
         if queryID == None:
@@ -766,22 +986,26 @@ class Client:
         # del self.data # Reset the data in the backend
         # self.data = []
 
-        res['queryID'] = queryID
-        res['threshold'] = threshold
-        res['data_callback_uri'] = 'ffbo.ui.receive_data'
+        res["queryID"] = queryID
+        res["threshold"] = threshold
+        res["data_callback_uri"] = "ffbo.ui.receive_data"
         res_list = []
-        if self.legacy == False and progressive==True:
-            res = self.client.session.call(uri, res, options=CallOptions(
-                    on_progress=partial(on_progress, res=res_list), timeout = 300000
-                ))
+        if self.legacy == False and progressive == True:
+            res = self.client.session.call(
+                uri,
+                res,
+                options=CallOptions(
+                    on_progress=partial(on_progress, res=res_list), timeout=300000
+                ),
+            )
         else:
             res = self.client.session.call(uri, res)
         a = {}
-        a['data'] = res
-        a['messageType'] = 'Data'
-        a['widget'] = 'NLP'
+        a["data"] = res
+        a["messageType"] = "Data"
+        a["widget"] = "NLP"
         if "retrieve_tag" in uri:
-            a['messageType'] = 'TagData'
+            a["messageType"] = "TagData"
             self.tryComms(a)
             self.executeNAquery({"command": {"retrieve": {"state": 0}}})
         if progressive == True:
@@ -798,12 +1022,16 @@ class Client:
         # Returns:
             bool: True.
         """
-        metadata = {"color":{},"pinned":{},"visibility":{},"camera":{"position":{},'up':{}},'target':{}};
-        res = self.executeNAquery({
-            "tag": tagName,
-            "metadata": metadata,
-            "uri": 'ffbo.na.create_tag'
-        })
+        metadata = {
+            "color": {},
+            "pinned": {},
+            "visibility": {},
+            "camera": {"position": {}, "up": {}},
+            "target": {},
+        }
+        res = self.executeNAquery(
+            {"tag": tagName, "metadata": metadata, "uri": "ffbo.na.create_tag"}
+        )
         return res
 
     def loadTag(self, tagName):
@@ -812,10 +1040,7 @@ class Client:
         # Returns:
             bool: True.
         """
-        self.executeNAquery({
-            "tag": tagName,
-            "uri": 'ffbo.na.retrieve_tag'
-        })
+        self.executeNAquery({"tag": tagName, "uri": "ffbo.na.retrieve_tag"})
         return True
 
     def addByUname(self, uname, verb="add"):
@@ -824,15 +1049,17 @@ class Client:
         # Returns:
             bool: True.
         """
-        self.executeNAquery({
-            "verb": verb,
-            "query": [
-                        {
-                        'action': { 'method': { 'query': { 'uname': uname } } },
-                        'object': { 'class': ["Neuron", "Synapse"] }
-                        }
-                    ]
-        })
+        self.executeNAquery(
+            {
+                "verb": verb,
+                "query": [
+                    {
+                        "action": {"method": {"query": {"uname": uname}}},
+                        "object": {"class": ["Neuron", "Synapse"]},
+                    }
+                ],
+            }
+        )
         return True
 
     def removeByUname(self, uname):
@@ -849,32 +1076,34 @@ class Client:
         # Returns:
             bool: True.
         """
-        self.prepareCircuit(model = model)
-        self.sendCircuit(name = "auto")
+        self.prepareCircuit(model=model)
+        self.sendCircuit(name="auto")
         a = {}
-        a['data'] = "auto"
-        a['messageType'] = 'runLayouting'
-        a['widget'] = 'GFX'
+        a["data"] = "auto"
+        a["messageType"] = "runLayouting"
+        a["widget"] = "GFX"
         self.tryComms(a)
         return True
 
     def getStats(self, neuron_name):
-        displayDict = {"totalLength": 'Total Length (µm)',
-                       "totalSurfaceArea": 'Total Surface Area (µm^2)',
-                       "totalVolume": 'Total Volume (µm^3)',
-                       "maximumEuclideanDistance": 'Maximum Euclidean Distance (µm)',
-                       "width": 'Width (µm)',
-                       "height": 'Height (µm)',
-                       "depth": 'Depth (µm)',
-                       "maxPathDistance": 'Max Path Distance (µm)',
-                       "averageDiameter": "Average Diameter (µm)"}
+        displayDict = {
+            "totalLength": "Total Length (µm)",
+            "totalSurfaceArea": "Total Surface Area (µm^2)",
+            "totalVolume": "Total Volume (µm^3)",
+            "maximumEuclideanDistance": "Maximum Euclidean Distance (µm)",
+            "width": "Width (µm)",
+            "height": "Height (µm)",
+            "depth": "Depth (µm)",
+            "maxPathDistance": "Max Path Distance (µm)",
+            "averageDiameter": "Average Diameter (µm)",
+        }
         if neuron_name in self.neuronStats.keys():
-            print('Statistics for ' + neuron_name + ':')
-            print('-----------')
+            print("Statistics for " + neuron_name + ":")
+            print("-----------")
             for i in displayDict.keys():
-                print(displayDict[i] + ':', self.neuronStats[neuron_name][i])
+                print(displayDict[i] + ":", self.neuronStats[neuron_name][i])
         else:
-            print('No statistics found for ' + str(neuron_name) + '.')
+            print("No statistics found for " + str(neuron_name) + ".")
         return None
 
     def getNeuropils(self):
@@ -884,22 +1113,26 @@ class Client:
             list of strings: Set of neuropils corresponding to neurons.
         """
         res = {}
-        res['query'] = []
-        res['format'] = 'nx'
-        res['user'] = 'test'
-        res['temp'] = True
-        res['query'].append({'action': {'method': {'traverse_owned_by': {'cls': 'Neuropil'}}},
-           'object': {'state': 0}})
+        res["query"] = []
+        res["format"] = "nx"
+        res["user"] = "test"
+        res["temp"] = True
+        res["query"].append(
+            {
+                "action": {"method": {"traverse_owned_by": {"cls": "Neuropil"}}},
+                "object": {"state": 0},
+            }
+        )
         res = self.executeNAquery(res)
         neuropils = []
         for i in res:
             try:
-                if 'data' in i.keys():
-                    if 'data' in i['data'].keys():
-                        if 'nodes' in i['data']['data'].keys():
-                            a = i['data']['data']['nodes']
+                if "data" in i.keys():
+                    if "data" in i["data"].keys():
+                        if "nodes" in i["data"]["data"].keys():
+                            a = i["data"]["data"]["nodes"]
                             for j in a.keys():
-                                name = a[j]['name']
+                                name = a[j]["name"]
                                 neuropils.append(name)
             except:
                 pass
@@ -913,10 +1146,10 @@ class Client:
             bool: Whether the messaging has been successful.
         """
         a = {}
-        a['data'] = self.getNeuropils()
-        print(a['data'])
-        a['messageType'] = 'updateActiveNeuropils'
-        a['widget'] = 'GFX'
+        a["data"] = self.getNeuropils()
+        print(a["data"])
+        a["messageType"] = "updateActiveNeuropils"
+        a["widget"] = "GFX"
         self.tryComms(a)
         return True
 
@@ -929,27 +1162,29 @@ class Client:
         # Returns:
             dict: NA information regarding the node.
         """
-        res = {"uri": 'ffbo.na.get_data.', "id": args}
+        res = {"uri": "ffbo.na.get_data.", "id": args}
         queryID = guidGenerator()
-        res = self.executeNAquery(res, uri = res['uri'] + self.naServerID, queryID = queryID, progressive = False)
+        res = self.executeNAquery(
+            res, uri=res["uri"] + self.naServerID, queryID=queryID, progressive=False
+        )
         # res['data']['data']['summary']['rid'] = args
         a = {}
-        a['data'] = res
-        a['messageType'] = 'Data'
-        a['widget'] = 'INFO'
+        a["data"] = res
+        a["messageType"] = "Data"
+        a["widget"] = "INFO"
         self.tryComms(a)
         # print(res)
 
         if self.compiled == True:
             try:
                 a = {}
-                name = res['data']['data']['summary']['name']
+                name = res["data"]["data"]["summary"]["name"]
                 if name in self.node_keys.keys():
-                    data = self.C.G.node['uid' + str(self.node_keys[name])]
-                    data['uid'] = str(self.node_keys[name])
-                    a['data'] = data
-                    a['messageType'] = 'Data'
-                    a['widget'] = 'JSONEditor'
+                    data = self.C.G.node["uid" + str(self.node_keys[name])]
+                    data["uid"] = str(self.node_keys[name])
+                    a["data"] = data
+                    a["messageType"] = "Data"
+                    a["widget"] = "JSONEditor"
                     self.tryComms(a)
             except:
                 pass
@@ -971,39 +1206,39 @@ class Client:
             res = self.client.session.call(args[0], args[1:])
         if type(res) == dict:
             a = res
-            a['widget'] = 'GFX'
+            a["widget"] = "GFX"
         else:
             a = {}
-            a['data'] = res
-            a['messageType'] = 'Data'
-            a['widget'] = 'GFX'
+            a["data"] = res
+            a["messageType"] = "Data"
+            a["widget"] = "GFX"
         self.tryComms(a)
         return res
 
-    def getSimData(self,url):
-        url = 'https://data.flybrainlab.fruitflybrain.org/simresults/' + url
-        urlRetriever(url, url.split('/')[-1])
-        filename = url.split('/')[-1]
-        f = h5py.File(filename, 'r')
-        data = f['V']['data'][()].tolist()
-        uids = f['V']['uids'][()].tolist()
-        uids = [i.decode('ascii') for i in uids]
+    def getSimData(self, url):
+        url = "https://data.flybrainlab.fruitflybrain.org/simresults/" + url
+        urlRetriever(url, url.split("/")[-1])
+        filename = url.split("/")[-1]
+        f = h5py.File(filename, "r")
+        data = f["V"]["data"][()].tolist()
+        uids = f["V"]["uids"][()].tolist()
+        uids = [i.decode("ascii") for i in uids]
         h5data = {}
-        h5data['data'] = data
-        h5data['uids'] = uids
+        h5data["data"] = data
+        h5data["uids"] = uids
         a = {}
-        a['data'] = h5data
-        a['messageType'] = 'PlotResults'
-        a['widget'] = 'Master'
+        a["data"] = h5data
+        a["messageType"] = "PlotResults"
+        a["widget"] = "Master"
         self.data.append(a)
-        print(printHeader('FFBOLab Client Master') + "Sending simulation data.")
+        print(printHeader("FFBOLab Client Master") + "Sending simulation data.")
         self.tryComms(a)
         json_str = json.dumps(h5data)
-        with open(filename.split('.')[0]+'.json', 'w') as f:
+        with open(filename.split(".")[0] + ".json", "w") as f:
             f.write(json_str)
         self.simData = h5data
 
-    def updateBackend(self, type = "Null", data = "Null"):
+    def updateBackend(self, type="Null", data="Null"):
         """Updates variables in the backend using the data in the Editor.
 
         # Arguments:
@@ -1025,14 +1260,17 @@ class Client:
         # Returns:
             dict: The connectivity dictionary.
         """
-        res = json.loads("""
+        res = json.loads(
+            """
         {"format":"nx","query":[{"action":{"method":{"add_connecting_synapses":{}}},"object":{"state":0}}],"temp":true}
-        """)
+        """
+        )
         res = self.executeNAquery(res)
         return res
 
-
-    def sendExecuteReceiveResults(self, circuitName = "temp", dt = 1e-5, tmax = 1.0, inputProcessors=[], compile = False):
+    def sendExecuteReceiveResults(
+        self, circuitName="temp", dt=1e-5, tmax=1.0, inputProcessors=[], compile=False
+    ):
         """Compiles and sends a circuit for execution in the GFX backend.
 
         # Arguments:
@@ -1042,40 +1280,56 @@ class Client:
         # Returns:
             bool: Whether the call was successful.
         """
-        print(printHeader('FFBOLab Client GFX') + 'Initiating remote execution for the current circuit.')
+        print(
+            printHeader("FFBOLab Client GFX")
+            + "Initiating remote execution for the current circuit."
+        )
         if self.compiled == False:
             compile = True
         if compile == True:
-            print(printHeader('FFBOLab Client GFX') + 'Compiling the current circuit.')
+            print(printHeader("FFBOLab Client GFX") + "Compiling the current circuit.")
             self.prepareCircuit()
-        print(printHeader('FFBOLab Client GFX') + 'Circuit prepared. Sending to FFBO servers.')
-        self.sendCircuitPrimitive(self.C, args = {'name': circuitName})
-        print(printHeader('FFBOLab Client GFX') + 'Circuit sent. Queuing execution.')
-        if len(inputProcessors)>0:
-            res = self.client.session.call('ffbo.gfx.startExecution', {'name': circuitName, 'dt': dt, 'tmax': tmax, 'inputProcessors': inputProcessors})
+        print(
+            printHeader("FFBOLab Client GFX")
+            + "Circuit prepared. Sending to FFBO servers."
+        )
+        self.sendCircuitPrimitive(self.C, args={"name": circuitName})
+        print(printHeader("FFBOLab Client GFX") + "Circuit sent. Queuing execution.")
+        if len(inputProcessors) > 0:
+            res = self.client.session.call(
+                "ffbo.gfx.startExecution",
+                {
+                    "name": circuitName,
+                    "dt": dt,
+                    "tmax": tmax,
+                    "inputProcessors": inputProcessors,
+                },
+            )
         else:
-            res = self.client.session.call('ffbo.gfx.startExecution', {'name': circuitName, 'dt': dt, 'tmax': tmax})
+            res = self.client.session.call(
+                "ffbo.gfx.startExecution", {"name": circuitName, "dt": dt, "tmax": tmax}
+            )
         return True
 
     def getConnectivityMatrix(self):
-        M = np.zeros((len(self.out_nodes),len(self.out_nodes)))
+        M = np.zeros((len(self.out_nodes), len(self.out_nodes)))
         for i in self.out_edges:
-            M[self.out_nodes.index(i[0]),self.out_nodes.index(i[1])] += 1
+            M[self.out_nodes.index(i[0]), self.out_nodes.index(i[1])] += 1
         return M
 
-    def prepareCircuit(self, model = "auto"):
+    def prepareCircuit(self, model="auto"):
         """Prepares the current circuit for the Neuroballad format.
         """
         res = self.getConnectivity()
 
         for data in self.data:
-            if data['messageType'] == 'Data':
-                if 'data' in data:
-                    if 'data' in data['data']:
-                        connectivity = data['data']['data']
+            if data["messageType"] == "Data":
+                if "data" in data:
+                    if "data" in data["data"]:
+                        connectivity = data["data"]["data"]
                         break
 
-        connectivity = res[-2]['data']['data']
+        connectivity = res[-2]["data"]["data"]
         # print(connectivity)
         out_nodes, out_edges, out_edges_unique = self.processConnectivity(connectivity)
         self.out_nodes = out_nodes
@@ -1097,40 +1351,38 @@ class Client:
         synapses = []
 
         for data in self.data:
-            if data['messageType'] == 'Data':
-                if 'data' in data:
-                    if 'data' in data['data']:
-                        keys = list(data['data']['data'].keys())
+            if data["messageType"] == "Data":
+                if "data" in data:
+                    if "data" in data["data"]:
+                        keys = list(data["data"]["data"].keys())
                         for key in keys:
-                            if isinstance(data['data']['data'][key], dict):
-                                if 'uname' in data['data']['data'][key].keys():
+                            if isinstance(data["data"]["data"][key], dict):
+                                if "uname" in data["data"]["data"][key].keys():
                                     hashids.append(key)
-                                    names.append(data['data']['data'][key]['uname'])
-
+                                    names.append(data["data"]["data"][key]["uname"])
 
         for i in range(len(hashids)):
             res = self.getInfo(hashids[i])
-            if 'connectivity' in res['data']['data'].keys():
-                presyn = res['data']['data']['connectivity']['pre']['details']
+            if "connectivity" in res["data"]["data"].keys():
+                presyn = res["data"]["data"]["connectivity"]["pre"]["details"]
 
                 for syn in presyn:
-                    synapses.append([syn['uname'], names[i], syn['number']])
+                    synapses.append([syn["uname"], names[i], syn["number"]])
 
-                postsyn = res['data']['data']['connectivity']['post']['details']
+                postsyn = res["data"]["data"]["connectivity"]["post"]["details"]
                 for syn in postsyn:
-                    synapses.append([names[i], syn['uname'], syn['number']])
+                    synapses.append([names[i], syn["uname"], syn["number"]])
                 clear_output()
-        connectivity = {'hashids': hashids, 'names': names, 'synapses': synapses}
+        connectivity = {"hashids": hashids, "names": names, "synapses": synapses}
         return connectivity
 
-    def sendCircuit(self, name = 'temp'):
+    def sendCircuit(self, name="temp"):
         """Sends a circuit to the backend.
 
         # Arguments:
             name (str): The name of the circuit for the backend.
         """
-        self.sendCircuitPrimitive(self.C, args = {'name': name})
-
+        self.sendCircuitPrimitive(self.C, args={"name": name})
 
     def processConnectivity(self, connectivity):
         """Processes a Neuroarch connectivity dictionary.
@@ -1138,45 +1390,67 @@ class Client:
         # Returns:
             tuple: A tuple of nodes, edges and unique edges.
         """
-        edges = connectivity['edges']
-        nodes = connectivity['nodes']
+        edges = connectivity["edges"]
+        nodes = connectivity["nodes"]
 
         out_edges = []
         out_nodes = []
-        csv = ''
+        csv = ""
         for e_pre in nodes:
             # e_pre = node
             pre = None
-            if 'class' in nodes[e_pre]:
-                if nodes[e_pre]['class'] == 'Neuron':
-                    if 'uname' in nodes[e_pre].keys():
-                        pre = nodes[e_pre]['uname']
+            if "class" in nodes[e_pre]:
+                if nodes[e_pre]["class"] == "Neuron":
+                    if "uname" in nodes[e_pre].keys():
+                        pre = nodes[e_pre]["uname"]
                     else:
-                        pre = nodes[e_pre]['name']
+                        pre = nodes[e_pre]["name"]
                 # print(pre)
                 if pre is not None:
-                    synapse_nodes = [i[1] for i in edges if nodes[i[0]]['name'] == pre and (nodes[i[1]]['class'] == 'Synapse' or nodes[i[1]]['class'] == 'InferredSynapse')]
+                    synapse_nodes = [
+                        i[1]
+                        for i in edges
+                        if nodes[i[0]]["name"] == pre
+                        and (
+                            nodes[i[1]]["class"] == "Synapse"
+                            or nodes[i[1]]["class"] == "InferredSynapse"
+                        )
+                    ]
                     # print(len(synapse_nodes))
                     for synapse in synapse_nodes:
-                        if 'class' in nodes[synapse]:
-                            if nodes[synapse]['class'] == 'Synapse':
-                                inferred=0
+                        if "class" in nodes[synapse]:
+                            if nodes[synapse]["class"] == "Synapse":
+                                inferred = 0
                             else:
-                                inferred=1
-                            if 'N' in nodes[synapse].keys():
-                                N = nodes[synapse]['N']
+                                inferred = 1
+                            if "N" in nodes[synapse].keys():
+                                N = nodes[synapse]["N"]
                             else:
                                 N = 0
                             # try:
-                            post_nodes = [i[1] for i in edges if i[0] == synapse and (nodes[i[1]]['class'] == 'Neuron')]
+                            post_nodes = [
+                                i[1]
+                                for i in edges
+                                if i[0] == synapse
+                                and (nodes[i[1]]["class"] == "Neuron")
+                            ]
                             for post_node in post_nodes:
                                 post_node = nodes[post_node]
-                                if 'uname' in post_node:
-                                    post = post_node['uname']
+                                if "uname" in post_node:
+                                    post = post_node["uname"]
                                 else:
-                                    post = post_node['name']
+                                    post = post_node["name"]
                                 if post is not None:
-                                    csv = csv +  ('\n' + str(pre) + ',' + str(post) + ',' + str(N) + ',' + str(inferred))
+                                    csv = csv + (
+                                        "\n"
+                                        + str(pre)
+                                        + ","
+                                        + str(post)
+                                        + ","
+                                        + str(N)
+                                        + ","
+                                        + str(inferred)
+                                    )
                                     for i in range(N):
                                         out_edges.append((str(pre), str(post)))
                                         out_nodes.append(str(pre))
@@ -1202,11 +1476,15 @@ class Client:
         try:
             presynapticIndex = self.out_nodes.index(presynapticNeuron)
         except:
-            raise Exception("The presynaptic neuron given as input to 'getSynapses' is not present in the current workspace.")
+            raise Exception(
+                "The presynaptic neuron given as input to 'getSynapses' is not present in the current workspace."
+            )
         try:
             postsynapticIndex = self.out_nodes.index(postsynapticNeuron)
         except:
-            raise Exception("The postsynaptic neuron given as input to 'getSynapses' is not present in the current workspace.")
+            raise Exception(
+                "The postsynaptic neuron given as input to 'getSynapses' is not present in the current workspace."
+            )
         M = self.getConnectivityMatrix()
         return M[presynapticIndex, postsynapticIndex]
 
@@ -1222,13 +1500,15 @@ class Client:
         if self.compiled == False:
             self.prepareCircuit()
         postsynapticIndex = self.out_nodes.index(postsynapticNeuron)
-        if postsynapticIndex<0:
-            raise Exception("The postsynaptic neuron given as input to 'getPresynapticNeurons' is not present in the current workspace.")
+        if postsynapticIndex < 0:
+            raise Exception(
+                "The postsynaptic neuron given as input to 'getPresynapticNeurons' is not present in the current workspace."
+            )
         M = self.getConnectivityMatrix()
         connDict = {}
         for i in range(M.shape[0]):
-            if M[i,postsynapticIndex]>0:
-                connDict[self.out_nodes[i]] = M[i,postsynapticIndex]
+            if M[i, postsynapticIndex] > 0:
+                connDict[self.out_nodes[i]] = M[i, postsynapticIndex]
         return connDict
 
     def getPostsynapticNeurons(self, presynapticNeuron):
@@ -1243,16 +1523,26 @@ class Client:
         if self.compiled == False:
             self.prepareCircuit()
         presynapticIndex = self.out_nodes.index(presynapticNeuron)
-        if presynapticIndex<0:
-            raise Exception("The presynaptic neuron given as input to 'getPostsynapticNeurons' is not present in the current workspace.")
+        if presynapticIndex < 0:
+            raise Exception(
+                "The presynaptic neuron given as input to 'getPostsynapticNeurons' is not present in the current workspace."
+            )
         M = self.getConnectivityMatrix()
         connDict = {}
         for i in range(M.shape[0]):
-            if M[i,presynapticIndex]>0:
-                connDict[self.out_nodes[i]] = M[i,presynapticIndex]
+            if M[i, presynapticIndex] > 0:
+                connDict[self.out_nodes[i]] = M[i, presynapticIndex]
         return connDict
 
-    def genNB(self, nodes, edges, model = "auto", config = {}, default_neuron = nb.MorrisLecar(),  default_synapse = nb.AlphaSynapse()):
+    def genNB(
+        self,
+        nodes,
+        edges,
+        model="auto",
+        config={},
+        default_neuron=nb.MorrisLecar(),
+        default_synapse=nb.AlphaSynapse(),
+    ):
         """Processes the output of processConnectivity to generate a Neuroballad circuit.
 
         # Returns:
@@ -1271,42 +1561,45 @@ class Client:
                 idx = C.add_cluster(1, default_neuron)[0]
                 node_keys[i] = idx
         for i, v in enumerate(list(C.G.nodes())):
-            C.G.nodes()[v]['name'] = list(node_keys.keys())[i]
+            C.G.nodes()[v]["name"] = list(node_keys.keys())[i]
         if model == "auto":
             for i in edges:
                 if i not in config:
                     idx = C.add_cluster(1, default_synapse)[0]
-                    C.join([[node_keys[i[0]],idx]])
+                    C.join([[node_keys[i[0]], idx]])
                     C.join([[idx, node_keys[i[1]]]])
-                    C.G.nodes()["uid" + str(idx)]['name'] = "Synapse from " + i[0] + " to " + i[1]
+                    C.G.nodes()["uid" + str(idx)]["name"] = (
+                        "Synapse from " + i[0] + " to " + i[1]
+                    )
                     # print(C.G.nodes()["uid" + str(idx)]['BioName'])
         if model == "simple":
             for i in edges:
                 if i not in config:
-                    C.join([[node_keys[i[0]],node_keys[i[1]]]])
+                    C.join([[node_keys[i[0]], node_keys[i[1]]]])
 
         return C, node_keys
 
     def getConnectivityDendrogram(self):
         self.prepareCircuit()
         M = self.getConnectivityMatrix()
-        M = pd.DataFrame(M, index = self.out_nodes, columns = self.out_nodes)
+        M = pd.DataFrame(M, index=self.out_nodes, columns=self.out_nodes)
         sns.clustermap(M)
 
-    def sendCircuitPrimitive(self, C, args = {'name': 'temp'}):
+    def sendCircuitPrimitive(self, C, args={"name": "temp"}):
         """Sends a NetworkX graph to the backend.
         """
-        C.compile(model_output_name = os.path.join(self.dataPath,
-                                                   args['name'] + '.gexf.gz'))
-        with open(os.path.join(self.dataPath, args['name'] + '.gexf.gz'), 'rb') as file:
-            data=file.read()
+        C.compile(
+            model_output_name=os.path.join(self.dataPath, args["name"] + ".gexf.gz")
+        )
+        with open(os.path.join(self.dataPath, args["name"] + ".gexf.gz"), "rb") as file:
+            data = file.read()
         a = {}
-        a['name'] = args['name']
-        a['experiment'] = self.experimentInputs
-        a['graph'] = binascii.hexlify(data).decode()
-        res = self.client.session.call('ffbo.gfx.sendCircuit', a)
-        res = self.client.session.call('ffbo.gfx.sendExperiment', a)
-        #print(_FFBOLABClient.client.session.call('ffbo.gfx.sendCircuit', a))
+        a["name"] = args["name"]
+        a["experiment"] = self.experimentInputs
+        a["graph"] = binascii.hexlify(data).decode()
+        res = self.client.session.call("ffbo.gfx.sendCircuit", a)
+        res = self.client.session.call("ffbo.gfx.sendExperiment", a)
+        # print(_FFBOLABClient.client.session.call('ffbo.gfx.sendCircuit', a))
 
     def alter(self, X):
         """Alters a set of models with specified Neuroballad models.
@@ -1314,18 +1607,20 @@ class Client:
        # Arguments:
             X (list of lists): A list of lists. Elements are lists whose first element is the neuron ID (str) and the second is the Neuroballad object corresponding to the model.
         """
-        if any(isinstance(el, list) for el in X): # Check if input is a list of lists
+        if any(isinstance(el, list) for el in X):  # Check if input is a list of lists
             pass
         else:
             X = [X]
         for x in X:
             if x[0] in self.node_keys:
-                self.C.G.node['uid' + str(self.node_keys[x[0]])].clear()
+                self.C.G.node["uid" + str(self.node_keys[x[0]])].clear()
                 params = x[1].params
-                params['name'] = params['name'] + str(self.node_keys[x[0]])
-                self.C.G.node['uid' + str(self.node_keys[x[0]])].update(params)
+                params["name"] = params["name"] + str(self.node_keys[x[0]])
+                self.C.G.node["uid" + str(self.node_keys[x[0]])].update(params)
             else:
-                raise Exception('The rule you passed named', x, 'does match a known node name.')
+                raise Exception(
+                    "The rule you passed named", x, "does match a known node name."
+                )
 
     def addInput(self, x):
         """Adds an input to the experiment settings. The input is a Neuroballad input object.
@@ -1339,9 +1634,9 @@ class Client:
         self.experimentInputs.append(x.params)
         data = self.experimentInputs
         a = {}
-        a['data'] = data
-        a['messageType'] = 'Data'
-        a['widget'] = 'JSONEditor'
+        a["data"] = data
+        a["messageType"] = "Data"
+        a["widget"] = "JSONEditor"
         self.tryComms(a)
         return x.params
 
@@ -1350,63 +1645,65 @@ class Client:
         """
         a = {}
         data = self.experimentInputs
-        a['data'] = data
-        a['messageType'] = 'Data'
-        a['widget'] = 'JSONEditor'
+        a["data"] = data
+        a["messageType"] = "Data"
+        a["widget"] = "JSONEditor"
         self.tryComms(a)
         return self.experimentInputs
 
-    def fetchCircuit(self, X, local = True):
+    def fetchCircuit(self, X, local=True):
         """Deprecated function that locally saves a circuit file via the backend.
            Deprecated because of connectivity issues with large files.
         """
-        X = self.client.session.call(u'ffbo.gfx.getCircuit', X)
-        X['data'] = binascii.unhexlify(X['data'].encode())
+        X = self.client.session.call(u"ffbo.gfx.getCircuit", X)
+        X["data"] = binascii.unhexlify(X["data"].encode())
         if local == False:
-            with open(os.path.join(_FFBOLabDataPath, X['name'] + '.gexf.gz'), "wb") as file:
-                file.write(X['data'])
+            with open(
+                os.path.join(_FFBOLabDataPath, X["name"] + ".gexf.gz"), "wb"
+            ) as file:
+                file.write(X["data"])
         else:
-            with open(os.path.join(X['name'] + '.gexf.gz'), "wb") as file:
-                file.write(X['data'])
+            with open(os.path.join(X["name"] + ".gexf.gz"), "wb") as file:
+                file.write(X["data"])
         return True
 
-    def fetchExperiment(self, X, local = True):
+    def fetchExperiment(self, X, local=True):
         """Deprecated function that locally saves an experiment file via the backend.
            Deprecated because of connectivity issues with large files.
         """
-        X = self.client.session.call(u'ffbo.gfx.getExperiment', X)
-        X['data'] = json.dumps(X['data'])
+        X = self.client.session.call(u"ffbo.gfx.getExperiment", X)
+        X["data"] = json.dumps(X["data"])
         if local == False:
-            with open(os.path.join(_FFBOLabDataPath, X['name'] + '.json'), "w") as file:
-                file.write(X['data'])
+            with open(os.path.join(_FFBOLabDataPath, X["name"] + ".json"), "w") as file:
+                file.write(X["data"])
         else:
-            with open(os.path.join(X['name'] + '.json'), "w") as file:
-                file.write(X['data'])
+            with open(os.path.join(X["name"] + ".json"), "w") as file:
+                file.write(X["data"])
         return True
 
-    def JSCall(self, messageType='getExperimentConfig', data = {}):
+    def JSCall(self, messageType="getExperimentConfig", data={}):
         a = {}
-        a['data'] = data
-        a['messageType'] = messageType
-        a['widget'] = 'GFX'
+        a["data"] = data
+        a["messageType"] = messageType
+        a["widget"] = "GFX"
         self.tryComms(a)
 
     def getExperimentConfig(self):
         self.JSCall()
 
-    def fetchSVG(self, X, local = True):
+    def fetchSVG(self, X, local=True):
         """Deprecated function that locally saves an SVG via the backend.
            Deprecated because of connectivity issues with large files.
         """
-        X = self.client.session.call(u'ffbo.gfx.getSVG', X)
-        X['data'] = binascii.unhexlify(X['data'].encode())
+        X = self.client.session.call(u"ffbo.gfx.getSVG", X)
+        X["data"] = binascii.unhexlify(X["data"].encode())
         # X['data'] = json.dumps(X['data'])
         if local == False:
-            with open(os.path.join(_FFBOLabDataPath, X['name'] + '.svg'), "wb") as file:
-                file.write(X['data'])
+            with open(os.path.join(_FFBOLabDataPath, X["name"] + ".svg"), "wb") as file:
+                file.write(X["data"])
         else:
-            with open(os.path.join(X['name'] + '.svg'), "wb") as file:
-                file.write(X['data'])
+            with open(os.path.join(X["name"] + ".svg"), "wb") as file:
+                file.write(X["data"])
         return True
 
     def _sendSVG(self, X):
@@ -1414,15 +1711,14 @@ class Client:
            Deprecated because of connectivity issues with large files.
         """
         name = X
-        #with open(os.path.join(_FFBOLabDataPath, name + '.svg'), "r") as file:
+        # with open(os.path.join(_FFBOLabDataPath, name + '.svg'), "r") as file:
         #        svg = file.read()
         a = {}
-        #a['data'] = svg
-        a['data'] = X
-        a['messageType'] = 'loadCircuit'
-        a['widget'] = 'GFX'
+        # a['data'] = svg
+        a["data"] = X
+        a["messageType"] = "loadCircuit"
+        a["widget"] = "GFX"
         self.tryComms(a)
-
 
     def sendSVG(self, name, file):
         """Sends an SVG to the FBL fileserver. Useful for storing data and using loadSVG.
@@ -1431,10 +1727,10 @@ class Client:
             name (str): Name to use when saving the file; '_visual' gets automatically appended to it.
             file (str): Path to the SVG file.
         """
-        with open(file, 'r') as ifile:
+        with open(file, "r") as ifile:
             data = ifile.read()
-        data = json.dumps({'name': name, 'svg': data})
-        self.client.session.call('ffbo.gfx.sendSVG',data)
+        data = json.dumps({"name": name, "svg": data})
+        self.client.session.call("ffbo.gfx.sendSVG", data)
 
     def loadSVG(self, name):
         """Loads an SVG in the FBL fileserver.
@@ -1442,7 +1738,7 @@ class Client:
         # Arguments:
             name (str): Name to use when loading the file.
         """
-        self.tryComms({'widget':'GFX','messageType': 'loadCircuit', 'data': name})
+        self.tryComms({"widget": "GFX", "messageType": "loadCircuit", "data": name})
 
     def FICurveGenerator(self, model):
         """Sample library function showing how to do automated experimentation using FFBOLab's Notebook features. Takes a simple abstract neuron model and runs experiments on it.
@@ -1460,34 +1756,30 @@ class Client:
         self.C = nb.Circuit()
 
         self.experimentInputs = []
-        #self.addInput(
+        # self.addInput(
         #    nb.InIStep(0, 5., 0., 1.))
         self.executionSuccessful = True
         circuitName = "FITest"
 
-
-
         for stepAmplitude in range(30):
             idx = self.C.add_cluster(1, model)[0]
-            self.addInput(
-                nb.InIStep(idx, float(stepAmplitude), 0., 1.))
-        self.sendCircuitPrimitive(self.C, args = {'name': circuitName})
-        print(printHeader('FFBOLab Client GFX') + 'Circuit sent. Queuing execution.')
-        #while self.executionSuccessful == False:
+            self.addInput(nb.InIStep(idx, float(stepAmplitude), 0.0, 1.0))
+        self.sendCircuitPrimitive(self.C, args={"name": circuitName})
+        print(printHeader("FFBOLab Client GFX") + "Circuit sent. Queuing execution.")
+        # while self.executionSuccessful == False:
         #    sleep(1)
-        #self.experimentInputs = []
+        # self.experimentInputs = []
 
         #
         a = {}
-        a['name'] = "FITest"
-        a['experiment'] = self.experimentInputs
+        a["name"] = "FITest"
+        a["experiment"] = self.experimentInputs
         self.experimentQueue.append(a)
         self.executionSuccessful = False
         a = self.experimentQueue.pop(0)
         # self.parseSimResults()
-        res = self.client.session.call('ffbo.gfx.sendExperiment', a)
-        res = self.client.session.call('ffbo.gfx.startExecution', {'name': circuitName})
-
+        res = self.client.session.call("ffbo.gfx.sendExperiment", a)
+        res = self.client.session.call("ffbo.gfx.startExecution", {"name": circuitName})
 
         return True
 
@@ -1496,17 +1788,16 @@ class Client:
         """
         numpyData = {}
         for x in self.data:
-            if 'data' in x:
-                if type(x['data']) is dict:
-                    if 'data' in x['data']:
-                        if 'ydomain' in x['data']['data']:
-                            for i in x['data'].keys():
+            if "data" in x:
+                if type(x["data"]) is dict:
+                    if "data" in x["data"]:
+                        if "ydomain" in x["data"]["data"]:
+                            for i in x["data"].keys():
                                 if i not in numpyData.keys():
-                                    numpyData[i] = x['data'][i]
+                                    numpyData[i] = x["data"][i]
                                 else:
-                                    numpyData[i] += x['data'][i]
+                                    numpyData[i] += x["data"][i]
         self.simData = numpyData
-
 
     def getSimResults(self):
         """Computes the simulation results.
@@ -1516,31 +1807,30 @@ class Client:
             list: A list of neuron names, sorted according to the data.
         """
         i = -1
-        sim_output = json.loads(self.data[-1]['data']['data'])
-        sim_output_new = json.loads(self.data[i]['data']['data'])
+        sim_output = json.loads(self.data[-1]["data"]["data"])
+        sim_output_new = json.loads(self.data[i]["data"]["data"])
         while True:
             if not i == -1:
-                sim_output['data'] = sim_output_new['data'] + sim_output['data']
+                sim_output["data"] = sim_output_new["data"] + sim_output["data"]
             # sim_output['data'].update(sim_output_new['data'])
             # print(sim_output_new['data'].keys())
             i = i - 1
             try:
-                sim_output_new = json.loads(self.data[i]['data']['data'])
+                sim_output_new = json.loads(self.data[i]["data"]["data"])
             except:
                 break
-        sim_output['data'] = json.loads(sim_output['data'])
+        sim_output["data"] = json.loads(sim_output["data"])
         bs = []
         keys = []
-        for key in sim_output['data'].keys():
-            A = np.array(sim_output['data'][key])
-            b = A[:,1]
+        for key in sim_output["data"].keys():
+            A = np.array(sim_output["data"][key])
+            b = A[:, 1]
             keys.append(key)
             bs.append(b)
 
         B = np.array(bs)
-        print('Shape of Results:', B.shape)
+        print("Shape of Results:", B.shape)
         return B, keys
-
 
     def plotSimResults(self, B, keys):
         """Plots the simulation results. A simple function to demonstrate result display.
@@ -1548,8 +1838,8 @@ class Client:
         # Arguments:
             model (Neuroballad Model Object): The model object to test.
         """
-        plt.figure(figsize=(22,10))
-        plt.title('Sim Results')
+        plt.figure(figsize=(22, 10))
+        plt.title("Sim Results")
         plt.plot(B.T)
         plt.legend(keys)
 
@@ -1560,12 +1850,13 @@ class Client:
         import numpy as np
         import matplotlib.pyplot as plt
         import re
+
         X = []
         Y = []
         for key in self.simData.keys():
-            if 'spike' in key:
+            if "spike" in key:
                 a = np.sum(self.simData[key])
-                keynums = [float(s) for s in re.findall(r'-?\d+\.?\d*', key)]
+                keynums = [float(s) for s in re.findall(r"-?\d+\.?\d*", key)]
                 X.append(keynums[0])
                 Y.append(a)
 
@@ -1574,60 +1865,232 @@ class Client:
         Y = Y[np.argsort(X)]
         X = np.sort(X)
         plt.plot(np.array(X), np.array(Y))
-        plt.xlabel('Input Amplitude (muA)')
-        plt.ylabel('Spike Rate (Spikes/Second)')
-        plt.title('F-I Curve for the Queried Model')
+        plt.xlabel("Input Amplitude (muA)")
+        plt.ylabel("Spike Rate (Spikes/Second)")
+        plt.title("F-I Curve for the Queried Model")
 
-    def loadCartridge(self, cartridgeIndex = 100):
+    def loadCartridge(self, cartridgeIndex=100):
         """Sample library function for loading cartridges, showing how one can build libraries that work with flybrainlab.
         """
         self.executeNAquery(
-            {"query":[
-                {"action":{"method":{"query":{"name":["lamina"]}}},"object":{"class":"LPU"}},
-                {"action":{"method":{"traverse_owns":{"cls":"CartridgeModel","name":'cartridge_' + str(cartridgeIndex)}}},"object":{"memory":0}},
-                {"action":{"method":{"traverse_owns":{"instanceof":"MembraneModel"}}},"object":{"memory":0}},
-                {"action":{"method":{"traverse_owns":{"instanceof":"DendriteModel"}}}, "object":{"memory":1}},
-                {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
-                {"action":{"method":{"traverse_owns":{"cls":"Port"}}},"object":{"memory":3}},
-                {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
-                {"action":{"method":{"gen_traversal_in":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","MembraneModel","instanceof"]]}}},"object":{"memory":0}},
-                {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
-                {"action":{"method":{"gen_traversal_in":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","Aggregator","instanceof"]]}}},"object":{"memory":2}},
-                {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
-                {"action":{"method":{"gen_traversal_out":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","MembraneModel","instanceof"]]}}},"object":{"memory":4}},
-                {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
-                {"action":{"method":{"gen_traversal_out":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","Aggregator","instanceof"]]}}},"object":{"memory":6}},
-                {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
-                {"action":{"op":{"__add__":{"memory":2}}},"object":{"memory":0}},
-                {"action":{"op":{"__add__":{"memory":6}}},"object":{"memory":0}},
-                {"action":{"op":{"__add__":{"memory":8}}},"object":{"memory":0}},
-                {"action":{"op":{"__add__":{"memory":11}}},"object":{"memory":0}},
-                {"action":{"method":{"get_connecting_synapsemodels":{}}},"object":{"memory":0}},
-                {"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},
-                {"action":{"method":{"get_connected_ports":{}}},"object":{"memory":1}},
-                {"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},
-                {"action":{"method":{"query":{"name":["retina-lamina"]}}},"object":{"class":"Pattern"}},
-                {"action":{"method":{"owns":{"cls":"Interface"}}},"object":{"memory":0}},
-                {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
-                {"action":{"op":{"find_matching_ports_from_selector":{"memory":20}}},"object":{"memory":1}},
-                {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
-                {"action":{"method":{"query":{"name":["retina"]}}},"object":{"class":"LPU"}},
-                {"action":{"op":{"find_matching_ports_from_selector":{"memory":1}}},"object":{"memory":0}},
-                {"action":{"method":{"gen_traversal_in":{"pass_through":["SendsTo", "MembraneModel","instanceof"]}}},"object":{"memory":0}},
-                {"action":{"op":{"__add__":{"memory":10}}},"object":{"memory":0}},
-                {"action":{"op":{"__add__":{"memory":4}}},"object":{"memory":0}}
-            ],
-            "format":"no_result"})
+            {
+                "query": [
+                    {
+                        "action": {"method": {"query": {"name": ["lamina"]}}},
+                        "object": {"class": "LPU"},
+                    },
+                    {
+                        "action": {
+                            "method": {
+                                "traverse_owns": {
+                                    "cls": "CartridgeModel",
+                                    "name": "cartridge_" + str(cartridgeIndex),
+                                }
+                            }
+                        },
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {
+                            "method": {"traverse_owns": {"instanceof": "MembraneModel"}}
+                        },
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {
+                            "method": {"traverse_owns": {"instanceof": "DendriteModel"}}
+                        },
+                        "object": {"memory": 1},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 0}}},
+                        "object": {"memory": 1},
+                    },
+                    {
+                        "action": {"method": {"traverse_owns": {"cls": "Port"}}},
+                        "object": {"memory": 3},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 0}}},
+                        "object": {"memory": 1},
+                    },
+                    {
+                        "action": {
+                            "method": {
+                                "gen_traversal_in": {
+                                    "min_depth": 2,
+                                    "pass_through": [
+                                        ["SendsTo", "SynapseModel", "instanceof"],
+                                        ["SendsTo", "MembraneModel", "instanceof"],
+                                    ],
+                                }
+                            }
+                        },
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"method": {"has": {"name": "Amacrine"}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {
+                            "method": {
+                                "gen_traversal_in": {
+                                    "min_depth": 2,
+                                    "pass_through": [
+                                        ["SendsTo", "SynapseModel", "instanceof"],
+                                        ["SendsTo", "Aggregator", "instanceof"],
+                                    ],
+                                }
+                            }
+                        },
+                        "object": {"memory": 2},
+                    },
+                    {
+                        "action": {"method": {"has": {"name": "Amacrine"}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {
+                            "method": {
+                                "gen_traversal_out": {
+                                    "min_depth": 2,
+                                    "pass_through": [
+                                        ["SendsTo", "SynapseModel", "instanceof"],
+                                        ["SendsTo", "MembraneModel", "instanceof"],
+                                    ],
+                                }
+                            }
+                        },
+                        "object": {"memory": 4},
+                    },
+                    {
+                        "action": {"method": {"has": {"name": "Amacrine"}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {
+                            "method": {
+                                "gen_traversal_out": {
+                                    "min_depth": 2,
+                                    "pass_through": [
+                                        ["SendsTo", "SynapseModel", "instanceof"],
+                                        ["SendsTo", "Aggregator", "instanceof"],
+                                    ],
+                                }
+                            }
+                        },
+                        "object": {"memory": 6},
+                    },
+                    {
+                        "action": {"method": {"has": {"name": "Amacrine"}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 2}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 6}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 8}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 11}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"method": {"get_connecting_synapsemodels": {}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 1}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"method": {"get_connected_ports": {}}},
+                        "object": {"memory": 1},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 1}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"method": {"query": {"name": ["retina-lamina"]}}},
+                        "object": {"class": "Pattern"},
+                    },
+                    {
+                        "action": {"method": {"owns": {"cls": "Interface"}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 0}}},
+                        "object": {"memory": 1},
+                    },
+                    {
+                        "action": {
+                            "op": {"find_matching_ports_from_selector": {"memory": 20}}
+                        },
+                        "object": {"memory": 1},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 0}}},
+                        "object": {"memory": 1},
+                    },
+                    {
+                        "action": {"method": {"query": {"name": ["retina"]}}},
+                        "object": {"class": "LPU"},
+                    },
+                    {
+                        "action": {
+                            "op": {"find_matching_ports_from_selector": {"memory": 1}}
+                        },
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {
+                            "method": {
+                                "gen_traversal_in": {
+                                    "pass_through": [
+                                        "SendsTo",
+                                        "MembraneModel",
+                                        "instanceof",
+                                    ]
+                                }
+                            }
+                        },
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 10}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 4}}},
+                        "object": {"memory": 0},
+                    },
+                ],
+                "format": "no_result",
+            }
+        )
 
-        res = self.executeNAquery({"query":[{"action":{"method":{"has":{}}},"object":{"state":0}}],"format":"nx"})
+        res = self.executeNAquery(
+            {
+                "query": [{"action": {"method": {"has": {}}}, "object": {"state": 0}}],
+                "format": "nx",
+            }
+        )
 
         data = []
         for i in res:
-            if 'data' in i:
-                if 'data' in i['data']:
-                    if 'nodes' in i['data']['data']:
-                        data.append(i['data']['data'])
-        G=nx.Graph(data[0])
+            if "data" in i:
+                if "data" in i["data"]:
+                    if "nodes" in i["data"]["data"]:
+                        data.append(i["data"]["data"])
+        G = nx.Graph(data[0])
         self.C.G = G
         return True
 
@@ -1640,7 +2103,7 @@ class Client:
         # Returns:
             bool: True.
         """
-        print('Obtained Experiment Configuration: ', x)
+        print("Obtained Experiment Configuration: ", x)
         self.simExperimentConfig = json.loads(x)
         if self.experimentWatcher is not None:
             self.experimentWatcher.loadExperimentConfig(self.simExperimentConfig)
@@ -1649,23 +2112,25 @@ class Client:
     def initiateExperiments(self):
         """Initializes and executes experiments for different LPUs.
         """
-        print('Initiating experiments...')
-        print('Experiment Setup: ', self.simExperimentConfig)
+        print("Initiating experiments...")
+        print("Experiment Setup: ", self.simExperimentConfig)
         for key in self.simExperimentConfig.keys():
             if key in self.simExperimentRunners.keys():
                 try:
                     module = importlib.import_module(i)
-                    print('Loaded LPU {}.'.format(i))
-                    self.simExperimentRunners[key] = getattr(module, 'sim')
+                    print("Loaded LPU {}.".format(i))
+                    self.simExperimentRunners[key] = getattr(module, "sim")
                 except:
-                    print('Failed to load LPU {}.'.format(i))
+                    print("Failed to load LPU {}.".format(i))
                 run_func = self.simExperimentRunners[key]
                 run_func(self.simExperimentConfig)
             else:
-                print('No runner(s) were found for Diagram {}.'.format(key))
+                print("No runner(s) were found for Diagram {}.".format(key))
         return True
 
-    def prune_retina_lamina(self, removed_neurons = [], removed_labels=[], retrieval_format="nk"):
+    def prune_retina_lamina(
+        self, removed_neurons=[], removed_labels=[], retrieval_format="nk"
+    ):
         """Prunes the retina and lamina circuits.
 
         # Arguments:
@@ -1679,28 +2144,115 @@ class Client:
             nm[0].execute_multilpu(res)
         """
         list_of_queries = [
-        {"command":{"swap":{"states":[0,1]}},"format":"nx", "user": self.client._async_session._session_id, "server": self.naServerID},
-        {"query":[{"action":{"method":{"has":{"name": removed_neurons}}},"object":{"state":0}},{"action":{"method":{"has":{"label": removed_labels}}},"object":{"state":0}},{"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},
-                    {"action":{"method":{"get_connected_ports":{}}},"object":{"memory":0}},
-                    {"action":{"method":{"has":{"via":['+removed_via+']}}},"object":{"state":0}},{"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},
-                    {"action":{"op":{"find_matching_ports_from_selector":{"memory":0}}},"object":{"state":0}},
-                    {"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},
-                    {"action":{"method":{"gen_traversal_in":{"min_depth":1, "pass_through":["SendsTo", "SynapseModel","instanceof"]}}},"object":{"memory":0}},
-                    {"action":{"method":{"gen_traversal_out":{"min_depth":1, "pass_through":["SendsTo", "SynapseModel","instanceof"]}}},"object":{"memory":1}},
-                    {"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},{"action":{"op":{"__add__":{"memory":3}}},"object":{"memory":0}},
-                    {"action":{"op":{"__sub__":{"memory":0}}},"object":{"state":0}}],
-        "format":retrieval_format, "user": self.client._async_session._session_id, "server": self.naServerID}
+            {
+                "command": {"swap": {"states": [0, 1]}},
+                "format": "nx",
+                "user": self.client._async_session._session_id,
+                "server": self.naServerID,
+            },
+            {
+                "query": [
+                    {
+                        "action": {"method": {"has": {"name": removed_neurons}}},
+                        "object": {"state": 0},
+                    },
+                    {
+                        "action": {"method": {"has": {"label": removed_labels}}},
+                        "object": {"state": 0},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 1}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"method": {"get_connected_ports": {}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"method": {"has": {"via": ["+removed_via+"]}}},
+                        "object": {"state": 0},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 1}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {
+                            "op": {"find_matching_ports_from_selector": {"memory": 0}}
+                        },
+                        "object": {"state": 0},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 1}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {
+                            "method": {
+                                "gen_traversal_in": {
+                                    "min_depth": 1,
+                                    "pass_through": [
+                                        "SendsTo",
+                                        "SynapseModel",
+                                        "instanceof",
+                                    ],
+                                }
+                            }
+                        },
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {
+                            "method": {
+                                "gen_traversal_out": {
+                                    "min_depth": 1,
+                                    "pass_through": [
+                                        "SendsTo",
+                                        "SynapseModel",
+                                        "instanceof",
+                                    ],
+                                }
+                            }
+                        },
+                        "object": {"memory": 1},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 1}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"op": {"__add__": {"memory": 3}}},
+                        "object": {"memory": 0},
+                    },
+                    {
+                        "action": {"op": {"__sub__": {"memory": 0}}},
+                        "object": {"state": 0},
+                    },
+                ],
+                "format": retrieval_format,
+                "user": self.client._async_session._session_id,
+                "server": self.naServerID,
+            },
         ]
-        res = self.client.session.call('ffbo.processor.neuroarch_query', list_of_queries[0])
-        print('Pruning ', removed_neurons)
-        print('Pruning ', removed_labels)
-        res = self.client.session.call('ffbo.processor.neuroarch_query', list_of_queries[1], options=CallOptions(
-                                        timeout = 30000000000
-                                        ))
+        res = self.client.session.call(
+            "ffbo.processor.neuroarch_query", list_of_queries[0]
+        )
+        print("Pruning ", removed_neurons)
+        print("Pruning ", removed_labels)
+        res = self.client.session.call(
+            "ffbo.processor.neuroarch_query",
+            list_of_queries[1],
+            options=CallOptions(timeout=30000000000),
+        )
         return res
 
-
-    def load_retina_lamina(self, cartridgeIndex=11, removed_neurons = [], removed_labels=[], retrieval_format="nk"):
+    def load_retina_lamina(
+        self,
+        cartridgeIndex=11,
+        removed_neurons=[],
+        removed_labels=[],
+        retrieval_format="nk",
+    ):
         """Loads retina and lamina.
 
         # Arguments:
@@ -1716,62 +2268,198 @@ class Client:
             nm[0].execute_multilpu(experiment_configuration)
         """
 
-        inp = {"query":[
-                        {"action":{"method":{"query":{"name":["lamina"]}}},"object":{"class":"LPU"}},
-                        {"action":{"method":{"traverse_owns":{"cls":"CartridgeModel","name":'cartridge_' + str(cartridgeIndex)}}},"object":{"memory":0}},
-                        {"action":{"method":{"traverse_owns":{"instanceof":"MembraneModel"}}},"object":{"memory":0}},
-                        {"action":{"method":{"traverse_owns":{"instanceof":"DendriteModel"}}}, "object":{"memory":1}},
-                        {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
-                        {"action":{"method":{"traverse_owns":{"cls":"Port"}}},"object":{"memory":3}},
-                        {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
-                        {"action":{"method":{"gen_traversal_in":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","MembraneModel","instanceof"]]}}},"object":{"memory":0}},
-                        {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
-                        {"action":{"method":{"gen_traversal_in":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","Aggregator","instanceof"]]}}},"object":{"memory":2}},
-                        {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
-                        {"action":{"method":{"gen_traversal_out":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","MembraneModel","instanceof"]]}}},"object":{"memory":4}},
-                        {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
-                        {"action":{"method":{"gen_traversal_out":{"min_depth":2,"pass_through":[["SendsTo","SynapseModel","instanceof"],["SendsTo","Aggregator","instanceof"]]}}},"object":{"memory":6}},
-                        {"action":{"method":{"has":{"name":"Amacrine"}}},"object":{"memory":0}},
-                        {"action":{"op":{"__add__":{"memory":2}}},"object":{"memory":0}},
-                        {"action":{"op":{"__add__":{"memory":6}}},"object":{"memory":0}},
-                        {"action":{"op":{"__add__":{"memory":8}}},"object":{"memory":0}},
-                        {"action":{"op":{"__add__":{"memory":11}}},"object":{"memory":0}},
-                        {"action":{"method":{"get_connecting_synapsemodels":{}}},"object":{"memory":0}},
-                        {"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},
-                        {"action":{"method":{"get_connected_ports":{}}},"object":{"memory":1}},
-                        {"action":{"op":{"__add__":{"memory":1}}},"object":{"memory":0}},
-                        {"action":{"method":{"query":{"name":["retina-lamina"]}}},"object":{"class":"Pattern"}},
-                        {"action":{"method":{"owns":{"cls":"Interface"}}},"object":{"memory":0}},
-                        {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
-                        {"action":{"op":{"find_matching_ports_from_selector":{"memory":20}}},"object":{"memory":1}},
-                        {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
-                        {"action":{"method":{"get_connected_ports":{}}},"object":{"memory":0}},
-                        {"action":{"op":{"__add__":{"memory":0}}},"object":{"memory":1}},
-                        {"action":{"method":{"query":{"name":["retina"]}}},"object":{"class":"LPU"}},
-                        {"action":{"op":{"find_matching_ports_from_selector":{"memory":1}}},"object":{"memory":0}},
-                        {"action":{"method":{"gen_traversal_in":{"pass_through":["SendsTo", "MembraneModel","instanceof"]}}},"object":{"memory":0}},
-                        {"action":{"op":{"__add__":{"memory":10}}},"object":{"memory":0}},
-                        {"action":{"op":{"__add__":{"memory":4}}},"object":{"memory":0}}
-                    ],
-                    "format":"no_result",
-                    "user": self.client._async_session._session_id,
-                    "server": self.naServerID}
+        inp = {
+            "query": [
+                {
+                    "action": {"method": {"query": {"name": ["lamina"]}}},
+                    "object": {"class": "LPU"},
+                },
+                {
+                    "action": {
+                        "method": {
+                            "traverse_owns": {
+                                "cls": "CartridgeModel",
+                                "name": "cartridge_" + str(cartridgeIndex),
+                            }
+                        }
+                    },
+                    "object": {"memory": 0},
+                },
+                {
+                    "action": {
+                        "method": {"traverse_owns": {"instanceof": "MembraneModel"}}
+                    },
+                    "object": {"memory": 0},
+                },
+                {
+                    "action": {
+                        "method": {"traverse_owns": {"instanceof": "DendriteModel"}}
+                    },
+                    "object": {"memory": 1},
+                },
+                {"action": {"op": {"__add__": {"memory": 0}}}, "object": {"memory": 1}},
+                {
+                    "action": {"method": {"traverse_owns": {"cls": "Port"}}},
+                    "object": {"memory": 3},
+                },
+                {"action": {"op": {"__add__": {"memory": 0}}}, "object": {"memory": 1}},
+                {
+                    "action": {
+                        "method": {
+                            "gen_traversal_in": {
+                                "min_depth": 2,
+                                "pass_through": [
+                                    ["SendsTo", "SynapseModel", "instanceof"],
+                                    ["SendsTo", "MembraneModel", "instanceof"],
+                                ],
+                            }
+                        }
+                    },
+                    "object": {"memory": 0},
+                },
+                {
+                    "action": {"method": {"has": {"name": "Amacrine"}}},
+                    "object": {"memory": 0},
+                },
+                {
+                    "action": {
+                        "method": {
+                            "gen_traversal_in": {
+                                "min_depth": 2,
+                                "pass_through": [
+                                    ["SendsTo", "SynapseModel", "instanceof"],
+                                    ["SendsTo", "Aggregator", "instanceof"],
+                                ],
+                            }
+                        }
+                    },
+                    "object": {"memory": 2},
+                },
+                {
+                    "action": {"method": {"has": {"name": "Amacrine"}}},
+                    "object": {"memory": 0},
+                },
+                {
+                    "action": {
+                        "method": {
+                            "gen_traversal_out": {
+                                "min_depth": 2,
+                                "pass_through": [
+                                    ["SendsTo", "SynapseModel", "instanceof"],
+                                    ["SendsTo", "MembraneModel", "instanceof"],
+                                ],
+                            }
+                        }
+                    },
+                    "object": {"memory": 4},
+                },
+                {
+                    "action": {"method": {"has": {"name": "Amacrine"}}},
+                    "object": {"memory": 0},
+                },
+                {
+                    "action": {
+                        "method": {
+                            "gen_traversal_out": {
+                                "min_depth": 2,
+                                "pass_through": [
+                                    ["SendsTo", "SynapseModel", "instanceof"],
+                                    ["SendsTo", "Aggregator", "instanceof"],
+                                ],
+                            }
+                        }
+                    },
+                    "object": {"memory": 6},
+                },
+                {
+                    "action": {"method": {"has": {"name": "Amacrine"}}},
+                    "object": {"memory": 0},
+                },
+                {"action": {"op": {"__add__": {"memory": 2}}}, "object": {"memory": 0}},
+                {"action": {"op": {"__add__": {"memory": 6}}}, "object": {"memory": 0}},
+                {"action": {"op": {"__add__": {"memory": 8}}}, "object": {"memory": 0}},
+                {
+                    "action": {"op": {"__add__": {"memory": 11}}},
+                    "object": {"memory": 0},
+                },
+                {
+                    "action": {"method": {"get_connecting_synapsemodels": {}}},
+                    "object": {"memory": 0},
+                },
+                {"action": {"op": {"__add__": {"memory": 1}}}, "object": {"memory": 0}},
+                {
+                    "action": {"method": {"get_connected_ports": {}}},
+                    "object": {"memory": 1},
+                },
+                {"action": {"op": {"__add__": {"memory": 1}}}, "object": {"memory": 0}},
+                {
+                    "action": {"method": {"query": {"name": ["retina-lamina"]}}},
+                    "object": {"class": "Pattern"},
+                },
+                {
+                    "action": {"method": {"owns": {"cls": "Interface"}}},
+                    "object": {"memory": 0},
+                },
+                {"action": {"op": {"__add__": {"memory": 0}}}, "object": {"memory": 1}},
+                {
+                    "action": {
+                        "op": {"find_matching_ports_from_selector": {"memory": 20}}
+                    },
+                    "object": {"memory": 1},
+                },
+                {"action": {"op": {"__add__": {"memory": 0}}}, "object": {"memory": 1}},
+                {
+                    "action": {"method": {"get_connected_ports": {}}},
+                    "object": {"memory": 0},
+                },
+                {"action": {"op": {"__add__": {"memory": 0}}}, "object": {"memory": 1}},
+                {
+                    "action": {"method": {"query": {"name": ["retina"]}}},
+                    "object": {"class": "LPU"},
+                },
+                {
+                    "action": {
+                        "op": {"find_matching_ports_from_selector": {"memory": 1}}
+                    },
+                    "object": {"memory": 0},
+                },
+                {
+                    "action": {
+                        "method": {
+                            "gen_traversal_in": {
+                                "pass_through": [
+                                    "SendsTo",
+                                    "MembraneModel",
+                                    "instanceof",
+                                ]
+                            }
+                        }
+                    },
+                    "object": {"memory": 0},
+                },
+                {
+                    "action": {"op": {"__add__": {"memory": 10}}},
+                    "object": {"memory": 0},
+                },
+                {"action": {"op": {"__add__": {"memory": 4}}}, "object": {"memory": 0}},
+            ],
+            "format": "no_result",
+            "user": self.client._async_session._session_id,
+            "server": self.naServerID,
+        }
 
-        res = self.client.session.call('ffbo.processor.neuroarch_query', inp)
+        res = self.client.session.call("ffbo.processor.neuroarch_query", inp)
 
+        inp = {
+            "query": [{"action": {"method": {"has": {}}}, "object": {"state": 0}}],
+            "format": "nx",
+            "user": self.client._async_session._session_id,
+            "server": self.naServerID,
+        }
 
-        inp = {"query":[
-                        {"action":{"method":{"has":{}}},"object":{"state":0}}
-                    ],
-                    "format":"nx",
-                    "user": self.client._async_session._session_id,
-                    "server": self.naServerID}
-
-
-
-        res = self.client.session.call('ffbo.processor.neuroarch_query', inp)
-        # print(res)
-        '''
+        res = self.client.session.call("ffbo.processor.neuroarch_query", inp)
+        #print(res)
+        """
         res_info = self.client.session.call(u'ffbo.processor.server_information')
         msg = {"user": self.client._async_session._session_id,
             "servers": {'na': self.naServerID, 'nk': list(res_info['nk'].keys())[0]}}
@@ -1780,16 +2468,30 @@ class Client:
                                         'format': "nk"}, options=CallOptions(
                                         timeout = 30000000000
                                         ))
-        '''
+        """
 
-        neurons = self.get_current_neurons(res['success']['result'])
-        if 'cartridge_' + str(cartridgeIndex) in self.simExperimentConfig:
-            if 'disabled' in self.simExperimentConfig['cartridge_' + str(cartridgeIndex)]:
-                removed_neurons = removed_neurons + self.simExperimentConfig['cartridge_' + str(cartridgeIndex)]['disabled']
-                print('Updated Disabled Neuron List: ', removed_neurons)
-        removed_neurons = self.ablate_by_match(res['success']['result'], removed_neurons)
+        neurons = self.get_current_neurons(res["success"]["result"])
+        if "cartridge_" + str(cartridgeIndex) in self.simExperimentConfig:
+            if (
+                "disabled"
+                in self.simExperimentConfig["cartridge_" + str(cartridgeIndex)]
+            ):
+                removed_neurons = (
+                    removed_neurons
+                    + self.simExperimentConfig["cartridge_" + str(cartridgeIndex)][
+                        "disabled"
+                    ]
+                )
+                print("Updated Disabled Neuron List: ", removed_neurons)
+        removed_neurons = self.ablate_by_match(
+            res["success"]["result"], removed_neurons
+        )
 
-        res = self.prune_retina_lamina(removed_neurons = removed_neurons, removed_labels = removed_labels, retrieval_format=retrieval_format)
+        res = self.prune_retina_lamina(
+            removed_neurons=removed_neurons,
+            removed_labels=removed_labels,
+            retrieval_format=retrieval_format,
+        )
         """
         res_info = self.client.session.call(u'ffbo.processor.server_information')
         msg = {"user": self.client._async_session._session_id,
@@ -1799,15 +2501,15 @@ class Client:
                                 'format': "nk"})
         """
         # print(res['data']['LPU'].keys())
-        print('Retina and lamina circuits have been successfully loaded.')
+        print("Retina and lamina circuits have been successfully loaded.")
         return res
 
     def get_current_neurons(self, res):
         labels = []
-        for j in res['data']['nodes']:
-            if 'label' in res['data']['nodes'][j]:
-                label = res['data']['nodes'][j]['label']
-                if 'port' not in label and 'synapse' not in label:
+        for j in res["data"]["nodes"]:
+            if "label" in res["data"]["nodes"][j]:
+                label = res["data"]["nodes"][j]["label"]
+                if "port" not in label and "synapse" not in label:
                     labels.append(label)
         return labels
 
@@ -1850,19 +2552,25 @@ class Client:
         if len(outputProcessors)>0:
             msg['outputProcessors'] = outputProcessors
         if dt is not None:
-            msg['dt'] = dt
+            msg["dt"] = dt
         if steps is not None:
-            msg['steps'] = steps
+            msg["steps"] = steps
 
         print(res)
         res = []
+
         def on_progress(x, res):
             res.append(x)
+
         res_list = []
-        res = self.client.session.call('ffbo.processor.nk_execute', msg, options=CallOptions(
-                            on_progress=partial(on_progress, res=res_list), timeout = 30000000000
-                        ))
-        print('Execution request sent. Please wait.')
+        res = self.client.session.call(
+            "ffbo.processor.nk_execute",
+            msg,
+            options=CallOptions(
+                on_progress=partial(on_progress, res=res_list), timeout=30000000000
+            ),
+        )
+        print("Execution request sent. Please wait.")
 
     def updateSimResultLabel(self, result_name, label_dict):
         result = self.exec_result[result_name]
@@ -1930,26 +2638,42 @@ class Client:
         # Returns:
             dict: The configuration to export.
         """
-        newConfig = {'cx': {'disabled': []}}
-        param_names = ['reset_potential', 'capacitance', 'resting_potential', 'resistance']
-        param_names_js = ['reset_potential', 'capacitance', 'resting_potential', 'resistance']
-        state_names = ['initV']
-        state_names_js = ['initV']
-        for lpu in res['data']['LPU'].keys():
-            for node in res['data']['LPU'][lpu]['nodes']:
-                if 'name' in res['data']['LPU'][lpu]['nodes'][node]:
-                    node_data = res['data']['LPU'][lpu]['nodes'][node]
-                    new_node_data = {'params': {},'states': {}}
+        newConfig = {"cx": {"disabled": []}}
+        param_names = [
+            "reset_potential",
+            "capacitance",
+            "resting_potential",
+            "resistance",
+        ]
+        param_names_js = [
+            "reset_potential",
+            "capacitance",
+            "resting_potential",
+            "resistance",
+        ]
+        state_names = ["initV"]
+        state_names_js = ["initV"]
+        for lpu in res["data"]["LPU"].keys():
+            for node in res["data"]["LPU"][lpu]["nodes"]:
+                if "name" in res["data"]["LPU"][lpu]["nodes"][node]:
+                    node_data = res["data"]["LPU"][lpu]["nodes"][node]
+                    new_node_data = {"params": {}, "states": {}}
                     for param_idx, param in enumerate(param_names):
                         if param in node_data:
-                            new_node_data['params'][param_names_js[param_idx]] = node_data[param]
-                            new_node_data['name'] = 'LeakyIAF'
+                            new_node_data["params"][
+                                param_names_js[param_idx]
+                            ] = node_data[param]
+                            new_node_data["name"] = "LeakyIAF"
                     for state_idx, state in enumerate(state_names):
                         if state in node_data:
-                            new_node_data['states'][state_names_js[state_idx]] = node_data[state]
-                    newConfig['cx'][res['data']['LPU'][lpu]['nodes'][node]['name']] = new_node_data
+                            new_node_data["states"][
+                                state_names_js[state_idx]
+                            ] = node_data[state]
+                    newConfig["cx"][
+                        res["data"]["LPU"][lpu]["nodes"][node]["name"]
+                    ] = new_node_data
         newConfig_tosend = json.dumps(newConfig)
-        self.JSCall(messageType='setExperimentConfig',data=newConfig_tosend)
+        self.JSCall(messageType="setExperimentConfig", data=newConfig_tosend)
         return newConfig
 
     def import_diagram_config(self, res, newConfig):
@@ -1962,35 +2686,55 @@ class Client:
         # Returns:
             dict: The updated Neuroarch result dictionary.
         """
-        param_names = ['reset_potential', 'capacitance', 'resting_potential', 'resistance']
-        param_names_js = ['reset_potential', 'capacitance', 'resting_potential', 'resistance']
-        state_names = ['initV']
-        state_names_js = ['initV']
-        for lpu in res['data']['LPU'].keys():
-            for node in res['data']['LPU'][lpu]['nodes']:
-                if 'name' in res['data']['LPU'][lpu]['nodes'][node]:
-                    if res['data']['LPU'][lpu]['nodes'][node]['name'] in newConfig['cx'].keys():
-                        updated_node_data = newConfig['cx'][res['data']['LPU'][lpu]['nodes'][node]['name']]
+        param_names = [
+            "reset_potential",
+            "capacitance",
+            "resting_potential",
+            "resistance",
+        ]
+        param_names_js = [
+            "reset_potential",
+            "capacitance",
+            "resting_potential",
+            "resistance",
+        ]
+        state_names = ["initV"]
+        state_names_js = ["initV"]
+        for lpu in res["data"]["LPU"].keys():
+            for node in res["data"]["LPU"][lpu]["nodes"]:
+                if "name" in res["data"]["LPU"][lpu]["nodes"][node]:
+                    if (
+                        res["data"]["LPU"][lpu]["nodes"][node]["name"]
+                        in newConfig["cx"].keys()
+                    ):
+                        updated_node_data = newConfig["cx"][
+                            res["data"]["LPU"][lpu]["nodes"][node]["name"]
+                        ]
                         for param_idx, param in enumerate(param_names_js):
                             if param in updated_node_data:
-                                res['data']['LPU'][lpu]['nodes'][node][param_names[param_idx]] = updated_node_data[param]
+                                res["data"]["LPU"][lpu]["nodes"][node][
+                                    param_names[param_idx]
+                                ] = updated_node_data[param]
                         for state_idx, state in enumerate(state_names_js):
                             if state in updated_node_data:
-                                res['data']['LPU'][lpu]['nodes'][node][state_names[state_idx]] = updated_node_data[state]
+                                res["data"]["LPU"][lpu]["nodes"][node][
+                                    state_names[state_idx]
+                                ] = updated_node_data[state]
         return res
 
 import importlib
 
-LPU_list = ['cx','mb']
+LPU_list = ["cx", "mb"]
 
 for i in LPU_list:
     try:
         module = importlib.import_module(i)
-        print('Loaded LPU {}.'.format(i))
-        sim_func = getattr(module, 'sim')
-        sim_func({'hello': 'world'})
+        print("Loaded LPU {}.".format(i))
+        sim_func = getattr(module, "sim")
+        sim_func({"hello": "world"})
     except:
-        print('Failed to load LPU {}.'.format(i))
+        # print('Failed to load LPU {}.'.format(i))
+        pass
 
 
 ffbolabClient = Client

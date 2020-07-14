@@ -2,7 +2,7 @@ from flybrainlab.NeurokernelComponent import *
 import time
 from configparser import ConfigParser
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import neurokernel.mpi_relaunch
 
     from twisted.internet._sslverify import OpenSSLCertificateAuthorities
@@ -53,7 +53,7 @@ if __name__ == '__main__':
                                  authentication = authentication)
     server = neurokernel_server()
 
-    print(printHeader('FFBO Neurokernel Component') + 'Connection successful.')
+    print(printHeader("FFBO Neurokernel Component") + "Connection successful.")
 
     while True:
         # print(printHeader('FFBO Neurokernel Component') + 'Operations nominal.')
