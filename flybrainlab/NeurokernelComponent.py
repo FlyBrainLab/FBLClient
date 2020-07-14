@@ -1,4 +1,4 @@
-import sys
+import sys, traceback
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.logger import Logger
 
@@ -37,6 +37,7 @@ import neurokernel.core_gpu as core
 from neurokernel.pattern import Pattern
 from neurokernel.tools.timing import Timer
 from neurokernel.LPU.LPU import LPU
+from neurokernel.tools.misc import LPUExecutionError
 
 import importlib
 import inspect
@@ -63,6 +64,10 @@ import argparse
 import txaio
 import time
 import traceback
+
+import msgpack
+import msgpack_numpy
+msgpack_numpy.patch()
 
 home = str(Path.home())
 if not os.path.exists(os.path.join(home, '.ffbolab')):
@@ -172,291 +177,333 @@ class neurokernel_server(object):
 
     def launch(self, user_id, task):
         # neuron_uid_list = [str(a) for a in task['neuron_list']]
+        try:
 
-        conf_obj = get_config_obj()
-        config = conf_obj.conf
-        # config = ConfigParser()
-        # config.read('configurations/default.ini')
+            # conf_obj = get_config_obj()
+            # config = conf_obj.conf
 
-        # if config['Retina']['intype'] == 'Natural':
-        #     coord_file = config['InputType']['Natural']['coord_file']
-        #     tmp = os.path.splitext(coord_file)
-        #     config['InputType']['Natural']['coord_file'] = '{}_{}{}'.format(
-        #             tmp[0], user_id, tmp[1])
+            setup_logger(file_name = 'neurokernel_'+user_id+'.log', screen = False)
 
-        setup_logger(file_name = 'neurokernel_'+user_id+'.log', screen = True)
+            manager = core.Manager()
 
-        manager = core.Manager()
+            lpus = {}
+            patterns = {}
+            G = task['data']
 
-        lpus = {}
-        patterns = {}
-        G = task['data']
+            for i in list(G['Pattern'].keys()):
+                a = G['Pattern'][i]['nodes']
+                if len([k for k,v in a.items() if v['class'] == 'Port']) == 0:
+                    del G['Pattern'][i]
 
-        for i in list(G['Pattern'].keys()):
-            a = G['Pattern'][i]['nodes']
-            if len([k for k,v in a.items() if v['class'] == 'Port']) == 0:
-                del G['Pattern'][i]
+            for i in list(G['LPU'].keys()):
+                a = G['LPU'][i]['nodes']
+                if len(a) < 3:
+                    del G['LPU'][i]
 
-        for i in list(G['LPU'].keys()):
-            a = G['LPU'][i]['nodes']
-            if len(a) < 3:
-                del G['LPU'][i]
+            # with open('G.pickle', 'wb') as f:
+            #     pickle.dump(G, f, protocol=pickle.HIGHEST_PROTOCOL)
+            # print(G)
+            # print(G.keys())
+            # print(G['LPU'])
+            # print(G['LPU'].keys())
 
-        # with open('G.pickle', 'wb') as f:
-        #     pickle.dump(G, f, protocol=pickle.HIGHEST_PROTOCOL)
-        # print(G)
-        # print(G.keys())
-        # print(G['LPU'])
-        # print(G['LPU'].keys())
+            # get graph and output_uid_list for each LPU
+            for k, lpu in G['LPU'].items():
+                lpus[k] = {}
+                g_lpu_na = create_graph_from_database_returned(lpu)
+                lpu_nk_graph = nk.na_lpu_to_nk_new(g_lpu_na)
+                lpus[k]['graph'] = lpu_nk_graph
+                # lpus[k]['output_uid_list'] = list(
+                #             set(lpu_nk_graph.nodes()).intersection(
+                #                 set(neuron_uid_list)))
+                # lpus[k]['output_file'] = '{}_output_{}.h5'.format(k, user_id)
 
-        # get graph and output_uid_list for each LPU
-        for k, lpu in G['LPU'].items():
-            lpus[k] = {}
-            g_lpu_na = create_graph_from_database_returned(lpu)
-            lpu_nk_graph = nk.na_lpu_to_nk_new(g_lpu_na)
-            lpus[k]['graph'] = lpu_nk_graph
-            # lpus[k]['output_uid_list'] = list(
-            #             set(lpu_nk_graph.nodes()).intersection(
-            #                 set(neuron_uid_list)))
-            # lpus[k]['output_file'] = '{}_output_{}.h5'.format(k, user_id)
+            for kkey, lpu in lpus.items():
+                graph = lpu['graph']
 
-        for kkey, lpu in lpus.items():
-            graph = lpu['graph']
+                for uid, comp in graph.node.items():
+                    if 'attr_dict' in comp:
+                        print('Found attr_dict; fixing...')
+                        nx.set_node_attributes(graph, {uid: comp['attr_dict']})
+                        # print('changed',uid)
+                        graph.nodes[uid].pop('attr_dict')
+                for i,j,k,v in graph.edges(keys=True, data=True):
+                    if 'attr_dict' in v:
+                        for key in v['attr_dict']:
+                            nx.set_edge_attributes(graph, {(i,j,k): {key: v['attr_dict'][key]}})
+                        graph.edges[(i,j,k)].pop('attr_dict')
+                lpus[kkey]['graph'] = graph
 
-            for uid, comp in graph.node.items():
-                if 'attr_dict' in comp:
-                    print('Found attr_dict; fixing...')
-                    nx.set_node_attributes(graph, {uid: comp['attr_dict']})
-                    # print('changed',uid)
-                    graph.nodes[uid].pop('attr_dict')
-            for i,j,k,v in graph.edges(keys=True, data=True):
-                if 'attr_dict' in v:
-                    for key in v['attr_dict']:
-                        nx.set_edge_attributes(graph, {(i,j,k): {key: v['attr_dict'][key]}})
-                    graph.edges[(i,j,k)].pop('attr_dict')
-            lpus[kkey]['graph'] = graph
+            # get graph for each Pattern
+            for k, pat in G['Pattern'].items():
+                l1,l2 = k.split('-')
+                if l1 in lpus and l2 in lpus:
+                    g_pattern_na = create_graph_from_database_returned(pat)
+                    pattern_nk = nk.na_pat_to_nk(g_pattern_na)
+                    #print(lpus[l1]['graph'].nodes(data=True))
+                    lpu_ports = [node[1]['selector'] \
+                                 for node in lpus[l1]['graph'].nodes(data=True) \
+                                 if node[1]['class']=='Port'] + \
+                                [node[1]['selector'] \
+                                 for node in lpus[l2]['graph'].nodes(data=True) \
+                                 if node[1]['class']=='Port']
+                    pattern_ports = pattern_nk.nodes()
+                    patterns[k] = {}
+                    patterns[k]['graph'] = pattern_nk.subgraph(
+                        list(set(lpu_ports).intersection(set(pattern_ports))))
 
-        # get graph for each Pattern
-        for k, pat in G['Pattern'].items():
-            l1,l2 = k.split('-')
-            if l1 in lpus and l2 in lpus:
-                g_pattern_na = create_graph_from_database_returned(pat)
-                pattern_nk = nk.na_pat_to_nk(g_pattern_na)
-                #print(lpus[l1]['graph'].nodes(data=True))
-                lpu_ports = [node[1]['selector'] \
-                             for node in lpus[l1]['graph'].nodes(data=True) \
-                             if node[1]['class']=='Port'] + \
-                            [node[1]['selector'] \
-                             for node in lpus[l2]['graph'].nodes(data=True) \
-                             if node[1]['class']=='Port']
-                pattern_ports = pattern_nk.nodes()
-                patterns[k] = {}
-                patterns[k]['graph'] = pattern_nk.subgraph(
-                    list(set(lpu_ports).intersection(set(pattern_ports))))
-
-        dt = config['General']['dt']
-        if 'dt' in task:
+            # dt = config['General']['dt']
+            # if 'dt' in task:
             dt = task['dt']
             print(dt)
 
 
-        # add LPUs to manager
-        for k, lpu in lpus.items():
-            lpu_name = k
-            graph = lpu['graph']
+            # add LPUs to manager
+            for k, lpu in lpus.items():
+                lpu_name = k
+                graph = lpu['graph']
 
-            for uid, comp in graph.node.items():
-                if 'attr_dict' in comp:
-                    nx.set_node_attributes(graph, {uid: comp['attr_dict']})
-                    # print('changed',uid)
-                    graph.nodes[uid].pop('attr_dict')
-            for i,j,ko,v in graph.edges(keys=True, data=True):
-                if 'attr_dict' in v:
-                    for key in v['attr_dict']:
-                        nx.set_edge_attributes(graph, {(i,j,ko): {key: v['attr_dict'][key]}})
-                    graph.edges[(i,j,ko)].pop('attr_dict')
-            # nx.write_gexf(graph,'name.gexf')
-            # with open(lpu_name + '.pickle', 'wb') as f:
-            #     pickle.dump(graph, f, protocol=pickle.HIGHEST_PROTOCOL)
-            comps =  graph.node.items()
+                for uid, comp in graph.node.items():
+                    if 'attr_dict' in comp:
+                        nx.set_node_attributes(graph, {uid: comp['attr_dict']})
+                        # print('changed',uid)
+                        graph.nodes[uid].pop('attr_dict')
+                for i,j,ko,v in graph.edges(keys=True, data=True):
+                    if 'attr_dict' in v:
+                        for key in v['attr_dict']:
+                            nx.set_edge_attributes(graph, {(i,j,ko): {key: v['attr_dict'][key]}})
+                        graph.edges[(i,j,ko)].pop('attr_dict')
+                # nx.write_gexf(graph,'name.gexf')
+                # with open(lpu_name + '.pickle', 'wb') as f:
+                #     pickle.dump(graph, f, protocol=pickle.HIGHEST_PROTOCOL)
+                comps =  graph.node.items()
 
-            #for uid, comp in comps:
-            #    if 'attr_dict' in comp:
-            #        nx.set_node_attributes(graph, {uid: comp['attr_dict']})
-            #        print('changed',uid)
-            #    if 'class' in comp:
+                #for uid, comp in comps:
+                #    if 'attr_dict' in comp:
+                #        nx.set_node_attributes(graph, {uid: comp['attr_dict']})
+                #        print('changed',uid)
+                #    if 'class' in comp:
 
-            if k == 'retina':
-                if config['Retina']['intype'] == 'Natural':
-                    coord_file = config['InputType']['Natural']['coord_file']
-                    tmp = os.path.splitext(coord_file)
-                    config['InputType']['Natural']['coord_file'] = '{}_{}{}'.format(
-                            tmp[0], user_id, tmp[1])
-                prs = [node for node in graph.nodes(data=True) \
-                       if node[1]['class'] == 'PhotoreceptorModel']
-                for pr in prs:
-                    graph.node[pr[0]]['num_microvilli'] = 3000
-                input_processors = [RetinaInputIndividual(config, prs, user_id)]
-                extra_comps = [PhotoreceptorModel]
-                retina_input_uids = [a[0] for a in prs]
-            # elif k == 'EB':
-            #     input_processor = StepInputProcessor('I', [node[0] for node in graph.nodes(data=True) \
-            #            if node[1]['class'] == 'LeakyIAF'], 40.0, 0.0, 1.0)
-            #     input_processors = [input_processor]
-            #     extra_comps = []#[BufferVoltage]
-            else:
-                input_processors = []
-                extra_comps = [BufferVoltage]
-            if 'inputProcessors' in task:
-                if lpu_name in task['inputProcessors']:
-                    input_processors, record = \
-                        loadInputProcessors(task['inputProcessors'][lpu_name])
-                    lpus[k]['input_record'] = record
+                if k == 'retina':
+                    if config['Retina']['intype'] == 'Natural':
+                        coord_file = config['InputType']['Natural']['coord_file']
+                        tmp = os.path.splitext(coord_file)
+                        config['InputType']['Natural']['coord_file'] = '{}_{}{}'.format(
+                                tmp[0], user_id, tmp[1])
+                    prs = [node for node in graph.nodes(data=True) \
+                           if node[1]['class'] == 'PhotoreceptorModel']
+                    for pr in prs:
+                        graph.node[pr[0]]['num_microvilli'] = 3000
+                    input_processors = [RetinaInputIndividual(config, prs, user_id)]
+                    extra_comps = [PhotoreceptorModel]
+                    retina_input_uids = [a[0] for a in prs]
+                # elif k == 'EB':
+                #     input_processor = StepInputProcessor('I', [node[0] for node in graph.nodes(data=True) \
+                #            if node[1]['class'] == 'LeakyIAF'], 40.0, 0.0, 1.0)
+                #     input_processors = [input_processor]
+                #     extra_comps = []#[BufferVoltage]
+                else:
+                    input_processors = []
+                    extra_comps = [BufferVoltage]
+                if 'inputProcessors' in task:
+                    if lpu_name in task['inputProcessors']:
+                        input_processors, record = \
+                            loadInputProcessors(task['inputProcessors'][lpu_name])
+                        lpus[k]['input_record'] = record
 
-            # configure output processors
-            lpus[k]['output_file'] = '{}_output_{}.h5'.format(k, user_id)
-            output_processors = []
-            if 'outputProcessors' in task:
-                if lpu_name in task['outputProcessors']:
-                    output_processors, record = loadOutputProcessors(
-                                            lpus[k]['output_file'],
-                                            task['outputProcessors'][lpu_name])
-                    if len(record):
-                        lpus[k]['output_uid_dict'] = record
+                # configure output processors
+                lpus[k]['output_file'] = '{}_output_{}.h5'.format(k, user_id)
+                output_processors = []
+                if 'outputProcessors' in task:
+                    if lpu_name in task['outputProcessors']:
+                        output_processors, record = loadOutputProcessors(
+                                                lpus[k]['output_file'],
+                                                task['outputProcessors'][lpu_name])
+                        if len(record):
+                            lpus[k]['output_uid_dict'] = record
 
-            (comp_dict, conns) = LPU.graph_to_dicts(graph)
-            print(k)
-            manager.add(LPU, k, dt, comp_dict, conns,
-                        device = 0, input_processors = input_processors,
-                        output_processors = output_processors,
-                        extra_comps = extra_comps, debug=True)
+                # (comp_dict, conns) = LPU.graph_to_dicts(graph)
+                manager.add(LPU, k, dt, 'pickle', pickle.dumps(graph),#comp_dict, conns,
+                            device = 0, input_processors = input_processors,
+                            output_processors = output_processors,
+                            extra_comps = extra_comps, debug = False)
 
-        # connect LPUs by Patterns
-        for k, pattern in patterns.items():
-            l1,l2 = k.split('-')
-            if l1 in lpus and l2 in lpus:
-                print('Connecting {} and {}'.format(l1, l2))
-                pat, key_order = Pattern.from_graph(nx.DiGraph(pattern['graph']),
-                                                    return_key_order = True)
-                print(l1,l2)
-                print(key_order)
-                with Timer('update of connections in Manager'):
-                    try:
-                        manager.connect(l1, l2, pat,
-                                        int_0 = key_order.index('{}/{}'.format(k,l1)),
-                                        int_1 = key_order.index('{}/{}'.format(k,l2)))
-                    except ValueError:
-                        manager.connect(l1, l2, pat,
-                                        int_0 = key_order.index(l1),
-                                        int_1 = key_order.index(l2))
+            # connect LPUs by Patterns
+            for k, pattern in patterns.items():
+                l1,l2 = k.split('-')
+                if l1 in lpus and l2 in lpus:
+                    print('Connecting {} and {}'.format(l1, l2))
+                    pat, key_order = Pattern.from_graph(nx.DiGraph(pattern['graph']),
+                                                        return_key_order = True)
+                    print(l1,l2)
+                    print(key_order)
+                    with Timer('update of connections in Manager'):
+                        try:
+                            manager.connect(l1, l2, pat,
+                                            int_0 = key_order.index('{}/{}'.format(k,l1)),
+                                            int_1 = key_order.index('{}/{}'.format(k,l2)))
+                        except ValueError:
+                            manager.connect(l1, l2, pat,
+                                            int_0 = key_order.index(l1),
+                                            int_1 = key_order.index(l2))
 
-        # start simulation
-        steps = config['General']['steps']
-        ignored_steps = config['General']['ignored_steps']
-        if 'steps' in task:
+            # start simulation
+            # steps = config['General']['steps']
+            # ignored_steps = config['General']['ignored_steps']
+            # if 'steps' in task:
             steps = task['steps']
-        if 'ignored_steps' in task:
-            ignored_steps = task['ignored_steps']
-        # ignored_steps = 0
-        # steps = 100
-        manager.spawn()
-        manager.start(steps=steps)
-        manager.wait()
+            # if 'ignored_steps' in task:
+            # ignored_steps = task['ignored_steps']
+            # ignored_steps = 0
+            # steps = 100
+            manager.spawn()
+            manager.start(steps=steps)
+        except:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            tb = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+            print('An error occured during the compilation\n' + tb)
+            return {'error':
+                        {'exception': tb,
+                         'message': 'An error occured during the compilation in execution'}}
 
+        try:
+            manager.wait()
+        except LPUExecutionError:
+            ErrorMessage = 'An error occured during execution of LPU {} at step {}:\n'.format(
+                            manager._errors[0][0], manager._errors[0][1]) + \
+                            ''.join(manager._errors[0][2])
+            print(ErrorMessage)
+            return {'error':
+                        {'exception': ''.join(manager._errors[0][2]),
+                         'message': 'An error occured during execution of LPU {} at step {}:\n'.format(
+                            manager._errors[0][0], manager._errors[0][1])}}
         time.sleep(5)
         # print(task)
 
-        # post-processing inputs (hard coded, can be better organized)
-        result = {u'sensory': {}, u'input': {}, u'output': {}}
-        for k, lpu in lpus.items():
-            records = lpu.get('input_record', [])
-            for record in records:
-                if record['sensory_file'] is not None:
-                    if k not in result['sensory']:
-                        result['sensory'][k] = []
-                    with h5py.File(record['sensory_file']) as sensory_file:
-                        result['sensory'][k].append({'dt': record['sensory_interval']*dt,
-                                                     'data': sensory_file['sensory'][:].tolist()})
-                if record['input_file'] is not None:
-                    with h5py.File(record['input_file']) as input_file:
-                        for var in input_file.keys():
-                            if var == 'metadata': continue
-                            uids = input_file[var]['uids'][:]
-                            input_array = input_file[var]['data'][:]
-                            for i, item in enumerate(uids):
-                                if var == 'spike_state':
-                                    input = np.nonzero(input_array[ignored_steps:, i:i+1].reshape(-1))[0]*dt
-                                    if item in result['input']:
-                                        result['input'][item]['spike_time'] = {
-                                            'data': input.tolist(),
-                                            'dt': dt}
+        ignored_steps = 0
+
+        try:
+            # post-processing inputs (hard coded, can be better organized)
+            result = {'sensory': {}, 'input': {}, 'output': {}}
+            for k, lpu in lpus.items():
+                records = lpu.get('input_record', [])
+                for record in records:
+                    if record['sensory_file'] is not None:
+                        if k not in result['sensory']:
+                            result['sensory'][k] = []
+                        with h5py.File(record['sensory_file']) as sensory_file:
+                            result['sensory'][k].append({'dt': record['sensory_interval']*dt,
+                                                         'data': sensory_file['sensory'][:]})
+                    if record['input_file'] is not None:
+                        with h5py.File(record['input_file']) as input_file:
+                            sample_interval = input_file['metadata'].attrs['sample_interval']
+                            for var in input_file.keys():
+                                if var == 'metadata': continue
+                                uids = [n.decode() for n in input_file[var]['uids'][:]]
+                                input_array = input_file[var]['data'][:]
+                                for i, item in enumerate(uids):
+                                    if var == 'spike_state':
+                                        input = np.nonzero(input_array[ignored_steps:, i:i+1].reshape(-1))[0]*dt
+                                        if item in result['input']:
+                                            if 'spike_time' in result['input'][item]:
+                                                result['input'][item]['spike_time']['data'].append(input)
+                                                result['input'][item]['spike_time']['data'] = \
+                                                    np.sort(result['input'][item]['spike_time']['data'])
+                                            else:
+                                                result['input'][item]['spike_time'] = {
+                                                    'data': input.copy(),
+                                                    'dt': dt*sample_interval}
+                                        else:
+                                            result['input'][item] = {'spike_time': {
+                                                'data': input.copy(),
+                                                'dt': dt*sample_interval}}
                                     else:
-                                        result['input'][item] = {'spike_time': {
-                                            'data': input.tolist(),
-                                            'dt': dt}}
-                                else:
-                                    sample_interval = record.get(
-                                                            'input_interval', 1)
-                                    input = input_array[ignored_steps//sample_interval::sample_interval, i:i+1]
-                                    if item in result['input']:
-                                        result['input'][item][var] = {
-                                            'data': input.tolist(),
+                                        input = input_array[ignored_steps:, i:i+1]
+                                        if item in result['input']:
+                                            if var in result['input'][item]:
+                                                result['input'][item][var]['data'] += input
+                                            else:
+                                                result['input'][item][var] = {
+                                                    'data': input.copy(),
+                                                    'dt': dt*sample_interval}
+                                        else:
+                                            result['input'][item] = {var: {
+                                                'data': input.copy(),
+                                                'dt': dt*sample_interval}}
+
+            # if 'retina' in lpus:
+            #     input_array = si.read_array(
+            #             '{}_{}.h5'.format(config['Retina']['input_file'], user_id))
+            #     inputs[u'ydomain'] = input_array.max()
+            #     for i, item in enumerate(retina_input_uids):
+            #         inputs['data'][item] = np.hstack(
+            #             (np.arange(int((steps-ignored_steps)/10)).reshape((-1,1))*dt*10,
+            #              input_array[ignored_steps::10,i:i+1])).tolist()
+            #
+            #     del input_array
+
+            # post-processing outputs from all LPUs and combine them into one dictionary
+            # result = {u'data': {}}
+
+            for k, lpu in lpus.items():
+                uid_dict = lpu.get('output_uid_dict', None)
+                if uid_dict is not None:
+                    with h5py.File(lpu['output_file']) as output_file:
+                        sample_interval = output_file['metadata'].attrs['sample_interval']
+                        for var in uid_dict:
+                            if var == 'spike_state':
+                                uids = [n.decode() for n in output_file[var]['uids'][:]]
+                                spike_times = output_file[var]['data']['time'][:]
+                                index = output_file[var]['data']['index'][:]
+                                for i, item in enumerate(uids):
+                                    # output = np.nonzero(output_array[ignored_steps:, i:i+1].reshape(-1))[0]*dt
+                                    output = spike_times[index == i]
+                                    output = output[output>ignored_steps*dt]-ignored_steps*dt
+                                    if item in result['output']:
+                                        result['output'][item]['spike_time'] = {
+                                            'data': output,
                                             'dt': dt*sample_interval}
                                     else:
-                                        result['input'][item] = {var: {
-                                            'data': input.tolist(),
-                                            'dt': dt*sample_interval}}
-
-        # if 'retina' in lpus:
-        #     input_array = si.read_array(
-        #             '{}_{}.h5'.format(config['Retina']['input_file'], user_id))
-        #     inputs[u'ydomain'] = input_array.max()
-        #     for i, item in enumerate(retina_input_uids):
-        #         inputs['data'][item] = np.hstack(
-        #             (np.arange(int((steps-ignored_steps)/10)).reshape((-1,1))*dt*10,
-        #              input_array[ignored_steps::10,i:i+1])).tolist()
-        #
-        #     del input_array
-
-        # post-processing outputs from all LPUs and combine them into one dictionary
-        # result = {u'data': {}}
-
-        for k, lpu in lpus.items():
-            uid_dict = lpu.get('output_uid_dict', None)
-            if uid_dict is not None:
-                with h5py.File(lpu['output_file']) as output_file:
-                    for var in uid_dict:
-                        uids = output_file[var]['uids'][:]
-                        output_array = output_file[var]['data'][:]
-                        for i, item in enumerate(uids):
-                            if var == 'spike_state':
-                                output = np.nonzero(output_array[ignored_steps:, i:i+1].reshape(-1))[0]*dt
-                                if item in result['output']:
-                                    result['output'][item]['spike_time'] = {
-                                        'data': output.tolist(),
-                                        'dt': dt}
-                                else:
-                                    result['output'][item] = {'spike_time': {
-                                        'data': output.tolist(),
-                                        'dt': dt}}
+                                        result['output'][item] = {'spike_time': {
+                                                    'data': output,
+                                                    'dt': dt*sample_interval}}
                             else:
-                                sample_interval = uid_dict[var].get(
-                                                        'sample_interval', 1)
-                                output = output_array[ignored_steps//sample_interval::sample_interval, i:i+1]
-                                if item in result['output']:
-                                    result['output'][item][var] = {
-                                        'data': output.tolist(),
-                                        'dt': dt*sample_interval}
-                                else:
-                                    result['output'][item] = {var: {
-                                        'data': output.tolist(),
-                                        'dt': dt*sample_interval}}
-        meta = {'dur': steps*dt}
-        return result, meta
+                                uids = [n.decode() for n in output_file[var]['uids'][:]]
+                                output_array = output_file[var]['data'][:]
+                                for i, item in enumerate(uids):
+                                    # if var == 'spike_state':
+                                    #     output = np.nonzero(output_array[ignored_steps:, i:i+1].reshape(-1))[0]*dt
+                                    #     if item in result['output']:
+                                    #         result['output'][item]['spike_time'] = {
+                                    #             'data': output.tolist(),
+                                    #             'dt': dt}
+                                    #     else:
+                                    #         result['output'][item] = {'spike_time': {
+                                    #             'data': output.tolist(),
+                                    #             'dt': dt}}
+                                    # else:
+                                    output = output_array[ignored_steps:, i:i+1]
+                                    if item in result['output']:
+                                        result['output'][item][var] = {
+                                            'data': output.copy(),
+                                            'dt': dt*sample_interval}
+                                    else:
+                                        result['output'][item] = {var: {
+                                            'data': output.copy(),
+                                            'dt': dt*sample_interval}}
+            result = {'success': {'result': result, 'meta': {'dur': steps*dt}}}
+        except:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            tb = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+            print('An error occured postprocessing of results\n' + tb)
+            return {'error':
+                        {'exception': tb,
+                         'message': 'An error occured when postprocessing of results in execution'}}
+        return result
+
 
 def printHeader(name):
     return '[' + name + ' ' + strftime("%Y-%m-%d %H:%M:%S", gmtime()) + '] '
-
 
 
 def loadInputProcessors(X):
@@ -513,7 +560,7 @@ def loadOutputProcessors(filename, outputProcessor_dicts):
             to_record = [(k, v['uids']) for k, v in a['uid_dict'].items()]
             processor = FileOutputProcessor(to_record,
                                             filename,
-                                            sample_interval=1)
+                                            sample_interval = a.get('sample_interval', 1))
             outList.append(processor)
             record = a['uid_dict']
         else:
@@ -633,41 +680,49 @@ def mainThreadExecute(Component, server):
     #self.execution_settings = json.loads(settings)
     if len(Component.launch_queue)>0:
         user_id, task = Component.launch_queue[0]
-        # try:
-        res, meta = server.launch(user_id, task)
+        res = server.launch(user_id, task)
         #print(res)
-        for key in res.keys():
-            if type(key) is not str:
-                try:
-                    res[str(key)] = res[key]
-                except:
-                    try:
-                        res[repr(key)] = res[key]
-                    except:
-                        pass
-                del res[key]
-        for v in res.keys():
-            for key in res[v].keys():
-                if type(key) is not str:
-                    try:
-                        res[v][str(key)] = res[v][key]
-                    except:
-                        try:
-                            res[v][repr(key)] = res[v][key]
-                        except:
-                            pass
-                    del res[v][key]
-        # print(res['data'].keys())
-        res =  six.u(res)
-        resed = json.dumps(res)
-        batch_size = 1024*1024
-        start_message = json.dumps(six.u(meta))
-        res_to_processor = Component.client.session.call(six.u(task['forward']),
-                                                         start_message)
-        for i in range(0,len(resed), batch_size):
-            res_tosend = resed[i:i+batch_size]
-            r = json.dumps(res_tosend)
-            res_to_processor = Component.client.session.call(six.u(task['forward']), r)
+        # for key in list(res.keys()):
+        #     if type(key) is not str:
+        #         try:
+        #             res[str(key)] = res[key]
+        #         except:
+        #             try:
+        #                 res[repr(key)] = res[key]
+        #             except:
+        #                 pass
+        #         del res[key]
+        # for v in list(res.keys()):
+        #     for key in list(res[v].keys()):
+        #         if type(key) is not str:
+        #             try:
+        #                 res[v][str(key)] = res[v][key]
+        #             except:
+        #                 try:
+        #                     res[v][repr(key)] = res[v][key]
+        #                 except:
+        #                     print('not changed:', key)
+        #                     pass
+        #             del res[v][key]
+
+        # res =  six.u(res)
+        # resed = json.dumps(res)
+        batch_size = 1024*1024*100
+        # start_message = json.dumps(six.u(meta))
+        # res_to_processor = Component.client.session.call(six.u(task['forward']),
+        #                                                  start_message)
+        # res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb(meta))
+
+        # for i in range(0,len(resed), batch_size):
+        #     res_tosend = resed[i:i+batch_size]
+        #     r = json.dumps(res_tosend)
+        #     res_to_processor = Component.client.session.call(six.u(task['forward']), r)
+        # res_to_processor = Component.client.session.call(six.u(task['forward']), resed)
+        res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb({'execution_result_start': six.u(task['name'])}))
+        packed = msgpack.packb(res)
+        for i in range(0, len(packed), batch_size):
+            res_processor = Component.client.session.call(six.u(task['forward']), packed[i:i+batch_size])
+        res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb({'execution_result_end':six.u(task['name'])}))
 
         Component.launch_queue.pop(0)
     else:

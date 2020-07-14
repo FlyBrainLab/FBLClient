@@ -10,7 +10,9 @@ install_requires=[
       'autobahn_sync',
       'jupyter',
       'seaborn',
-      'requests'
+      'requests',
+      'msgpack',
+      'msgpack-numpy'
 ]
 
 setup(name='FlyBrainLab',

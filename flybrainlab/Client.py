@@ -17,7 +17,6 @@ from autobahn.wamp import auth
 from autobahn_sync import publish, call, register, subscribe, run, AutobahnSync
 from IPython.display import clear_output
 from pathlib import Path
-from functools import partial
 from configparser import ConfigParser
 import numpy as np
 import matplotlib.pyplot as plt
@@ -32,6 +31,9 @@ import neuroballad as nb
 import networkx as nx
 import importlib
 from time import gmtime, strftime
+import msgpack
+import msgpack_numpy
+msgpack_numpy.patch()
 
 from .utils import setProtocolOptions
 
@@ -274,6 +276,8 @@ class Client:
         self.simData = {} # Locally loaded simulation data obtained from server
         self.clientData = [] # Servers list
         self.data = [] # A buffer for data from backend; used in multiple functions so needed
+        self.exec_result = {}
+        self.current_exec_result = None
         self.uname_to_rid = {} # local map from unames to rid's
         self.legacy = legacy
         self.neuronStats = {}
@@ -533,6 +537,27 @@ class Client:
         print(printHeader('FFBOLab Client') + "Procedure ffbo.ui.receive_partial Registered...")
 
         if legacy == False:
+            # @FFBOLABClient.register('ffbo.gfx.receive_partial.' + str(FFBOLABClient._async_session._session_id))
+            # def receivePartialGFX(data):
+            #     """The Receive Partial Data function that receives commands and sends them to the NLP frontend.
+            #
+            #     # Arguments:
+            #         data (dict): Data from the backend.
+            #
+            #     # Returns:
+            #         bool: Whether the process has been successful.
+            #     """
+            #     self.clientData.append('Received Data')
+            #     a = {}
+            #     a['data'] = {'data': data, 'queryID': guidGenerator()}
+            #     a['messageType'] = 'Data'
+            #     a['widget'] = 'NLP'
+            #     self.data.append(a)
+            #     print(printHeader('FFBOLab Client NLP') + "Received partial data.")
+            #     self.tryComms(a)
+            #     return True
+            # print(printHeader('FFBOLab Client') + "Procedure ffbo.gfx.receive_partial Registered...")
+
             @FFBOLABClient.register('ffbo.gfx.receive_partial.' + str(FFBOLABClient._async_session._session_id))
             def receivePartialGFX(data):
                 """The Receive Partial Data function that receives commands and sends them to the NLP frontend.
@@ -544,15 +569,54 @@ class Client:
                     bool: Whether the process has been successful.
                 """
                 self.clientData.append('Received Data')
-                a = {}
-                a['data'] = {'data': data, 'queryID': guidGenerator()}
-                a['messageType'] = 'Data'
-                a['widget'] = 'NLP'
-                self.data.append(a)
-                print(printHeader('FFBOLab Client NLP') + "Received partial data.")
-                self.tryComms(a)
+                if self.current_exec_result is None:
+                    try:
+                        temp = msgpack.unpackb(data)
+                    except (msgpack.ExtraData, msgpack.UnpackValueError):
+                        pass
+                    else:
+                        self.current_exec_result = temp['execution_result_start']
+                        self.exec_result[self.current_exec_result] = []
+                        print(printHeader('FFBOLab Client NLP') + "Receiving Execution Result for {}.  Please wait .....".format(self.current_exec_result))
+                else:
+                    try:
+                        temp = msgpack.unpackb(data)
+                    except (msgpack.ExtraData, msgpack.UnpackValueError):
+                        self.exec_result[self.current_exec_result].append(data)
+                    else:
+                        if isinstance(temp, dict) and 'execution_result_end' in temp:
+                            assert temp['execution_result_end'] == self.current_exec_result
+
+                            result = msgpack.unpackb(b''.join(self.exec_result[self.current_exec_result]))
+                            result_name = self.current_exec_result
+                            self.current_exec_result = None
+
+                            if 'error' in result:
+                                print(result['error']['message'], file = sys.stderr)
+                                raise ValueError(result['error']['exception'])
+                            meta = result['success'].pop('meta')
+                            temp = result['success']['result']
+
+                            formatted_result = {'sensory': {}, 'input': {}, 'output': {}, 'meta': meta}
+                            for data_type, data in temp.items():
+                                for key, value in data.items():
+                                    k = eval(key).decode('utf-8') if key[0]=='b' else key
+                                    if data_type == 'sensory':
+                                        formatted_result[data_type][k] = [{'dt': val['dt'],
+                                                                 'data': val['data']}#np.array(val['data'])}\
+                                                                for val in value]
+                                    else:
+                                        formatted_result[data_type][k] = {kk: {'data': v['data'],# np.array(v['data']),
+                                                                       'dt': v['dt']} \
+                                                                   for kk, v in value.items()}
+                            self.exec_result[result_name] = formatted_result
+                            print(printHeader('FFBOLab Client NLP') + "Received Execution Result for {}. Result stored in Client.exec_result['{}']".format(result_name, result_name))
+                            # self.tryComms(a)
+                        else:
+                            self.exec_result[self.current_exec_result].append(data)
                 return True
             print(printHeader('FFBOLab Client') + "Procedure ffbo.gfx.receive_partial Registered...")
+
 
         @FFBOLABClient.register('ffbo.ui.receive_msg.' + str(FFBOLABClient._async_session._session_id))
         def receiveMessage(data):
@@ -1754,7 +1818,7 @@ class Client:
         removed_neurons = list(set(removed_neurons))
         return removed_neurons
 
-    def execute_multilpu(self, res, inputProcessors = {}, outputProcessors = {},
+    def execute_multilpu(self, name, inputProcessors = {}, outputProcessors = {},
                          steps= None, dt = None):
         """Executes a multilpu circuit. Requires a result dictionary.
 
@@ -1775,6 +1839,7 @@ class Client:
         res = self.client.session.call(u'ffbo.processor.server_information')
         msg = {#'neuron_list': labels,
                 "user": self.client._async_session._session_id,
+                "name": name,
                 "servers": {'na': self.naServerID, 'nk': list(res['nk'].keys())[0]}}
 
         if len(inputProcessors)>0:

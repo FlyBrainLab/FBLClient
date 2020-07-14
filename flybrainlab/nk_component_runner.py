@@ -56,6 +56,6 @@ if __name__ == '__main__':
     print(printHeader('FFBO Neurokernel Component') + 'Connection successful.')
 
     while True:
-        print(printHeader('FFBO Neurokernel Component') + 'Operations nominal.')
+        # print(printHeader('FFBO Neurokernel Component') + 'Operations nominal.')
         mainThreadExecute(Component, server)
         time.sleep(1)
