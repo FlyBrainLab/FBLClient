@@ -146,6 +146,9 @@ class WidgetManager(object):
                 msg_data=None,
             )
 
+        # make sure that comm is open
+        comm.open()
+
     def find_comm(self, comm_id=None, comm_target=None):
         """Find a comm object either by id or by target name
         """
