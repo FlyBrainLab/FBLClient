@@ -33,9 +33,6 @@ import neuroballad as nb
 import networkx as nx
 import importlib
 from time import gmtime, strftime
-import msgpack
-import msgpack_numpy
-msgpack_numpy.patch()
 
 from .utils import setProtocolOptions
 import warnings
@@ -258,6 +255,7 @@ class Client:
         name = None,
         default_key = True,
         species = '',
+        use_config = False,
         widgets = []
     ):
         """Initialization function for the FBL Client class.
@@ -277,6 +275,7 @@ class Client:
             initialize_client (bool): Whether to connect to the database or not. Defaults to True.
             name (str): Name for the client. String. Defaults to None.
             default_key (bool): Whether to use a default key during connections. Defaults to True. Recommended for new users.
+            use_config (bool): Whether to read the url from config instead of as arguments to the initializer. Defaults to False. False recommended for new users.
             species (str): Name of the species to use for client information. Defaults to ''.
             widgets (list): List of widgets associated with this client. Optional.
         """
@@ -314,40 +313,41 @@ class Client:
         # config.read(config_file)
 
         # This is a temporary fix. The configuration should be provided when instantiating a Client instance
-        root = os.path.expanduser("/")
-        homedir = os.path.expanduser("~")
-        filepath = os.path.dirname(os.path.abspath(__file__))
-        config_files = []
-        config_files.append(os.path.join(homedir, "config", "ffbo.FBLClient.ini"))
-        config_files.append(os.path.join(root, "config", "ffbo.FBLClient.ini"))
-        config_files.append(os.path.join(homedir, "config", "config.ini"))
-        config_files.append(os.path.join(root, "config", "config.ini"))
-        config_files.append(os.path.join(filepath, "..", "FBLClient.ini"))
-        config = ConfigParser()
-        configured = False
-        file_type = 0
-        for config_file in config_files:
-            if os.path.exists(config_file):
-                config.read(config_file)
-                configured = True
-                break
-            file_type += 1
-        if not configured:
-            raise Exception("No config file exists for this component")
+        if use_config:
+            root = os.path.expanduser("/")
+            homedir = os.path.expanduser("~")
+            filepath = os.path.dirname(os.path.abspath(__file__))
+            config_files = []
+            config_files.append(os.path.join(homedir, "config", "ffbo.FBLClient.ini"))
+            config_files.append(os.path.join(root, "config", "ffbo.FBLClient.ini"))
+            config_files.append(os.path.join(homedir, "config", "config.ini"))
+            config_files.append(os.path.join(root, "config", "config.ini"))
+            config_files.append(os.path.join(filepath, "..", "FBLClient.ini"))
+            config = ConfigParser()
+            configured = False
+            file_type = 0
+            for config_file in config_files:
+                if os.path.exists(config_file):
+                    config.read(config_file)
+                    configured = True
+                    break
+                file_type += 1
+            if not configured:
+                raise Exception("No config file exists for this component")
 
-        #user = config["USER"]["user"]
-        #secret = config["USER"]["secret"]
-        ssl = eval(config["AUTH"]["ssl"])
-        websockets = "wss" if ssl else "ws"
-        if "ip" in config["SERVER"]:
-            ip = config["SERVER"]["ip"]
-        else:
-            ip = "localhost"
-        port = int(config["NLP"]['expose-port'])
-        url =  "{}://{}:{}/ws".format(websockets, ip, port)
-        realm = config["SERVER"]["realm"]
-        authentication = eval(config["AUTH"]["authentication"])
-        debug = eval(config["DEBUG"]["debug"])
+            #user = config["USER"]["user"]
+            #secret = config["USER"]["secret"]
+            ssl = eval(config["AUTH"]["ssl"])
+            websockets = "wss" if ssl else "ws"
+            if "ip" in config["SERVER"]:
+                ip = config["SERVER"]["ip"]
+            else:
+                ip = "localhost"
+            port = int(config["NLP"]['expose-port'])
+            url =  "{}://{}:{}/ws".format(websockets, ip, port)
+            realm = config["SERVER"]["realm"]
+            authentication = eval(config["AUTH"]["authentication"])
+            debug = eval(config["DEBUG"]["debug"])
         # end of temporary fix
 
         self.FFBOLabcomm = FFBOLabcomm # Current Communications Object
@@ -436,6 +436,9 @@ class Client:
                                               challenge.extra['iterations'],
                                               challenge.extra['keylen'])
                         print(salted_key.decode('utf-8'))
+                    if user == "guest" and default_key:
+                        # A plain, unsalted secret for the guest account
+                        salted_key = u"C5/c598Gme4oALjmdhVC2H25OQPK0M2/tu8yrHpyghA="
 
                 # compute signature for challenge, using the key
                 signature = auth.compute_wcs(salted_key, challenge.extra["challenge"])
