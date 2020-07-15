@@ -12,6 +12,8 @@ install_requires = [
     "seaborn",
     "requests",
     "dataclasses",
+    'msgpack',
+    'msgpack-numpy'
 ]
 
 setup(

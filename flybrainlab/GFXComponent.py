@@ -11,7 +11,6 @@ import numpy as np
 import h5py
 import neuroballad as nb
 from time import gmtime, strftime
-from configparser import ConfigParser
 import os
 from os.path import expanduser
 import pickle
@@ -37,7 +36,7 @@ def printHeader(name):
 ## Create the home directory
 import os
 import urllib
-
+import requests
 home = str(Path.home())
 if not os.path.exists(os.path.join(home, ".ffbolab")):
     os.makedirs(os.path.join(home, ".ffbolab"), mode=0o777)
@@ -51,7 +50,18 @@ if not os.path.exists(os.path.join(home, ".ffbolab", "lib")):
 _FFBOLabDataPath = os.path.join(home, ".ffbolab", "data")
 _FFBOLabExperimentPath = os.path.join(home, ".ffbolab", "experiments")
 
+def urlRetriever(url, savePath, verify = False):
+    """Retrieves and saves a url in Python 3.
+    # Arguments:
+        url (str): File url.
+        savePath (str): Path to save the file to.
+    """
+    with open(savePath, 'wb') as f:
+        resp = requests.get(url, verify=verify)
+        f.write(resp.content)
+
 print(os.path.exists(_FFBOLabDataPath))
+print(_FFBOLabDataPath)
 
 import binascii
 from os import listdir
@@ -162,7 +172,7 @@ class ffbolabComponent:
         intermediate_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
         certs = OpenSSLCertificateAuthorities([ca_cert, intermediate_cert])
         ssl_con = CertificateOptions(trustRoot=certs)
-
+        self.log = Logger()
         FFBOLABClient = AutobahnSync()
         self.client = FFBOLABClient
 
@@ -193,7 +203,11 @@ class ffbolabComponent:
             else:
                 raise Exception("Invalid authmethod {}".format(challenge.method))
 
-        FFBOLABClient.run(url=url, authmethods=[u"wampcra"], authid=user, ssl=ssl_con)
+        if ssl:
+            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user, ssl=ssl_con)
+        else:
+            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user)
+
         self.client_data = []
         self.data = []
 
@@ -234,6 +248,7 @@ class ffbolabComponent:
             settings["userID"] = details.caller
             self.executionSettings.append(settings)
             return True
+
 
         print("Procedure ffbo.gfx.startExecution Registered...")
 
@@ -331,9 +346,9 @@ class ffbolabComponent:
         def send_svg(X):
             self.log.info("send_svg() called with {x}", x=X)
             X = json.loads(X)
-            name = X["name"]
-            G = X["svg"]
-            with open(_FFBOLabDataPath + name + "_visual.svg", "w") as file:
+            name = X['name']
+            G = X['svg']
+            with open( os.path.join(_FFBOLabDataPath,  name + '_visual.svg'), "w") as file:
                 file.write(G)
             output = {}
             output["success"] = True

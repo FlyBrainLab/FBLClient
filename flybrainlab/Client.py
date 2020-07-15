@@ -17,11 +17,11 @@ from autobahn.wamp import auth
 from autobahn_sync import publish, call, register, subscribe, run, AutobahnSync
 from IPython.display import clear_output
 from pathlib import Path
-from functools import partial
 from configparser import ConfigParser
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import sys
 import json
 import binascii
 import seaborn as sns
@@ -33,8 +33,12 @@ import neuroballad as nb
 import networkx as nx
 import importlib
 from time import gmtime, strftime
-import warnings
+import msgpack
+import msgpack_numpy
+msgpack_numpy.patch()
 
+from .utils import setProtocolOptions
+import warnings
 
 # import txaio
 # txaio.start_logging(level='info')
@@ -207,7 +211,7 @@ class MetaComm:
         self.name = name
         self.manager = manager
 
-    
+
     def send(self, data=None):
         for widget_name in self.manager.client_manager.clients[self.name]['widgets']:
             self.manager.widget_manager.widgets[widget_name].comm.send(data=data)
@@ -305,19 +309,55 @@ class Client:
             intermediate_cert_file = os.path.join(
                 home, ".ffbolab", "lib", "intermediateCertFile.pem"
             )
+        # config = ConfigParser()
+        # print(config_file)
+        # config.read(config_file)
+
+        # This is a temporary fix. The configuration should be provided when instantiating a Client instance
+        root = os.path.expanduser("/")
+        homedir = os.path.expanduser("~")
+        filepath = os.path.dirname(os.path.abspath(__file__))
+        config_files = []
+        config_files.append(os.path.join(homedir, "config", "ffbo.FBLClient.ini"))
+        config_files.append(os.path.join(root, "config", "ffbo.FBLClient.ini"))
+        config_files.append(os.path.join(homedir, "config", "config.ini"))
+        config_files.append(os.path.join(root, "config", "config.ini"))
+        config_files.append(os.path.join(filepath, "..", "FBLClient.ini"))
         config = ConfigParser()
-        config.read(config_file)
-        user = config["ClientInfo"]["user"]
-        secret = config["ClientInfo"]["secret"]
-        if url is None:
-            url = config["ClientInfo"]["url"]
-        self.FFBOLabcomm = FFBOLabcomm  # Current Communications Object
+        configured = False
+        file_type = 0
+        for config_file in config_files:
+            if os.path.exists(config_file):
+                config.read(config_file)
+                configured = True
+                break
+            file_type += 1
+        if not configured:
+            raise Exception("No config file exists for this component")
+
+        #user = config["USER"]["user"]
+        #secret = config["USER"]["secret"]
+        ssl = eval(config["AUTH"]["ssl"])
+        websockets = "wss" if ssl else "ws"
+        if "ip" in config["SERVER"]:
+            ip = config["SERVER"]["ip"]
+        else:
+            ip = "localhost"
+        port = int(config["NLP"]['expose-port'])
+        url =  "{}://{}:{}/ws".format(websockets, ip, port)
+        realm = config["SERVER"]["realm"]
+        authentication = eval(config["AUTH"]["authentication"])
+        debug = eval(config["DEBUG"]["debug"])
+        # end of temporary fix
+
+        self.FFBOLabcomm = FFBOLabcomm # Current Communications Object
         self.C = (
             nb.Circuit()
         )  # The Neuroballd Circuit object describing the loaded neural circuit
         self.dataPath = _FFBOLabDataPath
         extra = {"auth": authentication}
         self.lmsg = 0
+
         self.enableResets = True  # Enable resets
         self.addToRemove = False  # Switch adds to removals
         self.experimentInputs = []  # List of current experiment inputs
@@ -344,6 +384,9 @@ class Client:
         self.query_threshold = 20
         self.naServerID = None
         self.experimentWatcher = None
+        self.exec_result = {}
+        self.current_exec_result = None
+
         if self.legacy:
             self.query_threshold = 2
         self.x_scale = 1.0
@@ -380,27 +423,19 @@ class Client:
             """
             print(printHeader("FFBOLab Client") + "Initiating authentication.")
             if challenge.method == u"wampcra":
-                print(
-                    printHeader("FFBOLab Client")
-                    + "WAMP-CRA challenge received: {}".format(challenge)
-                )
-                print(challenge.extra["salt"])
+                print(printHeader('FFBOLab Client') + "WAMP-CRA challenge received: {}".format(challenge))
+                print(challenge.extra['salt'])
                 if custom_salt is not None:
                     salted_key = custom_salt
                 else:
-                    if u"salt" in challenge.extra:
+                    if u'salt' in challenge.extra:
                         # Salted secret
-                        print(printHeader("FFBOLab Client") + "Deriving key...")
-                        salted_key = auth.derive_key(
-                            secret,
-                            challenge.extra["salt"],
-                            challenge.extra["iterations"],
-                            challenge.extra["keylen"],
-                        )
-                        print(salted_key.decode("utf-8"))
-                    if user == "guest" and default_key:
-                        # A plain, unsalted secret for the guest account
-                        salted_key = u"C5/c598Gme4oALjmdhVC2H25OQPK0M2/tu8yrHpyghA="
+                        print(printHeader('FFBOLab Client') + 'Deriving key...')
+                        salted_key = auth.derive_key(secret,
+                                              challenge.extra['salt'],
+                                              challenge.extra['iterations'],
+                                              challenge.extra['keylen'])
+                        print(salted_key.decode('utf-8'))
 
                 # compute signature for challenge, using the key
                 signature = auth.compute_wcs(salted_key, challenge.extra["challenge"])
@@ -416,18 +451,17 @@ class Client:
                 url=url, authmethods=[u"wampcra"], authid=user, ssl=ssl_con
             )  # Initialize the communication right now!
         else:
-            FFBOLABClient.run(url=url, authmethods=[u"wampcra"], authid=user, ssl=None)
+            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user)
 
-        setProtocolOptions(
-            FFBOLABClient._async_session._transport,
-            maxFramePayloadSize=0,
-            maxMessagePayloadSize=0,
-            autoFragmentSize=65536,
-        )
+        setProtocolOptions(FFBOLABClient._async_session._transport,
+                           maxFramePayloadSize = 0,
+                           maxMessagePayloadSize = 0,
+                           autoFragmentSize = 65536)
 
         @FFBOLABClient.subscribe(
-            "ffbo.server.update." + str(FFBOLABClient._async_session._session_id)
-        )
+            'ffbo.server.update.' + str(FFBOLABClient._async_session._session_id)
+            )
+
         def updateServers(data):
             """Updates available servers.
 
@@ -676,11 +710,28 @@ class Client:
         )
 
         if legacy == False:
+            # @FFBOLABClient.register('ffbo.gfx.receive_partial.' + str(FFBOLABClient._async_session._session_id))
+            # def receivePartialGFX(data):
+            #     """The Receive Partial Data function that receives commands and sends them to the NLP frontend.
+            #
+            #     # Arguments:
+            #         data (dict): Data from the backend.
+            #
+            #     # Returns:
+            #         bool: Whether the process has been successful.
+            #     """
+            #     self.clientData.append('Received Data')
+            #     a = {}
+            #     a['data'] = {'data': data, 'queryID': guidGenerator()}
+            #     a['messageType'] = 'Data'
+            #     a['widget'] = 'NLP'
+            #     self.data.append(a)
+            #     print(printHeader('FFBOLab Client NLP') + "Received partial data.")
+            #     self.tryComms(a)
+            #     return True
+            # print(printHeader('FFBOLab Client') + "Procedure ffbo.gfx.receive_partial Registered...")
 
-            @FFBOLABClient.register(
-                "ffbo.gfx.receive_partial."
-                + str(FFBOLABClient._async_session._session_id)
-            )
+            @FFBOLABClient.register('ffbo.gfx.receive_partial.' + str(FFBOLABClient._async_session._session_id))
             def receivePartialGFX(data):
                 """The Receive Partial Data function that receives commands and sends them to the NLP frontend.
 
@@ -690,14 +741,52 @@ class Client:
                 # Returns:
                     bool: Whether the process has been successful.
                 """
-                self.clientData.append("Received Data")
-                a = {}
-                a["data"] = {"data": data, "queryID": guidGenerator()}
-                a["messageType"] = "Data"
-                a["widget"] = "NLP"
-                self.data.append(a)
-                print(printHeader("FFBOLab Client NLP") + "Received partial data.")
-                self.tryComms(a)
+                self.clientData.append('Received Data')
+                if self.current_exec_result is None:
+                    try:
+                        temp = msgpack.unpackb(data)
+                    except (msgpack.ExtraData, msgpack.UnpackValueError):
+                        pass
+                    else:
+                        self.current_exec_result = temp['execution_result_start']
+                        self.exec_result[self.current_exec_result] = []
+                        print(printHeader('FFBOLab Client NLP') + "Receiving Execution Result for {}.  Please wait .....".format(self.current_exec_result))
+                else:
+                    try:
+                        temp = msgpack.unpackb(data)
+                    except (msgpack.ExtraData, msgpack.UnpackValueError):
+                        self.exec_result[self.current_exec_result].append(data)
+                    else:
+                        if isinstance(temp, dict) and 'execution_result_end' in temp:
+                            assert temp['execution_result_end'] == self.current_exec_result
+
+                            result = msgpack.unpackb(b''.join(self.exec_result[self.current_exec_result]))
+                            result_name = self.current_exec_result
+                            self.current_exec_result = None
+
+                            if 'error' in result:
+                                print(result['error']['message'], file = sys.stderr)
+                                raise ValueError(result['error']['exception'])
+                            meta = result['success'].pop('meta')
+                            temp = result['success']['result']
+
+                            formatted_result = {'sensory': {}, 'input': {}, 'output': {}, 'meta': meta}
+                            for data_type, data in temp.items():
+                                for key, value in data.items():
+                                    k = eval(key).decode('utf-8') if key[0]=='b' else key
+                                    if data_type == 'sensory':
+                                        formatted_result[data_type][k] = [{'dt': val['dt'],
+                                                                 'data': val['data']}#np.array(val['data'])}\
+                                                                for val in value]
+                                    else:
+                                        formatted_result[data_type][k] = {kk: {'data': v['data'],# np.array(v['data']),
+                                                                       'dt': v['dt']} \
+                                                                   for kk, v in value.items()}
+                            self.exec_result[result_name] = formatted_result
+                            print(printHeader('FFBOLab Client NLP') + "Received Execution Result for {}. Result stored in Client.exec_result['{}']".format(result_name, result_name))
+                            # self.tryComms(a)
+                        else:
+                            self.exec_result[self.current_exec_result].append(data)
                 return True
 
             print(
@@ -2372,7 +2461,7 @@ class Client:
         }
 
         res = self.client.session.call("ffbo.processor.neuroarch_query", inp)
-        print(res)
+        #print(res)
         """
         res_info = self.client.session.call(u'ffbo.processor.server_information')
         msg = {"user": self.client._async_session._session_id,
@@ -2435,7 +2524,8 @@ class Client:
         removed_neurons = list(set(removed_neurons))
         return removed_neurons
 
-    def execute_multilpu(self, res, inputProcessors=[], steps=None, dt=None):
+    def execute_multilpu(self, name, inputProcessors = {}, outputProcessors = {},
+                         steps= None, dt = None):
         """Executes a multilpu circuit. Requires a result dictionary.
 
         # Arguments:
@@ -2444,23 +2534,26 @@ class Client:
         # Returns:
             bool: A success indicator.
         """
-        labels = []
-        for i in res["data"]["LPU"]:
-            for j in res["data"]["LPU"][i]["nodes"]:
-                if "label" in res["data"]["LPU"][i]["nodes"][j]:
-                    label = res["data"]["LPU"][i]["nodes"][j]["label"]
-                    if "port" not in label and "synapse" not in label:
-                        labels.append(label)
+        # labels = []
+        # for i in res['data']['LPU']:
+        #     for j in res['data']['LPU'][i]['nodes']:
+        #         if 'label' in res['data']['LPU'][i]['nodes'][j]:
+        #             label = res['data']['LPU'][i]['nodes'][j]['label']
+        #             if 'port' not in label and 'synapse' not in label:
+        #                 labels.append(label)
 
-        res = self.client.session.call(u"ffbo.processor.server_information")
-        msg = {
-            "neuron_list": labels,
-            "user": self.client._async_session._session_id,
-            "servers": {"na": self.naServerID, "nk": list(res["nk"].keys())[0]},
-        }
+        res = self.client.session.call(u'ffbo.processor.server_information')
+        if len(res['nk']) == 0:
+            raise RuntimeError('Neurokernel Server not found. If it halts, please restart it.')
+        msg = {#'neuron_list': labels,
+                "user": self.client._async_session._session_id,
+                "name": name,
+                "servers": {'na': self.naServerID, 'nk': list(res['nk'].keys())[0]}}
 
-        if len(inputProcessors) > 0:
-            msg["inputProcessors"] = inputProcessors
+        if len(inputProcessors)>0:
+            msg['inputProcessors'] = inputProcessors
+        if len(outputProcessors)>0:
+            msg['outputProcessors'] = outputProcessors
         if dt is not None:
             msg["dt"] = dt
         if steps is not None:
@@ -2481,6 +2574,63 @@ class Client:
             ),
         )
         print("Execution request sent. Please wait.")
+
+    def updateSimResultLabel(self, result_name, label_dict):
+        result = self.exec_result[result_name]
+        input_keys = list(result['input'].keys())
+        for k in input_keys:
+            if k in label_dict:
+                result['input'][label_dict[k]] = result['input'].pop(k)
+        output_keys = list(result['output'].keys())
+        for k in output_keys:
+            if k in label_dict:
+                result['output'][label_dict[k]] = result['output'].pop(k)
+
+    def plotExecResult(self, result_name, inputs = None, outputs = None):
+        # inputs
+        res_input = self.exec_result[result_name]['input']
+        if inputs is None:
+            inputs = res_input.keys()
+            input_vars = list(set(sum([list(v.keys()) for k, v in res_input.items()],[])))
+        else:
+            input_vars = list(set(sum([list(v.keys()) for k, v in res_input.items() if k in inputs],[])))
+        if len(input_vars):
+            plt.figure(figsize=(22,10))
+            ax = {var: plt.subplot(len(input_vars), 1, i+1) for i, var in enumerate(input_vars)}
+            legends = {var: [] for var in input_vars}
+            for k, v in res_input.items():
+                if k in inputs:
+                    for var, d in v.items():
+                        ax[var].plot(np.arange(len(d['data']))*d['dt'], d['data'])
+                        legends[var].append(k)
+            for var in ax:
+                ax[var].set_title('{}: Input - {}'.format(result_name, var))
+                ax[var].legend(legends[var])
+                ax[var].set_xlabel('time (s)')
+            plt.show()
+
+        # outputs
+        res_output = self.exec_result[result_name]['output']
+        if outputs is None:
+            outputs = res_output.keys()
+            output_vars = list(set(sum([list(v.keys()) for k, v in res_output.items()],[])))
+        else:
+            output_vars = list(set(sum([list(v.keys()) for k, v in res_output.items() if k in outputs],[])))
+        if len(output_vars):
+            plt.figure(figsize=(22,10))
+            ax = {var: plt.subplot(len(output_vars), 1, i+1) for i, var in enumerate(output_vars)}
+            legends = {var: [] for var in output_vars}
+            for k, v in res_output.items():
+                if k in outputs:
+                    for var, d in v.items():
+                        ax[var].plot(np.arange(len(d['data']))*d['dt'], d['data'])
+                        legends[var].append(k)
+            for var in ax:
+                ax[var].set_title('{}: Output - {}'.format(result_name, var))
+                ax[var].legend(legends[var])
+                ax[var].set_xlabel('time (s)')
+            plt.show()
+
 
     def export_diagram_config(self, res):
         """Exports a diagram configuration from Neuroarch data to GFX.
@@ -2574,158 +2724,6 @@ class Client:
                                     state_names[state_idx]
                                 ] = updated_node_data[state]
         return res
-
-
-def setProtocolOptions(
-    transport,
-    version=None,
-    utf8validateIncoming=None,
-    acceptMaskedServerFrames=None,
-    maskClientFrames=None,
-    applyMask=None,
-    maxFramePayloadSize=None,
-    maxMessagePayloadSize=None,
-    autoFragmentSize=None,
-    failByDrop=None,
-    echoCloseCodeReason=None,
-    serverConnectionDropTimeout=None,
-    openHandshakeTimeout=None,
-    closeHandshakeTimeout=None,
-    tcpNoDelay=None,
-    perMessageCompressionOffers=None,
-    perMessageCompressionAccept=None,
-    autoPingInterval=None,
-    autoPingTimeout=None,
-    autoPingSize=None,
-):
-    """ from autobahn.websocket.protocol.WebSocketClientFactory.setProtocolOptions """
-    transport.factory.setProtocolOptions(
-        version=version,
-        utf8validateIncoming=utf8validateIncoming,
-        acceptMaskedServerFrames=acceptMaskedServerFrames,
-        maskClientFrames=maskClientFrames,
-        applyMask=applyMask,
-        maxFramePayloadSize=maxFramePayloadSize,
-        maxMessagePayloadSize=maxMessagePayloadSize,
-        autoFragmentSize=autoFragmentSize,
-        failByDrop=failByDrop,
-        echoCloseCodeReason=echoCloseCodeReason,
-        serverConnectionDropTimeout=serverConnectionDropTimeout,
-        openHandshakeTimeout=openHandshakeTimeout,
-        closeHandshakeTimeout=closeHandshakeTimeout,
-        tcpNoDelay=tcpNoDelay,
-        perMessageCompressionOffers=perMessageCompressionOffers,
-        perMessageCompressionAccept=perMessageCompressionAccept,
-        autoPingInterval=autoPingInterval,
-        autoPingTimeout=autoPingTimeout,
-        autoPingSize=autoPingSize,
-    )
-
-    if version is not None:
-        if version not in WebSocketProtocol.SUPPORTED_SPEC_VERSIONS:
-            raise Exception(
-                "invalid WebSocket draft version %s (allowed values: %s)"
-                % (version, str(WebSocketProtocol.SUPPORTED_SPEC_VERSIONS))
-            )
-        if version != transport.version:
-            transport.version = version
-
-    if (
-        utf8validateIncoming is not None
-        and utf8validateIncoming != transport.utf8validateIncoming
-    ):
-        transport.utf8validateIncoming = utf8validateIncoming
-
-    if (
-        acceptMaskedServerFrames is not None
-        and acceptMaskedServerFrames != transport.acceptMaskedServerFrames
-    ):
-        transport.acceptMaskedServerFrames = acceptMaskedServerFrames
-
-    if maskClientFrames is not None and maskClientFrames != transport.maskClientFrames:
-        transport.maskClientFrames = maskClientFrames
-
-    if applyMask is not None and applyMask != transport.applyMask:
-        transport.applyMask = applyMask
-
-    if (
-        maxFramePayloadSize is not None
-        and maxFramePayloadSize != transport.maxFramePayloadSize
-    ):
-        transport.maxFramePayloadSize = maxFramePayloadSize
-
-    if (
-        maxMessagePayloadSize is not None
-        and maxMessagePayloadSize != transport.maxMessagePayloadSize
-    ):
-        transport.maxMessagePayloadSize = maxMessagePayloadSize
-
-    if autoFragmentSize is not None and autoFragmentSize != transport.autoFragmentSize:
-        transport.autoFragmentSize = autoFragmentSize
-
-    if failByDrop is not None and failByDrop != transport.failByDrop:
-        transport.failByDrop = failByDrop
-
-    if (
-        echoCloseCodeReason is not None
-        and echoCloseCodeReason != transport.echoCloseCodeReason
-    ):
-        transport.echoCloseCodeReason = echoCloseCodeReason
-
-    if (
-        serverConnectionDropTimeout is not None
-        and serverConnectionDropTimeout != transport.serverConnectionDropTimeout
-    ):
-        transport.serverConnectionDropTimeout = serverConnectionDropTimeout
-
-    if (
-        openHandshakeTimeout is not None
-        and openHandshakeTimeout != transport.openHandshakeTimeout
-    ):
-        transport.openHandshakeTimeout = openHandshakeTimeout
-
-    if (
-        closeHandshakeTimeout is not None
-        and closeHandshakeTimeout != transport.closeHandshakeTimeout
-    ):
-        transport.closeHandshakeTimeout = closeHandshakeTimeout
-
-    if tcpNoDelay is not None and tcpNoDelay != transport.tcpNoDelay:
-        transport.tcpNoDelay = tcpNoDelay
-
-    if perMessageCompressionOffers is not None and pickle.dumps(
-        perMessageCompressionOffers
-    ) != pickle.dumps(transport.perMessageCompressionOffers):
-        if type(perMessageCompressionOffers) == list:
-            #
-            # FIXME: more rigorous verification of passed argument
-            #
-            transport.perMessageCompressionOffers = copy.deepcopy(
-                perMessageCompressionOffers
-            )
-        else:
-            raise Exception(
-                "invalid type %s for perMessageCompressionOffers - expected list"
-                % type(perMessageCompressionOffers)
-            )
-
-    if (
-        perMessageCompressionAccept is not None
-        and perMessageCompressionAccept != transport.perMessageCompressionAccept
-    ):
-        transport.perMessageCompressionAccept = perMessageCompressionAccept
-
-    if autoPingInterval is not None and autoPingInterval != transport.autoPingInterval:
-        transport.autoPingInterval = autoPingInterval
-
-    if autoPingTimeout is not None and autoPingTimeout != transport.autoPingTimeout:
-        transport.autoPingTimeout = autoPingTimeout
-
-    if autoPingSize is not None and autoPingSize != transport.autoPingSize:
-        assert type(autoPingSize) == float or type(autoPingSize) == int
-        assert 4 <= autoPingSize <= 125
-        transport.autoPingSize = autoPingSize
-
 
 import importlib
 
