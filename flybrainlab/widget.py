@@ -152,7 +152,7 @@ class WidgetManager(object):
         if comm_id:
             comm = [c for c in self._comms.values() if c.comm_id == comm_id]
         elif comm_target:
-            comm = [c for c in self._comms.values() if c.target_name == comm_id]
+            comm = [c for c in self._comms.values() if c.target_name == comm_target]
         else:
             comm = []
         if len(comm) == 1:
