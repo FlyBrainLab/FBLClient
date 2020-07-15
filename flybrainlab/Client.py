@@ -384,6 +384,9 @@ class Client:
         self.query_threshold = 20
         self.naServerID = None
         self.experimentWatcher = None
+        self.exec_result = {}
+        self.current_exec_result = None
+
         if self.legacy:
             self.query_threshold = 2
         self.x_scale = 1.0
