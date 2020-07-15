@@ -1168,7 +1168,7 @@ class Client:
         res = {"uri": "ffbo.na.get_data.", "id": args}
         queryID = guidGenerator()
         res = self.executeNAquery(
-            res, uri=res["uri"] + self.naServerID, queryID=queryID, progressive=False
+            res, uri= "{}{}".format(res["uri"], self.naServerID), queryID=queryID, progressive=False
         )
         # res['data']['data']['summary']['rid'] = args
         a = {}
