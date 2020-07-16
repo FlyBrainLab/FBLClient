@@ -759,11 +759,28 @@ def mainThreadExecute(Component, server):
         #     r = json.dumps(res_tosend)
         #     res_to_processor = Component.client.session.call(six.u(task['forward']), r)
         # res_to_processor = Component.client.session.call(six.u(task['forward']), resed)
-        res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb({'execution_result_start': six.u(task['name'])}))
-        packed = msgpack.packb(res)
-        for i in range(0, len(packed), batch_size):
-            res_processor = Component.client.session.call(six.u(task['forward']), packed[i:i+batch_size])
-        res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb({'execution_result_end':six.u(task['name'])}))
+        try:
+            res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb({'execution_result_start': six.u(task['name'])}))
+            packed = msgpack.packb(res)
+            for i in range(0, len(packed), batch_size):
+                res_processor = Component.client.session.call(six.u(task['forward']), packed[i:i+batch_size])
+            res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb({'execution_result_end':six.u(task['name'])}))
+        except:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            tb = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+            print('An error occured sending results back to FBL Client\n' + tb)
+            errmsg = {'error':
+                        {'exception': tb,
+                         'message': 'An error occured when sending results back to FBL Client'}}
+
+            try:
+                res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb({'execution_result_start': six.u(task['name'])}))
+                packed = msgpack.packb(errmsg)
+                for i in range(0, len(packed), batch_size):
+                    res_processor = Component.client.session.call(six.u(task['forward']), packed[i:i+batch_size])
+                res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb({'execution_result_end':six.u(task['name'])}))
+            except:
+                pass
 
         Component.launch_queue.pop(0)
     else:
