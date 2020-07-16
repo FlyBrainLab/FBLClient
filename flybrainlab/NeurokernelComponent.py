@@ -228,7 +228,7 @@ class neurokernel_server(object):
             for kkey, lpu in lpus.items():
                 graph = lpu['graph']
 
-                for uid, comp in graph.node.items():
+                for uid, comp in graph.nodes.items():
                     if 'attr_dict' in comp:
                         print('Found attr_dict; fixing...')
                         nx.set_node_attributes(graph, {uid: comp['attr_dict']})
@@ -270,7 +270,7 @@ class neurokernel_server(object):
                 lpu_name = k
                 graph = lpu['graph']
 
-                for uid, comp in graph.node.items():
+                for uid, comp in graph.nodes.items():
                     if 'attr_dict' in comp:
                         nx.set_node_attributes(graph, {uid: comp['attr_dict']})
                         # print('changed',uid)
@@ -283,7 +283,7 @@ class neurokernel_server(object):
                 # nx.write_gexf(graph,'name.gexf')
                 # with open(lpu_name + '.pickle', 'wb') as f:
                 #     pickle.dump(graph, f, protocol=pickle.HIGHEST_PROTOCOL)
-                comps =  graph.node.items()
+                comps =  graph.nodes.items()
 
                 #for uid, comp in comps:
                 #    if 'attr_dict' in comp:
