@@ -59,6 +59,13 @@ if not os.path.exists(os.path.join(home, ".ffbolab", "lib")):
 _FFBOLabDataPath = os.path.join(home, ".ffbolab", "data")
 _FFBOLabConfigPath = os.path.join(home, ".ffbolab", "config", "ffbo.flybrainlab.ini")
 
+def convert_from_bytes(data):
+  if isinstance(data, bytes):      return data.decode()
+  if isinstance(data, dict):       return dict(map(convert_from_bytes, data.items()))
+  if isinstance(data, tuple):      return tuple(map(convert_from_bytes, data))
+  if isinstance(data, list):       return list(map(convert_from_bytes, data))
+  if isinstance(data, set):        return set(map(convert_from_bytes, data))
+  return data
 
 def urlRetriever(url, savePath, verify=False):
     """Retrieves and saves a url in Python 3.
@@ -491,6 +498,7 @@ class Client:
             """
             self.clientData.append("Received Command")
             a = {}
+            data = convert_from_bytes(data)
             a["data"] = data
             a["messageType"] = "Command"
             a["widget"] = "NLP"
@@ -523,6 +531,7 @@ class Client:
                 bool: Whether the data has been received.
             """
             self.clientData.append("Received GFX Data")
+            data = convert_from_bytes(data)
             self.data.append(data)
             print(printHeader("FFBOLab Client GFX") + "Received a message for GFX.")
             if self.sendDataToGFX == True:
@@ -617,6 +626,7 @@ class Client:
             """
             self.clientData.append("Received Data")
             a = {}
+            data = convert_from_bytes(data)
             if self.legacy == True:
                 a["data"] = {"data": data, "queryID": guidGenerator()}
             else:
@@ -699,6 +709,7 @@ class Client:
             """
             self.clientData.append("Received Data")
             a = {}
+            data = convert_from_bytes(data)
             a["data"] = {"data": data, "queryID": guidGenerator()}
             a["messageType"] = "Data"
             a["widget"] = "NLP"
@@ -810,6 +821,7 @@ class Client:
                 bool: Whether the process has been successful.
             """
             self.clientData.append("Received Message")
+            data = convert_from_bytes(data)
             a = {}
             a["data"] = data
             a["messageType"] = "Message"
@@ -830,7 +842,8 @@ class Client:
         """Find server IDs to be used for the utility functions.
         """
         res = self.client.session.call(u"ffbo.processor.server_information")
-
+        res = convert_from_bytes(res)
+        print(res)
         for i in res["na"]:
             if self.naServerID is None:
                 if "na" in res["na"][i]["name"]:
@@ -979,6 +992,7 @@ class Client:
         """
 
         def on_progress(x, res):
+            x = convert_from_bytes(x)
             res.append(x)
 
         if isinstance(res, str):
@@ -1006,6 +1020,7 @@ class Client:
             )
         else:
             res = self.client.session.call(uri, res)
+        res = convert_from_bytes(res)
         a = {}
         a["data"] = res
         a["messageType"] = "Data"
