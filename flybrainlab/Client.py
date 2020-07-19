@@ -251,7 +251,7 @@ class Client:
 
     def __init__(
         self,
-        ssl=True,
+        ssl=False,
         debug=True,
         authentication=True,
         user="guest",
@@ -409,8 +409,6 @@ class Client:
         self.y_shift = 0.0
         self.z_shift = 0.0
         self.r_shift = 0.0
-        print('Cert work')
-        print(ca_cert_file)
         st_cert = open(ca_cert_file, "rt").read()
         c = OpenSSL.crypto
         ca_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
