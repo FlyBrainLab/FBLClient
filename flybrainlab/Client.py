@@ -10,6 +10,11 @@ from autobahn.websocket.protocol import WebSocketClientFactory
 from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 import OpenSSL.crypto
+
+import os
+import certifi
+os.environ['SSL_CERT_FILE'] = certifi.where()
+
 from collections import Counter
 from autobahn.wamp.types import RegisterOptions, CallOptions
 from functools import partial
@@ -404,11 +409,20 @@ class Client:
         self.y_shift = 0.0
         self.z_shift = 0.0
         self.r_shift = 0.0
+        print('Cert work')
+        print(ca_cert_file)
         st_cert = open(ca_cert_file, "rt").read()
         c = OpenSSL.crypto
         ca_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
         st_cert = open(intermediate_cert_file, "rt").read()
         intermediate_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
+        """ Some alternative approaches for certificates:
+        # import certifi
+        # st_cert = open(certifi.where(), "rt").read()
+        # certifi_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
+        # import twisted
+        # print(twisted.internet.ssl.platformTrust())
+        """
         certs = OpenSSLCertificateAuthorities([ca_cert, intermediate_cert])
         ssl_con = CertificateOptions(trustRoot=certs)
         if initialize_client:
@@ -417,7 +431,7 @@ class Client:
 
     def init_client(self, ssl, user, secret, custom_salt, url, ssl_con, legacy, default_key):
         FFBOLABClient = AutobahnSync()
-
+        print('ssl:', ssl)
         @FFBOLABClient.on_challenge
         def on_challenge(challenge):
             """The On Challenge function that computes the user signature for verification.
@@ -461,6 +475,7 @@ class Client:
                 url=url, authmethods=[u"wampcra"], authid=user, ssl=ssl_con
             )  # Initialize the communication right now!
         else:
+            print('running this')
             FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user)
 
         setProtocolOptions(FFBOLABClient._async_session._transport,
