@@ -429,7 +429,6 @@ class Client:
 
     def init_client(self, ssl, user, secret, custom_salt, url, ssl_con, legacy, default_key):
         FFBOLABClient = AutobahnSync()
-        print('ssl:', ssl)
         @FFBOLABClient.on_challenge
         def on_challenge(challenge):
             """The On Challenge function that computes the user signature for verification.
