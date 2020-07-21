@@ -179,13 +179,13 @@ class neurokernel_server(object):
 
     def __init__(self):
         cuda.init()
-        if cuda.Device.count() < 0:
+        self.ngpus = cuda.Device.count()
+        if self.ngpus <= 0:
             raise ValueError("No GPU found on this device")
 
     def launch(self, user_id, task):
         # neuron_uid_list = [str(a) for a in task['neuron_list']]
         try:
-
             # conf_obj = get_config_obj()
             # config = conf_obj.conf
 
@@ -264,7 +264,7 @@ class neurokernel_server(object):
             dt = task['dt']
             print(dt)
 
-
+            device_count = 0
             # add LPUs to manager
             for k, lpu in lpus.items():
                 lpu_name = k
@@ -335,9 +335,10 @@ class neurokernel_server(object):
 
                 # (comp_dict, conns) = LPU.graph_to_dicts(graph)
                 manager.add(LPU, k, dt, 'pickle', pickle.dumps(graph),#comp_dict, conns,
-                            device = 0, input_processors = input_processors,
+                            device = device_count, input_processors = input_processors,
                             output_processors = output_processors,
                             extra_comps = [PhotoreceptorModel, BufferVoltage], debug = False)
+                device_count = (device_count+1) % self.ngpus
 
             # connect LPUs by Patterns
             for k, pattern in patterns.items():
@@ -772,7 +773,6 @@ def mainThreadExecute(Component, server):
             errmsg = {'error':
                         {'exception': tb,
                          'message': 'An error occured when sending results back to FBL Client'}}
-
             try:
                 res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb({'execution_result_start': six.u(task['name'])}))
                 packed = msgpack.packb(errmsg)
