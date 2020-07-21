@@ -268,6 +268,7 @@ class Client:
         default_key = True,
         species = '',
         use_config = False,
+        custom_config = None,
         widgets = []
     ):
         """Initialization function for the FBL Client class.
@@ -289,6 +290,7 @@ class Client:
             default_key (bool): Whether to use a default key during connections. Defaults to True. Recommended for new users.
             use_config (bool): Whether to read the url from config instead of as arguments to the initializer. Defaults to False. False recommended for new users.
             species (str): Name of the species to use for client information. Defaults to ''.
+            custom_config (str): A .ini file name to use to initiate a custom connection. Defaults to None. Used if provided.
             widgets (list): List of widgets associated with this client. Optional.
         """
         self.name = name
@@ -306,6 +308,27 @@ class Client:
                 urlRetriever(
                     "https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
                     os.path.join(home, ".ffbolab", "config", "FBLClient.ini"),
+                )
+            if not os.path.exists(
+                os.path.join(home, ".ffbolab", "config", "flycircuit_config.ini")
+            ):
+                urlRetriever(
+                    "https://data.flybrainlab.fruitflybrain.org/config/flycircuit_config.ini",
+                    os.path.join(home, ".ffbolab", "config", "flycircuit_config.ini"),
+                )
+            if not os.path.exists(
+                os.path.join(home, ".ffbolab", "config", "hemibrain_config.ini")
+            ):
+                urlRetriever(
+                    "https://data.flybrainlab.fruitflybrain.org/config/hemibrain_config.ini",
+                    os.path.join(home, ".ffbolab", "config", "hemibrain_config.ini"),
+                )
+            if not os.path.exists(
+                os.path.join(home, ".ffbolab", "config", "larva_config.ini")
+            ):
+                urlRetriever(
+                    "https://data.flybrainlab.fruitflybrain.org/config/larva_config.ini",
+                    os.path.join(home, ".ffbolab", "config", "larva_config.ini"),
                 )
             urlRetriever(
                 "https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
@@ -360,8 +383,47 @@ class Client:
             realm = config["SERVER"]["realm"]
             authentication = eval(config["AUTH"]["authentication"])
             debug = eval(config["DEBUG"]["debug"])
-        # end of temporary fix
+        if custom_config is not None:
+            root = os.path.expanduser("/")
+            homedir = os.path.expanduser("~")
+            filepath = os.path.dirname(os.path.abspath(__file__))
+            config_files = []
+            config_files.append(os.path.join(home, ".ffbolab", "config", custom_config))
+            config_files.append(os.path.join(homedir, ".ffbolab", "config", custom_config))
+            config_files.append(os.path.join(root, ".ffbolab", "config", custom_config))
+            config = ConfigParser()
+            configured = False
+            file_type = 0
+            for config_file in config_files:
+                if os.path.exists(config_file):
+                    config.read(config_file)
+                    configured = True
+                    break
+                file_type += 1
+            if not configured:
+                raise Exception("No config file exists for this component")
 
+            user = config["USER"]["user"]
+            secret = config["USER"]["secret"]
+            ssl = eval(config["AUTH"]["ssl"])
+            websockets = "wss" if ssl else "ws"
+            if "ip" in config["SERVER"]:
+                ip = config["SERVER"]["ip"]
+            else:
+                ip = "localhost"
+            if "port" in config["SERVER"]:
+                port = int(config["NLP"]['expose-port'])
+                url =  "{}://{}:{}/ws".format(websockets, ip, port)
+            else:
+                url =  u"{}://{}/ws".format(websockets, ip)
+
+            realm = config["SERVER"]["realm"]
+            if 'default_key' in config["SERVER"]:
+                default_key = eval(config["SERVER"]["default_key"])
+            # authentication = eval(config["AUTH"]["authentication"])
+            ssl = False # override ssl for connections
+        # end of temporary fix
+        self.url = url
         self.FFBOLabcomm = FFBOLabcomm # Current Communications Object
         self.C = (
             nb.Circuit()
@@ -472,7 +534,6 @@ class Client:
                 url=url, authmethods=[u"wampcra"], authid=user, ssl=ssl_con
             )  # Initialize the communication right now!
         else:
-            print('running this')
             FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user)
 
         setProtocolOptions(FFBOLABClient._async_session._transport,
