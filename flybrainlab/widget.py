@@ -146,13 +146,16 @@ class WidgetManager(object):
                 msg_data=None,
             )
 
+        # make sure that comm is open
+        comm.open()
+
     def find_comm(self, comm_id=None, comm_target=None):
         """Find a comm object either by id or by target name
         """
         if comm_id:
             comm = [c for c in self._comms.values() if c.comm_id == comm_id]
         elif comm_target:
-            comm = [c for c in self._comms.values() if c.target_name == comm_id]
+            comm = [c for c in self._comms.values() if c.target_name == comm_target]
         else:
             comm = []
         if len(comm) == 1:

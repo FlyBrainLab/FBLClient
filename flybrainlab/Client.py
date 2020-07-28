@@ -1,52 +1,48 @@
-from time import sleep
-import txaio
+
+from time import sleep, gmtime, strftime
+import os, sys, json, binascii, warnings, urllib
+import certifi
+os.environ['SSL_CERT_FILE'] = certifi.where()
 import random
-import h5py
 import pickle
+from collections import Counter
+from functools import partial
+from pathlib import Path
+from configparser import ConfigParser
+import importlib
+
+import numpy as np
+import matplotlib.pyplot as plt
+import txaio
+import h5py
+import pandas as pd
+import networkx as nx
 from autobahn.twisted.util import sleep
 from autobahn.twisted.wamp import ApplicationSession, ApplicationRunner
 from autobahn.wamp.exception import ApplicationError
+from autobahn.wamp import auth
 from autobahn.websocket.protocol import WebSocketClientFactory
+from autobahn.wamp.types import RegisterOptions, CallOptions
+from autobahn_sync import publish, call, register, subscribe, run, AutobahnSync
 from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 import OpenSSL.crypto
-from collections import Counter
-from autobahn.wamp.types import RegisterOptions, CallOptions
-from functools import partial
-from autobahn.wamp import auth
-from autobahn_sync import publish, call, register, subscribe, run, AutobahnSync
 from IPython.display import clear_output
-from pathlib import Path
-from configparser import ConfigParser
-import numpy as np
-import matplotlib.pyplot as plt
-import os
-import sys
-import json
-import binascii
+import requests
 import seaborn as sns
-
 sns.set(color_codes=True)
-import pandas as pd
-import numpy as np
-import neuroballad as nb
-import networkx as nx
-import importlib
-from time import gmtime, strftime
+
 import msgpack
 import msgpack_numpy
 msgpack_numpy.patch()
 
+import neuroballad as nb
 from .utils import setProtocolOptions
-import warnings
 
 # import txaio
 # txaio.start_logging(level='info')
 
 ## Create the home directory
-import os
-import urllib
-import requests
 
 home = str(Path.home())
 if not os.path.exists(os.path.join(home, ".ffbolab")):
@@ -62,6 +58,13 @@ if not os.path.exists(os.path.join(home, ".ffbolab", "lib")):
 _FFBOLabDataPath = os.path.join(home, ".ffbolab", "data")
 _FFBOLabConfigPath = os.path.join(home, ".ffbolab", "config", "ffbo.flybrainlab.ini")
 
+def convert_from_bytes(data):
+  if isinstance(data, bytes):      return data.decode()
+  if isinstance(data, dict):       return dict(map(convert_from_bytes, data.items()))
+  if isinstance(data, tuple):      return tuple(map(convert_from_bytes, data))
+  if isinstance(data, list):       return list(map(convert_from_bytes, data))
+  if isinstance(data, set):        return set(map(convert_from_bytes, data))
+  return data
 
 def urlRetriever(url, savePath, verify=False):
     """Retrieves and saves a url in Python 3.
@@ -242,13 +245,13 @@ class Client:
 
     def __init__(
         self,
-        ssl=True,
+        ssl=False,
         debug=True,
         authentication=True,
         user="guest",
         secret="guestpass",
         custom_salt=None,
-        url=u"wss://neuronlp.fruitflybrain.org:7777/ws",
+        url=u"wss://flycircuitdev.neuronlp.fruitflybrain.org/ws",
         realm=u"realm1",
         ca_cert_file="isrgrootx1.pem",
         intermediate_cert_file="letsencryptauthorityx3.pem",
@@ -256,9 +259,11 @@ class Client:
         legacy=False,
         initialize_client=True,
         name = None,
-        default_key = True,
         species = '',
-        widgets = []
+        use_config = False,
+        custom_config = None,
+        widgets = [],
+        dataset = None,
     ):
         """Initialization function for the FBL Client class.
 
@@ -276,8 +281,9 @@ class Client:
             legacy (bool): Whether the server uses the old FFBO server standard or not. Should be False for most cases. Defaults to False.
             initialize_client (bool): Whether to connect to the database or not. Defaults to True.
             name (str): Name for the client. String. Defaults to None.
-            default_key (bool): Whether to use a default key during connections. Defaults to True. Recommended for new users.
+            use_config (bool): Whether to read the url from config instead of as arguments to the initializer. Defaults to False. False recommended for new users.
             species (str): Name of the species to use for client information. Defaults to ''.
+            custom_config (str): A .ini file name to use to initiate a custom connection. Defaults to None. Used if provided.
             widgets (list): List of widgets associated with this client. Optional.
         """
         self.name = name
@@ -295,6 +301,27 @@ class Client:
                 urlRetriever(
                     "https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
                     os.path.join(home, ".ffbolab", "config", "FBLClient.ini"),
+                )
+            if not os.path.exists(
+                os.path.join(home, ".ffbolab", "config", "flycircuit_config.ini")
+            ):
+                urlRetriever(
+                    "https://data.flybrainlab.fruitflybrain.org/config/flycircuit_config.ini",
+                    os.path.join(home, ".ffbolab", "config", "flycircuit_config.ini"),
+                )
+            if not os.path.exists(
+                os.path.join(home, ".ffbolab", "config", "hemibrain_config.ini")
+            ):
+                urlRetriever(
+                    "https://data.flybrainlab.fruitflybrain.org/config/hemibrain_config.ini",
+                    os.path.join(home, ".ffbolab", "config", "hemibrain_config.ini"),
+                )
+            if not os.path.exists(
+                os.path.join(home, ".ffbolab", "config", "larva_config.ini")
+            ):
+                urlRetriever(
+                    "https://data.flybrainlab.fruitflybrain.org/config/larva_config.ini",
+                    os.path.join(home, ".ffbolab", "config", "larva_config.ini"),
                 )
             urlRetriever(
                 "https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
@@ -314,42 +341,85 @@ class Client:
         # config.read(config_file)
 
         # This is a temporary fix. The configuration should be provided when instantiating a Client instance
-        root = os.path.expanduser("/")
-        homedir = os.path.expanduser("~")
-        filepath = os.path.dirname(os.path.abspath(__file__))
-        config_files = []
-        config_files.append(os.path.join(homedir, "config", "ffbo.FBLClient.ini"))
-        config_files.append(os.path.join(root, "config", "ffbo.FBLClient.ini"))
-        config_files.append(os.path.join(homedir, "config", "config.ini"))
-        config_files.append(os.path.join(root, "config", "config.ini"))
-        config_files.append(os.path.join(filepath, "..", "FBLClient.ini"))
-        config = ConfigParser()
-        configured = False
-        file_type = 0
-        for config_file in config_files:
-            if os.path.exists(config_file):
-                config.read(config_file)
-                configured = True
-                break
-            file_type += 1
-        if not configured:
-            raise Exception("No config file exists for this component")
+        if use_config:
+            root = os.path.expanduser("/")
+            homedir = os.path.expanduser("~")
+            filepath = os.path.dirname(os.path.abspath(__file__))
+            config_files = []
+            os.path.join(home, ".ffbolab", "config", "FFBO.ini"),
+            config = ConfigParser()
+            configured = False
+            file_type = 0
+            for config_file in config_files:
+                if os.path.exists(config_file):
+                    config.read(config_file)
+                    configured = True
+                    break
+                file_type += 1
+            if not configured:
+                raise Exception("No config file exists for this component")
 
-        #user = config["USER"]["user"]
-        #secret = config["USER"]["secret"]
-        ssl = eval(config["AUTH"]["ssl"])
-        websockets = "wss" if ssl else "ws"
-        if "ip" in config["SERVER"]:
-            ip = config["SERVER"]["ip"]
-        else:
-            ip = "localhost"
-        port = int(config["NLP"]['expose-port'])
-        url =  "{}://{}:{}/ws".format(websockets, ip, port)
-        realm = config["SERVER"]["realm"]
-        authentication = eval(config["AUTH"]["authentication"])
-        debug = eval(config["DEBUG"]["debug"])
+            user = config["GUEST"]["user"]
+            secret = config["GUEST"]["secret"]
+            ssl = eval(config["AUTH"]["ssl"])
+            websockets = "wss" if ssl else "ws"
+            if "ip" in config["SERVER"]:
+                split = config["SERVER"]["ip"].split(':')
+                ip = split[0]
+                if len(split) == 2:
+                    port = split[1]
+                    url =  "{}://{}:{}/ws".format(websockets, ip, port)
+                else:
+                    url =  "{}://{}/ws".format(websockets, ip)
+            else:
+                ip = "localhost"
+                port = int(config["NLP"]['port'])
+                url =  "{}://{}:{}/ws".format(websockets, ip, port)
+            realm = config["SERVER"]["realm"]
+            authentication = eval(config["AUTH"]["authentication"])
+            debug = eval(config["DEBUG"]["debug"])
+            ssl = False # override ssl for connections
+            if 'dataset' in config["SERVER"]:
+                dataset = config["SERVER"]['dataset']
+        if custom_config is not None:
+            root = os.path.expanduser("/")
+            homedir = os.path.expanduser("~")
+            filepath = os.path.dirname(os.path.abspath(__file__))
+            config_files = []
+            config_files.append(os.path.join(home, ".ffbolab", "config", custom_config))
+            config_files.append(os.path.join(homedir, ".ffbolab", "config", custom_config))
+            config_files.append(os.path.join(root, ".ffbolab", "config", custom_config))
+            config = ConfigParser()
+            configured = False
+            file_type = 0
+            for config_file in config_files:
+                if os.path.exists(config_file):
+                    config.read(config_file)
+                    configured = True
+                    break
+                file_type += 1
+            if not configured:
+                raise Exception("No config file exists for this component")
+
+            user = config["GUEST"]["user"]
+            secret = config["GUEST"]["secret"]
+            ssl = eval(config["AUTH"]["ssl"])
+            websockets = "wss" if ssl else "ws"
+            if "ip" in config["SERVER"]:
+                ip = config["SERVER"]["ip"]
+            else:
+                ip = "localhost"
+            if "port" in config["SERVER"]:
+                port = int(config["NLP"]['expose-port'])
+                url =  "{}://{}:{}/ws".format(websockets, ip, port)
+            else:
+                url =  u"{}://{}/ws".format(websockets, ip)
+
+            realm = config["SERVER"]["realm"]
+            # authentication = eval(config["AUTH"]["authentication"])
+            ssl = False # override ssl for connections
         # end of temporary fix
-
+        self.url = url
         self.FFBOLabcomm = FFBOLabcomm # Current Communications Object
         self.C = (
             nb.Circuit()
@@ -357,6 +427,7 @@ class Client:
         self.dataPath = _FFBOLabDataPath
         extra = {"auth": authentication}
         self.lmsg = 0
+        self.dataset = dataset
 
         self.enableResets = True  # Enable resets
         self.addToRemove = False  # Switch adds to removals
@@ -402,15 +473,21 @@ class Client:
         ca_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
         st_cert = open(intermediate_cert_file, "rt").read()
         intermediate_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
+        """ Some alternative approaches for certificates:
+        # import certifi
+        # st_cert = open(certifi.where(), "rt").read()
+        # certifi_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
+        # import twisted
+        # print(twisted.internet.ssl.platformTrust())
+        """
         certs = OpenSSLCertificateAuthorities([ca_cert, intermediate_cert])
         ssl_con = CertificateOptions(trustRoot=certs)
         if initialize_client:
-            self.init_client(ssl, user, secret, custom_salt, url, ssl_con, legacy, default_key)
-            self.findServerIDs()  # Get current server IDs
+            self.init_client(ssl, user, secret, custom_salt, url, ssl_con, legacy)
+            self.findServerIDs(dataset)  # Get current server IDs
 
-    def init_client(self, ssl, user, secret, custom_salt, url, ssl_con, legacy, default_key):
+    def init_client(self, ssl, user, secret, custom_salt, url, ssl_con, legacy):
         FFBOLABClient = AutobahnSync()
-
         @FFBOLABClient.on_challenge
         def on_challenge(challenge):
             """The On Challenge function that computes the user signature for verification.
@@ -488,6 +565,7 @@ class Client:
             """
             self.clientData.append("Received Command")
             a = {}
+            data = convert_from_bytes(data)
             a["data"] = data
             a["messageType"] = "Command"
             a["widget"] = "NLP"
@@ -520,6 +598,7 @@ class Client:
                 bool: Whether the data has been received.
             """
             self.clientData.append("Received GFX Data")
+            data = convert_from_bytes(data)
             self.data.append(data)
             print(printHeader("FFBOLab Client GFX") + "Received a message for GFX.")
             if self.sendDataToGFX == True:
@@ -614,6 +693,7 @@ class Client:
             """
             self.clientData.append("Received Data")
             a = {}
+            data = convert_from_bytes(data)
             if self.legacy == True:
                 a["data"] = {"data": data, "queryID": guidGenerator()}
             else:
@@ -696,6 +776,7 @@ class Client:
             """
             self.clientData.append("Received Data")
             a = {}
+            data = convert_from_bytes(data)
             a["data"] = {"data": data, "queryID": guidGenerator()}
             a["messageType"] = "Data"
             a["widget"] = "NLP"
@@ -807,6 +888,7 @@ class Client:
                 bool: Whether the process has been successful.
             """
             self.clientData.append("Received Message")
+            data = convert_from_bytes(data)
             a = {}
             a["data"] = data
             a["messageType"] = "Message"
@@ -823,23 +905,84 @@ class Client:
 
         self.client = FFBOLABClient  # Set current client to the FFBOLAB Client
 
-    def findServerIDs(self):
+    def findServerIDs(self, dataset = None):
         """Find server IDs to be used for the utility functions.
         """
         res = self.client.session.call(u"ffbo.processor.server_information")
+        res = convert_from_bytes(res)
+        print(res)
 
-        for i in res["na"]:
-            if self.naServerID is None:
-                if "na" in res["na"][i]["name"]:
+        if dataset is None:
+            server_dict = {}
+            for server_id, server_config in res["na"].items():
+                if server_config['dataset'] not in server_dict:
+                    server_dict[server_config['dataset']] = {'na': [], 'nlp': []}
+                server_dict[server_config['dataset']]['na'].append(server_id)
+            for server_id, server_config in res["nlp"].items():
+                if server_config['dataset'] not in server_dict:
+                    server_dict[server_config['dataset']] = {'na': [], 'nlp': []}
+                server_dict[server_config['dataset']]['nlp'].append(server_id)
+            valid_datasets = []
+            for dataset_name, server_lists in server_dict.items():
+                if len(server_list['na']) and len(server_list['nlp']):
+                    valid_datasets.append(dataset_name)
+            if len(valid_datasets):
+                print(
+                    printHeader("FFBOLab Client")
+                    + "Found following datasets: "
+                    + ', '.join(valid_datasets)
+                )
+                print(
+                    printHeader("FFBOLab Client")
+                    + "Please choose a dataset from the above valid datasets by"
+                    + ".findServerIDs(dataset = 'name')"
+                )
+            else:
+                print(
+                    printHeader("FFBOLab Client")
+                    + "No valid datasets found."
+                )
+        else:
+            server_dict = {'na': [], 'nlp': []}
+            for server_id, server_config in res["na"].items():
+                if server_config['dataset'] == dataset:
+                    server_dict['na'].append(server_id)
+            for server_id, server_config in res["nlp"].items():
+                if server_config['dataset'] == dataset:
+                    server_dict['nlp'].append(server_id)
+            if len(server_dict['na']):
+                if self.naServerID is None:
                     print(
                         printHeader("FFBOLab Client")
-                        + "Found working NA Server: "
-                        + res["na"][i]["name"]
+                        + "Found working NA Server for dataset {}: ".format(dataset)
+                        + res["na"][server_dict['na'][0]]['name']
                     )
-                    self.naServerID = i
-        for i in res["nlp"]:
-            self.nlpServerID = i
-
+                    self.naServerID = server_dict['na'][0]
+                else:
+                    if self.naServerID not in server_dict['na']:
+                        print(
+                            printHeader("FFBOLab Client")
+                            + "Previous NA Server not found, switching to NA Servre to: "
+                            + res["na"][server_dict['na'][0]]['name']
+                            + " Prior query states may not be accessible."
+                        )
+            else:
+                print(
+                    printHeader("FFBOLab Client")
+                    + "NA Server with {} dataset not found".format(dataset)
+                )
+            if len(server_dict['nlp']):
+                print(
+                    printHeader("FFBOLab Client")
+                    + "Found working NLP Server for dataset {}: ".format(dataset)
+                    + res["nlp"][server_dict['nlp'][0]]['name']
+                )
+                self.nlpServerID = server_dict['nlp'][0]
+            else:
+                print(
+                    printHeader("FFBOLab Client")
+                    + "NLP Server with {} dataset not found".format(dataset)
+                )
 
     def get_client_info(self, fbl=None):
         """Receive client data for this client only.
@@ -869,7 +1012,6 @@ class Client:
                 client_data['species'] = client['client'].species
                 res[client['client'].name] = client_data
             return res
-
 
     def executeNLPquery(
         self, query=None, language="en", uri=None, queryID=None, returnNAOutput=False
@@ -976,6 +1118,7 @@ class Client:
         """
 
         def on_progress(x, res):
+            x = convert_from_bytes(x)
             res.append(x)
 
         if isinstance(res, str):
@@ -1003,6 +1146,7 @@ class Client:
             )
         else:
             res = self.client.session.call(uri, res)
+        res = convert_from_bytes(res)
         a = {}
         a["data"] = res
         a["messageType"] = "Data"
