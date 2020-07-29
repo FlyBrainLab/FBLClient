@@ -924,7 +924,7 @@ class Client:
                 server_dict[server_config['dataset']]['nlp'].append(server_id)
             valid_datasets = []
             for dataset_name, server_lists in server_dict.items():
-                if len(server_list['na']) and len(server_list['nlp']):
+                if len(server_lists['na']) and len(server_lists['nlp']):
                     valid_datasets.append(dataset_name)
             if len(valid_datasets):
                 print(
