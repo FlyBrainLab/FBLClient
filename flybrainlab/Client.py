@@ -359,8 +359,8 @@ class Client:
             if not configured:
                 raise Exception("No config file exists for this component")
 
-            user = config["GUEST"]["user"]
-            secret = config["GUEST"]["secret"]
+            user = config["USER"]["user"]
+            secret = config["USER"]["secret"]
             ssl = eval(config["AUTH"]["ssl"])
             websockets = "wss" if ssl else "ws"
             if "ip" in config["SERVER"]:
@@ -401,8 +401,8 @@ class Client:
             if not configured:
                 raise Exception("No config file exists for this component")
 
-            user = config["GUEST"]["user"]
-            secret = config["GUEST"]["secret"]
+            user = config["USER"]["user"]
+            secret = config["USER"]["secret"]
             ssl = eval(config["AUTH"]["ssl"])
             websockets = "wss" if ssl else "ws"
             if "ip" in config["SERVER"]:
@@ -410,7 +410,7 @@ class Client:
             else:
                 ip = "localhost"
             if "port" in config["SERVER"]:
-                port = int(config["NLP"]['expose-port'])
+                port = int(config["SERVER"]["port"])
                 url =  "{}://{}:{}/ws".format(websockets, ip, port)
             else:
                 url =  u"{}://{}/ws".format(websockets, ip)
@@ -418,6 +418,8 @@ class Client:
             realm = config["SERVER"]["realm"]
             # authentication = eval(config["AUTH"]["authentication"])
             ssl = False # override ssl for connections
+            if 'dataset' in config["SERVER"]:
+                dataset = config["SERVER"]['dataset']
         # end of temporary fix
         self.url = url
         self.FFBOLabcomm = FFBOLabcomm # Current Communications Object
@@ -935,7 +937,7 @@ class Client:
                 print(
                     printHeader("FFBOLab Client")
                     + "Please choose a dataset from the above valid datasets by"
-                    + ".findServerIDs(dataset = 'name')"
+                    + " Client.findServerIDs(dataset = 'any name above')"
                 )
             else:
                 print(
