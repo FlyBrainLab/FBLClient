@@ -600,6 +600,7 @@ class ffbolabComponent:
         ca_cert_file="isrgrootx1.pem",
         intermediate_cert_file="letsencryptauthorityx3.pem",
         FFBOLabcomm=None,
+        server_name = 'nk',
     ):
         if os.path.exists(os.path.join(home, ".ffbolab", "lib")):
             print(
@@ -714,7 +715,7 @@ class ffbolabComponent:
             u"ffbo.server.register",
             FFBOLABClient._async_session._session_id,
             "nk",
-            "nk_server",
+            {"name": server_name, "version": 1.05},
         )
         print("Registered self...")
 
