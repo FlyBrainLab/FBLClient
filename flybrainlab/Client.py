@@ -917,10 +917,14 @@ class Client:
         if dataset is None:
             server_dict = {}
             for server_id, server_config in res["na"].items():
+                if 'dataset' not in server_config:
+                    server_config['dataset'] = 'default'
                 if server_config['dataset'] not in server_dict:
                     server_dict[server_config['dataset']] = {'na': [], 'nlp': []}
                 server_dict[server_config['dataset']]['na'].append(server_id)
             for server_id, server_config in res["nlp"].items():
+                if 'dataset' not in server_config:
+                    server_config['dataset'] = 'default'
                 if server_config['dataset'] not in server_dict:
                     server_dict[server_config['dataset']] = {'na': [], 'nlp': []}
                 server_dict[server_config['dataset']]['nlp'].append(server_id)
@@ -947,11 +951,19 @@ class Client:
         else:
             server_dict = {'na': [], 'nlp': []}
             for server_id, server_config in res["na"].items():
-                if server_config['dataset'] == dataset:
+                if 'dataset' in server_config:
+                    if server_config['dataset'] == dataset:
+                        server_dict['na'].append(server_id)
+                else:
                     server_dict['na'].append(server_id)
+                    break
             for server_id, server_config in res["nlp"].items():
-                if server_config['dataset'] == dataset:
+                if 'dataset' in server_config:
+                    if server_config['dataset'] == dataset:
+                        server_dict['nlp'].append(server_id)
+                else:
                     server_dict['nlp'].append(server_id)
+                    break
             if len(server_dict['na']):
                 if self.naServerID is None:
                     print(
