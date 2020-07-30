@@ -10,6 +10,11 @@ from autobahn.websocket.protocol import WebSocketClientFactory
 from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 import OpenSSL.crypto
+
+import os
+import certifi
+os.environ['SSL_CERT_FILE'] = certifi.where()
+
 from collections import Counter
 from autobahn.wamp.types import RegisterOptions, CallOptions
 from functools import partial
@@ -59,6 +64,13 @@ if not os.path.exists(os.path.join(home, ".ffbolab", "lib")):
 _FFBOLabDataPath = os.path.join(home, ".ffbolab", "data")
 _FFBOLabConfigPath = os.path.join(home, ".ffbolab", "config", "ffbo.flybrainlab.ini")
 
+def convert_from_bytes(data):
+  if isinstance(data, bytes):      return data.decode()
+  if isinstance(data, dict):       return dict(map(convert_from_bytes, data.items()))
+  if isinstance(data, tuple):      return tuple(map(convert_from_bytes, data))
+  if isinstance(data, list):       return list(map(convert_from_bytes, data))
+  if isinstance(data, set):        return set(map(convert_from_bytes, data))
+  return data
 
 def urlRetriever(url, savePath, verify=False):
     """Retrieves and saves a url in Python 3.
@@ -239,13 +251,13 @@ class Client:
 
     def __init__(
         self,
-        ssl=True,
+        ssl=False,
         debug=True,
         authentication=True,
         user="guest",
         secret="guestpass",
         custom_salt=None,
-        url=u"wss://neuronlp.fruitflybrain.org:7777/ws",
+        url=u"wss://flycircuitdev.neuronlp.fruitflybrain.org/ws",
         realm=u"realm1",
         ca_cert_file="isrgrootx1.pem",
         intermediate_cert_file="letsencryptauthorityx3.pem",
@@ -253,10 +265,12 @@ class Client:
         legacy=False,
         initialize_client=True,
         name = None,
-        default_key = True,
+        default_key = False,
         species = '',
         use_config = False,
-        widgets = []
+        custom_config = None,
+        widgets = [],
+        dataset = None,
     ):
         """Initialization function for the FBL Client class.
 
@@ -277,7 +291,9 @@ class Client:
             default_key (bool): Whether to use a default key during connections. Defaults to True. Recommended for new users.
             use_config (bool): Whether to read the url from config instead of as arguments to the initializer. Defaults to False. False recommended for new users.
             species (str): Name of the species to use for client information. Defaults to ''.
+            custom_config (str): A .ini file name to use to initiate a custom connection. Defaults to None. Used if provided.
             widgets (list): List of widgets associated with this client. Optional.
+            dataset (str): Name of the dataset to use. Not used right now, but included for future compatibility.
         """
         self.name = name
         self.species = species
@@ -294,6 +310,27 @@ class Client:
                 urlRetriever(
                     "https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
                     os.path.join(home, ".ffbolab", "config", "FBLClient.ini"),
+                )
+            if not os.path.exists(
+                os.path.join(home, ".ffbolab", "config", "flycircuit_config.ini")
+            ):
+                urlRetriever(
+                    "https://data.flybrainlab.fruitflybrain.org/config/flycircuit_config.ini",
+                    os.path.join(home, ".ffbolab", "config", "flycircuit_config.ini"),
+                )
+            if not os.path.exists(
+                os.path.join(home, ".ffbolab", "config", "hemibrain_config.ini")
+            ):
+                urlRetriever(
+                    "https://data.flybrainlab.fruitflybrain.org/config/hemibrain_config.ini",
+                    os.path.join(home, ".ffbolab", "config", "hemibrain_config.ini"),
+                )
+            if not os.path.exists(
+                os.path.join(home, ".ffbolab", "config", "larva_config.ini")
+            ):
+                urlRetriever(
+                    "https://data.flybrainlab.fruitflybrain.org/config/larva_config.ini",
+                    os.path.join(home, ".ffbolab", "config", "larva_config.ini"),
                 )
             urlRetriever(
                 "https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
@@ -348,8 +385,47 @@ class Client:
             realm = config["SERVER"]["realm"]
             authentication = eval(config["AUTH"]["authentication"])
             debug = eval(config["DEBUG"]["debug"])
-        # end of temporary fix
+        if custom_config is not None:
+            root = os.path.expanduser("/")
+            homedir = os.path.expanduser("~")
+            filepath = os.path.dirname(os.path.abspath(__file__))
+            config_files = []
+            config_files.append(os.path.join(home, ".ffbolab", "config", custom_config))
+            config_files.append(os.path.join(homedir, ".ffbolab", "config", custom_config))
+            config_files.append(os.path.join(root, ".ffbolab", "config", custom_config))
+            config = ConfigParser()
+            configured = False
+            file_type = 0
+            for config_file in config_files:
+                if os.path.exists(config_file):
+                    config.read(config_file)
+                    configured = True
+                    break
+                file_type += 1
+            if not configured:
+                raise Exception("No config file exists for this component")
 
+            user = config["USER"]["user"]
+            secret = config["USER"]["secret"]
+            ssl = eval(config["AUTH"]["ssl"])
+            websockets = "wss" if ssl else "ws"
+            if "ip" in config["SERVER"]:
+                ip = config["SERVER"]["ip"]
+            else:
+                ip = "localhost"
+            if "port" in config["SERVER"]:
+                port = int(config["NLP"]['expose-port'])
+                url =  "{}://{}:{}/ws".format(websockets, ip, port)
+            else:
+                url =  u"{}://{}/ws".format(websockets, ip)
+
+            realm = config["SERVER"]["realm"]
+            if 'default_key' in config["SERVER"]:
+                default_key = eval(config["SERVER"]["default_key"])
+            # authentication = eval(config["AUTH"]["authentication"])
+            ssl = False # override ssl for connections
+        # end of temporary fix
+        self.url = url
         self.FFBOLabcomm = FFBOLabcomm # Current Communications Object
         self.C = (
             nb.Circuit()
@@ -402,6 +478,13 @@ class Client:
         ca_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
         st_cert = open(intermediate_cert_file, "rt").read()
         intermediate_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
+        """ Some alternative approaches for certificates:
+        # import certifi
+        # st_cert = open(certifi.where(), "rt").read()
+        # certifi_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
+        # import twisted
+        # print(twisted.internet.ssl.platformTrust())
+        """
         certs = OpenSSLCertificateAuthorities([ca_cert, intermediate_cert])
         ssl_con = CertificateOptions(trustRoot=certs)
         if initialize_client:
@@ -410,7 +493,6 @@ class Client:
 
     def init_client(self, ssl, user, secret, custom_salt, url, ssl_con, legacy, default_key):
         FFBOLABClient = AutobahnSync()
-
         @FFBOLABClient.on_challenge
         def on_challenge(challenge):
             """The On Challenge function that computes the user signature for verification.
@@ -491,6 +573,7 @@ class Client:
             """
             self.clientData.append("Received Command")
             a = {}
+            data = convert_from_bytes(data)
             a["data"] = data
             a["messageType"] = "Command"
             a["widget"] = "NLP"
@@ -523,6 +606,7 @@ class Client:
                 bool: Whether the data has been received.
             """
             self.clientData.append("Received GFX Data")
+            data = convert_from_bytes(data)
             self.data.append(data)
             print(printHeader("FFBOLab Client GFX") + "Received a message for GFX.")
             if self.sendDataToGFX == True:
@@ -617,6 +701,7 @@ class Client:
             """
             self.clientData.append("Received Data")
             a = {}
+            data = convert_from_bytes(data)
             if self.legacy == True:
                 a["data"] = {"data": data, "queryID": guidGenerator()}
             else:
@@ -699,6 +784,7 @@ class Client:
             """
             self.clientData.append("Received Data")
             a = {}
+            data = convert_from_bytes(data)
             a["data"] = {"data": data, "queryID": guidGenerator()}
             a["messageType"] = "Data"
             a["widget"] = "NLP"
@@ -810,6 +896,7 @@ class Client:
                 bool: Whether the process has been successful.
             """
             self.clientData.append("Received Message")
+            data = convert_from_bytes(data)
             a = {}
             a["data"] = data
             a["messageType"] = "Message"
@@ -830,7 +917,8 @@ class Client:
         """Find server IDs to be used for the utility functions.
         """
         res = self.client.session.call(u"ffbo.processor.server_information")
-
+        res = convert_from_bytes(res)
+        print(res)
         for i in res["na"]:
             if self.naServerID is None:
                 if "na" in res["na"][i]["name"]:
@@ -979,6 +1067,7 @@ class Client:
         """
 
         def on_progress(x, res):
+            x = convert_from_bytes(x)
             res.append(x)
 
         if isinstance(res, str):
@@ -1006,6 +1095,7 @@ class Client:
             )
         else:
             res = self.client.session.call(uri, res)
+        res = convert_from_bytes(res)
         a = {}
         a["data"] = res
         a["messageType"] = "Data"
