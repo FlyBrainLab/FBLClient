@@ -285,6 +285,7 @@ class Client:
             species (str): Name of the species to use for client information. Defaults to ''.
             custom_config (str): A .ini file name to use to initiate a custom connection. Defaults to None. Used if provided.
             widgets (list): List of widgets associated with this client. Optional.
+            dataset (str): Name of the dataset to use. Not used right now, but included for future compatibility.
         """
         self.name = name
         self.species = species
