@@ -915,17 +915,20 @@ class Client:
         res = convert_from_bytes(res)
         print(res)
 
+        default_mode = False
         if dataset is None:
             server_dict = {}
             for server_id, server_config in res["na"].items():
                 if 'dataset' not in server_config:
                     server_config['dataset'] = 'default'
+                    default_mode = True
                 if server_config['dataset'] not in server_dict:
                     server_dict[server_config['dataset']] = {'na': [], 'nlp': []}
                 server_dict[server_config['dataset']]['na'].append(server_id)
             for server_id, server_config in res["nlp"].items():
                 if 'dataset' not in server_config:
                     server_config['dataset'] = 'default'
+                    default_mode = True
                 if server_config['dataset'] not in server_dict:
                     server_dict[server_config['dataset']] = {'na': [], 'nlp': []}
                 server_dict[server_config['dataset']]['nlp'].append(server_id)
@@ -933,71 +936,83 @@ class Client:
             for dataset_name, server_lists in server_dict.items():
                 if len(server_lists['na']) and len(server_lists['nlp']):
                     valid_datasets.append(dataset_name)
-            if len(valid_datasets):
-                print(
-                    printHeader("FFBOLab Client")
-                    + "Found following datasets: "
-                    + ', '.join(valid_datasets)
-                )
-                print(
-                    printHeader("FFBOLab Client")
-                    + "Please choose a dataset from the above valid datasets by"
-                    + " Client.findServerIDs(dataset = 'any name above')"
-                )
+            if default_mode:
+                if len(valid_datasets):
+                    pass
+                else:
+                    raise RuntimeError("No valid datasets cannot be found.\nIf you are running the NeuroArch and NeuroNLP servers locally, please check if the servers are on and connected. If you are connecting to a public server, please contact server admin.")
             else:
+                if len(valid_datasets) == 1:
+                    dataset = valid_dataset[0]
+                elif len(valid_datasets) > 1:
+                    raise RuntimeError("Multiple . Available dataset on the FFBO processor is the following \n{}\n.If you are running the NeuroArch server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, ', '.join(valid_datasets)))
+                # print(
+                #     printHeader("FFBOLab Client")
+                #     + "Found following datasets: "
+                #     + ', '.join(valid_datasets)
+                # )
+                # print(
+                #     printHeader("FFBOLab Client")
+                #     + "Please choose a dataset from the above valid datasets by"
+                #     + " Client.findServerIDs(dataset = 'any name above')"
+                # )
+                else: #len(valid_datasets) == 0
+                    raise RuntimeError("No valid datasets cannot be found.\nIf you are running the NeuroArch and NeuroNLP servers locally, please check if the servers are on and connected. If you are connecting to a public server, please contact server admin.")
+                    # print(
+                    #     printHeader("FFBOLab Client")
+                    #     + "No valid datasets found."
+                    # )
+
+        server_dict = {'na': [], 'nlp': []}
+        for server_id, server_config in res["na"].items():
+            if 'dataset' in server_config:
+                if server_config['dataset'] == dataset:
+                    server_dict['na'].append(server_id)
+            else:
+                server_dict['na'].append(server_id)
+                break
+        for server_id, server_config in res["nlp"].items():
+            if 'dataset' in server_config:
+                if server_config['dataset'] == dataset:
+                    server_dict['nlp'].append(server_id)
+            else:
+                server_dict['nlp'].append(server_id)
+                break
+        if len(server_dict['na']):
+            if self.naServerID is None:
                 print(
                     printHeader("FFBOLab Client")
-                    + "No valid datasets found."
+                    + "Found working NeuroArch Server for dataset {}: ".format(dataset)
+                    + res["na"][server_dict['na'][0]]['name']
                 )
-        else:
-            server_dict = {'na': [], 'nlp': []}
-            for server_id, server_config in res["na"].items():
-                if 'dataset' in server_config:
-                    if server_config['dataset'] == dataset:
-                        server_dict['na'].append(server_id)
-                else:
-                    server_dict['na'].append(server_id)
-                    break
-            for server_id, server_config in res["nlp"].items():
-                if 'dataset' in server_config:
-                    if server_config['dataset'] == dataset:
-                        server_dict['nlp'].append(server_id)
-                else:
-                    server_dict['nlp'].append(server_id)
-                    break
-            if len(server_dict['na']):
-                if self.naServerID is None:
+                self.naServerID = server_dict['na'][0]
+            else:
+                if self.naServerID not in server_dict['na']:
                     print(
                         printHeader("FFBOLab Client")
-                        + "Found working NA Server for dataset {}: ".format(dataset)
+                        + "Previous NeuroArch Server not found, switching NeuroArch Servre to: "
                         + res["na"][server_dict['na'][0]]['name']
+                        + " Prior query states may not be accessible."
                     )
-                    self.naServerID = server_dict['na'][0]
-                else:
-                    if self.naServerID not in server_dict['na']:
-                        print(
-                            printHeader("FFBOLab Client")
-                            + "Previous NA Server not found, switching to NA Servre to: "
-                            + res["na"][server_dict['na'][0]]['name']
-                            + " Prior query states may not be accessible."
-                        )
-            else:
-                print(
-                    printHeader("FFBOLab Client")
-                    + "NA Server with {} dataset not found".format(dataset)
-                )
-            if len(server_dict['nlp']):
-                print(
-                    printHeader("FFBOLab Client")
-                    + "Found working NLP Server for dataset {}: ".format(dataset)
-                    + res["nlp"][server_dict['nlp'][0]]['name']
-                )
-                self.nlpServerID = server_dict['nlp'][0]
-            else:
-                print(
-                    printHeader("FFBOLab Client")
-                    + "NLP Server with {} dataset not found".format(dataset)
-                )
+        else:
+            raise RuntimeError("NeuroArch Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following \n{}\n.If you are running the NeuroArch server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, ', '.join(valid_datasets)))
+            # print(
+            #     printHeader("FFBOLab Client")
+            #     + "NA Server with {} dataset not found".format(dataset)
+            # )
+        if len(server_dict['nlp']):
+            print(
+                printHeader("FFBOLab Client")
+                + "Found working NeuroNLP Server for dataset {}: ".format(dataset)
+                + res["nlp"][server_dict['nlp'][0]]['name']
+            )
+            self.nlpServerID = server_dict['nlp'][0]
+        else:
+            raise RuntimeError("NeuroNLP Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following \n{}\n.If you are running the NeuroNLP server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, ', '.join(valid_datasets)))
+            # print(
+            #     printHeader("FFBOLab Client")
+            #     + "NLP Server with {} dataset not found".format(dataset)
+            # )
 
     def get_client_info(self, fbl=None):
         """Receive client data for this client only.
