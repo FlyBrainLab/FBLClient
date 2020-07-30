@@ -994,6 +994,7 @@ class Client:
                         + res["na"][server_dict['na'][0]]['name']
                         + " Prior query states may not be accessible."
                     )
+                    self.naServerID = server_dict['na'][0]
         else:
             raise RuntimeError("NeuroArch Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following \n{}\n.If you are running the NeuroArch server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, ', '.join(valid_datasets)))
             # print(
