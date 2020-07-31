@@ -947,7 +947,7 @@ class Client:
                 if len(valid_datasets) == 1:
                     dataset = valid_dataset[0]
                 elif len(valid_datasets) > 1:
-                    raise RuntimeError("Multiple . Available dataset on the FFBO processor is the following:{}\nIf you are running the NeuroArch server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, '\n- '.join(valid_datasets)))
+                    raise RuntimeError("Multiple valid datasets are available on the specified FFBO processor. However, you did not specify which dataset to connect to. Available datasets on the FFBO processor are the following:{}\n. Please choose one of the above datasets during Client connection by passing the dataset argument.".format('\n- '.join(valid_datasets)))
                 # print(
                 #     printHeader("FFBOLab Client")
                 #     + "Found following datasets: "
