@@ -916,26 +916,28 @@ class Client:
         print(res)
 
         default_mode = False
+
+        server_dict = {}
+        for server_id, server_config in res["na"].items():
+            if 'dataset' not in server_config:
+                server_config['dataset'] = 'default'
+                default_mode = True
+            if server_config['dataset'] not in server_dict:
+                server_dict[server_config['dataset']] = {'na': [], 'nlp': []}
+            server_dict[server_config['dataset']]['na'].append(server_id)
+        for server_id, server_config in res["nlp"].items():
+            if 'dataset' not in server_config:
+                server_config['dataset'] = 'default'
+                default_mode = True
+            if server_config['dataset'] not in server_dict:
+                server_dict[server_config['dataset']] = {'na': [], 'nlp': []}
+            server_dict[server_config['dataset']]['nlp'].append(server_id)
+        valid_datasets = []
+        for dataset_name, server_lists in server_dict.items():
+            if len(server_lists['na']) and len(server_lists['nlp']):
+                valid_datasets.append(dataset_name)
+
         if dataset is None:
-            server_dict = {}
-            for server_id, server_config in res["na"].items():
-                if 'dataset' not in server_config:
-                    server_config['dataset'] = 'default'
-                    default_mode = True
-                if server_config['dataset'] not in server_dict:
-                    server_dict[server_config['dataset']] = {'na': [], 'nlp': []}
-                server_dict[server_config['dataset']]['na'].append(server_id)
-            for server_id, server_config in res["nlp"].items():
-                if 'dataset' not in server_config:
-                    server_config['dataset'] = 'default'
-                    default_mode = True
-                if server_config['dataset'] not in server_dict:
-                    server_dict[server_config['dataset']] = {'na': [], 'nlp': []}
-                server_dict[server_config['dataset']]['nlp'].append(server_id)
-            valid_datasets = []
-            for dataset_name, server_lists in server_dict.items():
-                if len(server_lists['na']) and len(server_lists['nlp']):
-                    valid_datasets.append(dataset_name)
             if default_mode:
                 if len(valid_datasets):
                     pass
@@ -945,7 +947,7 @@ class Client:
                 if len(valid_datasets) == 1:
                     dataset = valid_dataset[0]
                 elif len(valid_datasets) > 1:
-                    raise RuntimeError("Multiple . Available dataset on the FFBO processor is the following \n{}\n.If you are running the NeuroArch server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, ', '.join(valid_datasets)))
+                    raise RuntimeError("Multiple . Available dataset on the FFBO processor is the following:{}\nIf you are running the NeuroArch server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, '\n- '.join(valid_datasets)))
                 # print(
                 #     printHeader("FFBOLab Client")
                 #     + "Found following datasets: "
@@ -996,7 +998,7 @@ class Client:
                     )
                     self.naServerID = server_dict['na'][0]
         else:
-            raise RuntimeError("NeuroArch Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following \n{}\n.If you are running the NeuroArch server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, ', '.join(valid_datasets)))
+            raise RuntimeError("NeuroArch Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following:{}\nIf you are running the NeuroArch server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, '\n- '.join(valid_datasets)))
             # print(
             #     printHeader("FFBOLab Client")
             #     + "NA Server with {} dataset not found".format(dataset)
@@ -1009,7 +1011,7 @@ class Client:
             )
             self.nlpServerID = server_dict['nlp'][0]
         else:
-            raise RuntimeError("NeuroNLP Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following \n{}\n.If you are running the NeuroNLP server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, ', '.join(valid_datasets)))
+            raise RuntimeError("NeuroNLP Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following:{}\nIf you are running the NeuroNLP server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, '\n- '.join(valid_datasets)))
             # print(
             #     printHeader("FFBOLab Client")
             #     + "NLP Server with {} dataset not found".format(dataset)
