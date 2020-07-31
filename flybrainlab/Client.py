@@ -515,7 +515,7 @@ class Client:
                                               challenge.extra['salt'],
                                               challenge.extra['iterations'],
                                               challenge.extra['keylen'])
-                        print(salted_key.decode('utf-8'))
+                        #print(salted_key.decode('utf-8'))
 
                 # compute signature for challenge, using the key
                 signature = auth.compute_wcs(salted_key, challenge.extra["challenge"])
@@ -1016,6 +1016,10 @@ class Client:
             #     printHeader("FFBOLab Client")
             #     + "NLP Server with {} dataset not found".format(dataset)
             # )
+
+        if len(res["nk"]) == 0:
+            Warning("Neurokernel Server not found on the FFBO processor. Circuit execution on the server side is not supported.")
+
 
     def get_client_info(self, fbl=None):
         """Receive client data for this client only.
@@ -2722,10 +2726,11 @@ class Client:
         res = self.client.session.call(u'ffbo.processor.server_information')
         if len(res['nk']) == 0:
             raise RuntimeError('Neurokernel Server not found. If it halts, please restart it.')
+        # TODO: randomly choose from the nk servers that are not busy. If all are busy, randomly choose one.
         msg = {#'neuron_list': labels,
                 "user": self.client._async_session._session_id,
                 "name": name,
-                "servers": {'na': self.naServerID, 'nk': list(res['nk'].keys())[0]}}
+                "servers": {'na': self.naServerID, 'nk': random.choice(list(res['nk'].keys()))}}
 
         if len(inputProcessors)>0:
             msg['inputProcessors'] = inputProcessors
