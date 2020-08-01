@@ -1080,6 +1080,11 @@ class Client:
             queryID = guidGenerator()
             try:
                 resNA = self.client.session.call(uri, query, language)
+                # Send the parsed query to the fronedned to be displayed if need be
+                a = {}
+                a["data"] = resNA
+                a["messageType"] = "ParsedQuery"
+                a["widget"] = "NLP"
             except:
                 a = {}
                 a["data"] = {"info": {"timeout": "This is a timeout."}}
