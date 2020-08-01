@@ -263,7 +263,7 @@ class Client:
         use_config = False,
         custom_config = None,
         widgets = [],
-        dataset = None,
+        dataset = 'default',
     ):
         """Initialization function for the FBL Client class.
 
