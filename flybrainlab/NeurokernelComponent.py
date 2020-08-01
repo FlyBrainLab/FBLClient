@@ -179,13 +179,13 @@ class neurokernel_server(object):
 
     def __init__(self):
         cuda.init()
-        if cuda.Device.count() < 0:
+        self.ngpus = cuda.Device.count()
+        if self.ngpus <= 0:
             raise ValueError("No GPU found on this device")
 
     def launch(self, user_id, task):
         # neuron_uid_list = [str(a) for a in task['neuron_list']]
         try:
-
             # conf_obj = get_config_obj()
             # config = conf_obj.conf
 
@@ -264,7 +264,7 @@ class neurokernel_server(object):
             dt = task['dt']
             print(dt)
 
-
+            device_count = 0
             # add LPUs to manager
             for k, lpu in lpus.items():
                 lpu_name = k
@@ -335,9 +335,10 @@ class neurokernel_server(object):
 
                 # (comp_dict, conns) = LPU.graph_to_dicts(graph)
                 manager.add(LPU, k, dt, 'pickle', pickle.dumps(graph),#comp_dict, conns,
-                            device = 0, input_processors = input_processors,
+                            device = device_count, input_processors = input_processors,
                             output_processors = output_processors,
                             extra_comps = [PhotoreceptorModel, BufferVoltage], debug = False)
+                device_count = (device_count+1) % self.ngpus
 
             # connect LPUs by Patterns
             for k, pattern in patterns.items():
@@ -599,6 +600,7 @@ class ffbolabComponent:
         ca_cert_file="isrgrootx1.pem",
         intermediate_cert_file="letsencryptauthorityx3.pem",
         FFBOLabcomm=None,
+        server_name = 'nk',
     ):
         if os.path.exists(os.path.join(home, ".ffbolab", "lib")):
             print(
@@ -713,7 +715,7 @@ class ffbolabComponent:
             u"ffbo.server.register",
             FFBOLABClient._async_session._session_id,
             "nk",
-            "nk_server",
+            {"name": server_name, "version": 1.05},
         )
         print("Registered self...")
 
@@ -759,11 +761,27 @@ def mainThreadExecute(Component, server):
         #     r = json.dumps(res_tosend)
         #     res_to_processor = Component.client.session.call(six.u(task['forward']), r)
         # res_to_processor = Component.client.session.call(six.u(task['forward']), resed)
-        res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb({'execution_result_start': six.u(task['name'])}))
-        packed = msgpack.packb(res)
-        for i in range(0, len(packed), batch_size):
-            res_processor = Component.client.session.call(six.u(task['forward']), packed[i:i+batch_size])
-        res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb({'execution_result_end':six.u(task['name'])}))
+        try:
+            res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb({'execution_result_start': six.u(task['name'])}))
+            packed = msgpack.packb(res)
+            for i in range(0, len(packed), batch_size):
+                res_processor = Component.client.session.call(six.u(task['forward']), packed[i:i+batch_size])
+            res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb({'execution_result_end':six.u(task['name'])}))
+        except:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            tb = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+            print('An error occured sending results back to FBL Client\n' + tb)
+            errmsg = {'error':
+                        {'exception': tb,
+                         'message': 'An error occured when sending results back to FBL Client'}}
+            try:
+                res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb({'execution_result_start': six.u(task['name'])}))
+                packed = msgpack.packb(errmsg)
+                for i in range(0, len(packed), batch_size):
+                    res_processor = Component.client.session.call(six.u(task['forward']), packed[i:i+batch_size])
+                res_to_processor = Component.client.session.call(six.u(task['forward']), msgpack.packb({'execution_result_end':six.u(task['name'])}))
+            except:
+                pass
 
         Component.launch_queue.pop(0)
     else:

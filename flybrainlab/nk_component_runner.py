@@ -1,6 +1,7 @@
 from flybrainlab.NeurokernelComponent import *
 import time
 from configparser import ConfigParser
+import argparse
 
 if __name__ == "__main__":
     import neurokernel.mpi_relaunch
@@ -10,6 +11,12 @@ if __name__ == "__main__":
     import OpenSSL.crypto
 
     from configparser import ConfigParser
+
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--name', dest='name', type=str, default = 'nk',
+                    help='Name of the server')
+    args = parser.parse_args()
 
     root = os.path.expanduser("/")
     home = os.path.expanduser("~")
@@ -50,7 +57,7 @@ if __name__ == "__main__":
 
     Component = ffbolabComponent(user = user, secret=secret, url = url, ssl = ssl, debug = debug, realm = realm,
                                  ca_cert_file = ca_cert_file, intermediate_cert_file = intermediate_cert_file,
-                                 authentication = authentication)
+                                 authentication = authentication, server_name = args.name)
     server = neurokernel_server()
 
     print(printHeader("FFBO Neurokernel Component") + "Connection successful.")

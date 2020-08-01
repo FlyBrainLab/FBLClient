@@ -1,54 +1,48 @@
-from time import sleep
-import txaio
+
+from time import sleep, gmtime, strftime
+import os, sys, json, binascii, warnings, urllib
+import certifi
+os.environ['SSL_CERT_FILE'] = certifi.where()
 import random
-import h5py
 import pickle
+from collections import Counter
+from functools import partial
+from pathlib import Path
+from configparser import ConfigParser
+import importlib
+
+import numpy as np
+import matplotlib.pyplot as plt
+import txaio
+import h5py
+import pandas as pd
+import networkx as nx
 from autobahn.twisted.util import sleep
 from autobahn.twisted.wamp import ApplicationSession, ApplicationRunner
 from autobahn.wamp.exception import ApplicationError
+from autobahn.wamp import auth
 from autobahn.websocket.protocol import WebSocketClientFactory
+from autobahn.wamp.types import RegisterOptions, CallOptions
+from autobahn_sync import publish, call, register, subscribe, run, AutobahnSync
 from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 import OpenSSL.crypto
-
-import os
-import certifi
-os.environ['SSL_CERT_FILE'] = certifi.where()
-
-from collections import Counter
-from autobahn.wamp.types import RegisterOptions, CallOptions
-from functools import partial
-from autobahn.wamp import auth
-from autobahn_sync import publish, call, register, subscribe, run, AutobahnSync
 from IPython.display import clear_output
-from pathlib import Path
-from configparser import ConfigParser
-import numpy as np
-import matplotlib.pyplot as plt
-import os
-import sys
-import json
-import binascii
+import requests
 import seaborn as sns
-
 sns.set(color_codes=True)
-import pandas as pd
-import numpy as np
-import neuroballad as nb
-import networkx as nx
-import importlib
-from time import gmtime, strftime
 
+import msgpack
+import msgpack_numpy
+msgpack_numpy.patch()
+
+import neuroballad as nb
 from .utils import setProtocolOptions
-import warnings
 
 # import txaio
 # txaio.start_logging(level='info')
 
 ## Create the home directory
-import os
-import urllib
-import requests
 
 home = str(Path.home())
 if not os.path.exists(os.path.join(home, ".ffbolab")):
@@ -265,7 +259,6 @@ class Client:
         legacy=False,
         initialize_client=True,
         name = None,
-        default_key = False,
         species = '',
         use_config = False,
         custom_config = None,
@@ -288,7 +281,6 @@ class Client:
             legacy (bool): Whether the server uses the old FFBO server standard or not. Should be False for most cases. Defaults to False.
             initialize_client (bool): Whether to connect to the database or not. Defaults to True.
             name (str): Name for the client. String. Defaults to None.
-            default_key (bool): Whether to use a default key during connections. Defaults to True. Recommended for new users.
             use_config (bool): Whether to read the url from config instead of as arguments to the initializer. Defaults to False. False recommended for new users.
             species (str): Name of the species to use for client information. Defaults to ''.
             custom_config (str): A .ini file name to use to initiate a custom connection. Defaults to None. Used if provided.
@@ -355,11 +347,7 @@ class Client:
             homedir = os.path.expanduser("~")
             filepath = os.path.dirname(os.path.abspath(__file__))
             config_files = []
-            config_files.append(os.path.join(homedir, "config", "ffbo.FBLClient.ini"))
-            config_files.append(os.path.join(root, "config", "ffbo.FBLClient.ini"))
-            config_files.append(os.path.join(homedir, "config", "config.ini"))
-            config_files.append(os.path.join(root, "config", "config.ini"))
-            config_files.append(os.path.join(filepath, "..", "FBLClient.ini"))
+            os.path.join(home, ".ffbolab", "config", "FFBO.ini"),
             config = ConfigParser()
             configured = False
             file_type = 0
@@ -372,19 +360,28 @@ class Client:
             if not configured:
                 raise Exception("No config file exists for this component")
 
-            #user = config["USER"]["user"]
-            #secret = config["USER"]["secret"]
+            user = config["USER"]["user"]
+            secret = config["USER"]["secret"]
             ssl = eval(config["AUTH"]["ssl"])
             websockets = "wss" if ssl else "ws"
             if "ip" in config["SERVER"]:
-                ip = config["SERVER"]["ip"]
+                split = config["SERVER"]["ip"].split(':')
+                ip = split[0]
+                if len(split) == 2:
+                    port = split[1]
+                    url =  "{}://{}:{}/ws".format(websockets, ip, port)
+                else:
+                    url =  "{}://{}/ws".format(websockets, ip)
             else:
                 ip = "localhost"
-            port = int(config["NLP"]['expose-port'])
-            url =  "{}://{}:{}/ws".format(websockets, ip, port)
+                port = int(config["NLP"]['port'])
+                url =  "{}://{}:{}/ws".format(websockets, ip, port)
             realm = config["SERVER"]["realm"]
             authentication = eval(config["AUTH"]["authentication"])
             debug = eval(config["DEBUG"]["debug"])
+            ssl = False # override ssl for connections
+            if 'dataset' in config["SERVER"]:
+                dataset = config["SERVER"]['dataset']
         if custom_config is not None:
             root = os.path.expanduser("/")
             homedir = os.path.expanduser("~")
@@ -414,16 +411,16 @@ class Client:
             else:
                 ip = "localhost"
             if "port" in config["SERVER"]:
-                port = int(config["NLP"]['expose-port'])
+                port = int(config["SERVER"]["port"])
                 url =  "{}://{}:{}/ws".format(websockets, ip, port)
             else:
                 url =  u"{}://{}/ws".format(websockets, ip)
 
             realm = config["SERVER"]["realm"]
-            if 'default_key' in config["SERVER"]:
-                default_key = eval(config["SERVER"]["default_key"])
             # authentication = eval(config["AUTH"]["authentication"])
             ssl = False # override ssl for connections
+            if 'dataset' in config["SERVER"]:
+                dataset = config["SERVER"]['dataset']
         # end of temporary fix
         self.url = url
         self.FFBOLabcomm = FFBOLabcomm # Current Communications Object
@@ -433,6 +430,7 @@ class Client:
         self.dataPath = _FFBOLabDataPath
         extra = {"auth": authentication}
         self.lmsg = 0
+        self.dataset = dataset
 
         self.enableResets = True  # Enable resets
         self.addToRemove = False  # Switch adds to removals
@@ -488,10 +486,10 @@ class Client:
         certs = OpenSSLCertificateAuthorities([ca_cert, intermediate_cert])
         ssl_con = CertificateOptions(trustRoot=certs)
         if initialize_client:
-            self.init_client(ssl, user, secret, custom_salt, url, ssl_con, legacy, default_key)
-            self.findServerIDs()  # Get current server IDs
+            self.init_client(ssl, user, secret, custom_salt, url, ssl_con, legacy)
+            self.findServerIDs(dataset)  # Get current server IDs
 
-    def init_client(self, ssl, user, secret, custom_salt, url, ssl_con, legacy, default_key):
+    def init_client(self, ssl, user, secret, custom_salt, url, ssl_con, legacy):
         FFBOLABClient = AutobahnSync()
         @FFBOLABClient.on_challenge
         def on_challenge(challenge):
@@ -517,10 +515,7 @@ class Client:
                                               challenge.extra['salt'],
                                               challenge.extra['iterations'],
                                               challenge.extra['keylen'])
-                        print(salted_key.decode('utf-8'))
-                    if user == "guest" and default_key:
-                        # A plain, unsalted secret for the guest account
-                        salted_key = u"C5/c598Gme4oALjmdhVC2H25OQPK0M2/tu8yrHpyghA="
+                        #print(salted_key.decode('utf-8'))
 
                 # compute signature for challenge, using the key
                 signature = auth.compute_wcs(salted_key, challenge.extra["challenge"])
@@ -913,23 +908,117 @@ class Client:
 
         self.client = FFBOLABClient  # Set current client to the FFBOLAB Client
 
-    def findServerIDs(self):
+    def findServerIDs(self, dataset = None):
         """Find server IDs to be used for the utility functions.
         """
         res = self.client.session.call(u"ffbo.processor.server_information")
         res = convert_from_bytes(res)
         print(res)
-        for i in res["na"]:
+
+        default_mode = False
+
+        server_dict = {}
+        for server_id, server_config in res["na"].items():
+            if 'dataset' not in server_config:
+                server_config['dataset'] = 'default'
+                default_mode = True
+            if server_config['dataset'] not in server_dict:
+                server_dict[server_config['dataset']] = {'na': [], 'nlp': []}
+            server_dict[server_config['dataset']]['na'].append(server_id)
+        for server_id, server_config in res["nlp"].items():
+            if 'dataset' not in server_config:
+                server_config['dataset'] = 'default'
+                default_mode = True
+            if server_config['dataset'] not in server_dict:
+                server_dict[server_config['dataset']] = {'na': [], 'nlp': []}
+            server_dict[server_config['dataset']]['nlp'].append(server_id)
+        valid_datasets = []
+        for dataset_name, server_lists in server_dict.items():
+            if len(server_lists['na']) and len(server_lists['nlp']):
+                valid_datasets.append(dataset_name)
+
+        if dataset is None:
+            if default_mode:
+                if len(valid_datasets):
+                    pass
+                else:
+                    raise RuntimeError("No valid datasets cannot be found.\nIf you are running the NeuroArch and NeuroNLP servers locally, please check if the servers are on and connected. If you are connecting to a public server, please contact server admin.")
+            else:
+                if len(valid_datasets) == 1:
+                    dataset = valid_dataset[0]
+                elif len(valid_datasets) > 1:
+                    raise RuntimeError("Multiple valid datasets are available on the specified FFBO processor. However, you did not specify which dataset to connect to. Available datasets on the FFBO processor are the following:{}\n. Please choose one of the above datasets during Client connection by passing the dataset argument.".format('\n- '.join(valid_datasets)))
+                # print(
+                #     printHeader("FFBOLab Client")
+                #     + "Found following datasets: "
+                #     + ', '.join(valid_datasets)
+                # )
+                # print(
+                #     printHeader("FFBOLab Client")
+                #     + "Please choose a dataset from the above valid datasets by"
+                #     + " Client.findServerIDs(dataset = 'any name above')"
+                # )
+                else: #len(valid_datasets) == 0
+                    raise RuntimeError("No valid datasets cannot be found.\nIf you are running the NeuroArch and NeuroNLP servers locally, please check if the servers are on and connected. If you are connecting to a public server, please contact server admin.")
+                    # print(
+                    #     printHeader("FFBOLab Client")
+                    #     + "No valid datasets found."
+                    # )
+
+        server_dict = {'na': [], 'nlp': []}
+        for server_id, server_config in res["na"].items():
+            if 'dataset' in server_config:
+                if server_config['dataset'] == dataset:
+                    server_dict['na'].append(server_id)
+            else:
+                server_dict['na'].append(server_id)
+                break
+        for server_id, server_config in res["nlp"].items():
+            if 'dataset' in server_config:
+                if server_config['dataset'] == dataset:
+                    server_dict['nlp'].append(server_id)
+            else:
+                server_dict['nlp'].append(server_id)
+                break
+        if len(server_dict['na']):
             if self.naServerID is None:
-                if "na" in res["na"][i]["name"]:
+                print(
+                    printHeader("FFBOLab Client")
+                    + "Found working NeuroArch Server for dataset {}: ".format(dataset)
+                    + res["na"][server_dict['na'][0]]['name']
+                )
+                self.naServerID = server_dict['na'][0]
+            else:
+                if self.naServerID not in server_dict['na']:
                     print(
                         printHeader("FFBOLab Client")
-                        + "Found working NA Server: "
-                        + res["na"][i]["name"]
+                        + "Previous NeuroArch Server not found, switching NeuroArch Servre to: "
+                        + res["na"][server_dict['na'][0]]['name']
+                        + " Prior query states may not be accessible."
                     )
-                    self.naServerID = i
-        for i in res["nlp"]:
-            self.nlpServerID = i
+                    self.naServerID = server_dict['na'][0]
+        else:
+            raise RuntimeError("NeuroArch Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following:{}\nIf you are running the NeuroArch server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, '\n- '.join(valid_datasets)))
+            # print(
+            #     printHeader("FFBOLab Client")
+            #     + "NA Server with {} dataset not found".format(dataset)
+            # )
+        if len(server_dict['nlp']):
+            print(
+                printHeader("FFBOLab Client")
+                + "Found working NeuroNLP Server for dataset {}: ".format(dataset)
+                + res["nlp"][server_dict['nlp'][0]]['name']
+            )
+            self.nlpServerID = server_dict['nlp'][0]
+        else:
+            raise RuntimeError("NeuroNLP Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following:{}\nIf you are running the NeuroNLP server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, '\n- '.join(valid_datasets)))
+            # print(
+            #     printHeader("FFBOLab Client")
+            #     + "NLP Server with {} dataset not found".format(dataset)
+            # )
+
+        if len(res["nk"]) == 0:
+            Warning("Neurokernel Server not found on the FFBO processor. Circuit execution on the server side is not supported.")
 
 
     def get_client_info(self, fbl=None):
@@ -960,7 +1049,6 @@ class Client:
                 client_data['species'] = client['client'].species
                 res[client['client'].name] = client_data
             return res
-
 
     def executeNLPquery(
         self, query=None, language="en", uri=None, queryID=None, returnNAOutput=False
@@ -2638,10 +2726,11 @@ class Client:
         res = self.client.session.call(u'ffbo.processor.server_information')
         if len(res['nk']) == 0:
             raise RuntimeError('Neurokernel Server not found. If it halts, please restart it.')
+        # TODO: randomly choose from the nk servers that are not busy. If all are busy, randomly choose one.
         msg = {#'neuron_list': labels,
                 "user": self.client._async_session._session_id,
                 "name": name,
-                "servers": {'na': self.naServerID, 'nk': list(res['nk'].keys())[0]}}
+                "servers": {'na': self.naServerID, 'nk': random.choice(list(res['nk'].keys()))}}
 
         if len(inputProcessors)>0:
             msg['inputProcessors'] = inputProcessors
