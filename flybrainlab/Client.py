@@ -1729,7 +1729,7 @@ class Client:
         edges,
         model="auto",
         config={},
-        default_neuron=nb.MorrisLecar(),
+        default_neuron=nb.HodgkinHuxley(),
         default_synapse=nb.AlphaSynapse(),
     ):
         """Processes the output of processConnectivity to generate a Neuroballad circuit.
@@ -1757,9 +1757,12 @@ class Client:
                     idx = C.add_cluster(1, default_synapse)[0]
                     C.join([[node_keys[i[0]], idx]])
                     C.join([[idx, node_keys[i[1]]]])
-                    C.G.nodes()["uid" + str(idx)]["name"] = (
-                        "Synapse from " + i[0] + " to " + i[1]
-                    )
+                    try:
+                        C.G.nodes()["uid" + str(idx)]["name"] = (
+                            "Synapse from " + i[0] + " to " + i[1]
+                        )
+                    except:
+                        pass
                     # print(C.G.nodes()["uid" + str(idx)]['BioName'])
         if model == "simple":
             for i in edges:
