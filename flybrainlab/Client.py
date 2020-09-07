@@ -239,6 +239,12 @@ class Client:
             a (obj): Arbitrarily formatted data to be sent via communication.
         """
         try:
+            for i in fbl.widget_manager.widgets:
+                if fbl.widget_manager.widgets[i].widget_id not in fbl.client_manager.clients[fbl.widget_manager.widgets[i].client_id]['widgets']:
+                    fbl.client_manager.clients[fbl.widget_manager.widgets[i].client_id]['widgets'].append(fbl.widget_manager.widgets[i].widget_id)
+        except:
+            pass
+        try:
             self.FFBOLabcomm.send(data=a)
         except:
             pass
@@ -1342,21 +1348,54 @@ class Client:
         self.tryComms(a)
         return True
 
-    def getInfo(self, args):
+    def loadSWC(self, file_name, scale_factor=1., uname=None):
+        """Loads a neuron skeleton stored in the .swc format.
+
+        # Arguments:
+            file_name (str): Database ID of the neuron or node.
+            scale_factor (float): A scale factor to scale the neuron's dimensions with. Defaults to 1.
+            uname (str): Unique name to use in the frontend. Defaults to the file_name.
+
+        """
+        neuron_pd = pd.read_csv(file_name, 
+                        names=['sample','identifier','x','y','z','r','parent'], 
+                        comment='#', 
+                        delim_whitespace=True)
+        if uname == None:
+            uname = file_name.split('.')[0]
+        rid = '#'+file_name
+        neuron_data = {'data': {'data': {rid: {'name': file_name,
+                'uname': uname,
+                'morph_type': 'swc',
+                'x': list(scale_factor * neuron_pd['x']),
+                'y': list(scale_factor * neuron_pd['y']),
+                'z': list(scale_factor * neuron_pd['z']),
+                'r': list(scale_factor * neuron_pd['r']),
+                'parent': list(neuron_pd['parent']),
+                'identifier': list(neuron_pd['identifier']),
+                'sample': list(neuron_pd['sample']),
+                'class': 'MorphologyData'}},
+              'queryID': '0-0'},
+             'messageType': 'Data',
+             'widget': 'NLP'}
+        self.tryComms(neuron_data)
+
+        return True
+
+    def getInfo(self, dbid):
         """Get information on a neuron.
 
         # Arguments:
-            args (str): Database ID of the neuron or node.
+            dbid (str): Database ID of the neuron or node.
 
         # Returns:
             dict: NA information regarding the node.
         """
-        res = {"uri": "ffbo.na.get_data.", "id": args}
+        res = {"uri": "ffbo.na.get_data.", "id": dbid}
         queryID = guidGenerator()
         res = self.executeNAquery(
             res, uri= "{}{}".format(res["uri"], self.naServerID), queryID=queryID, progressive=False
         )
-        # res['data']['data']['summary']['rid'] = args
         a = {}
         a["data"] = res
         a["messageType"] = "Data"
@@ -1573,6 +1612,74 @@ class Client:
         """
         self.sendCircuitPrimitive(self.C, args={"name": name})
 
+    def autoLayout(self):
+        """Layout raw data from NeuroArch and save results as G_auto.*.
+        """
+        import json
+        res = json.loads(
+                    """
+                {"format":"nx","query":[{"action":{"method":{"add_connecting_synapses":{}}},"object":{"state":0}}],"temp":true}
+                """
+                )
+        res = self.executeNAquery(res)
+        nodes = res[-2]["data"]["data"]['nodes']
+        edges = res[-2]["data"]["data"]['edges']
+        import networkx as nx
+        G = nx.DiGraph()
+        for e_pre in nodes:
+            G.add_node(e_pre, **{'uname': nodes[e_pre]['uname']})
+        for edge in edges:
+            G.add_edge(edge[0],edge[1])
+        from graphviz import Digraph
+        graph_struct = {'splines': 'ortho', 
+                        'pad': '0.5',
+                        'ranksep': '1.5',
+                        'concentrate': 'true',
+                        'newrank': 'true',
+                        'rankdir': 'TB'}
+
+        g = Digraph('G', filename='G_ex.gv',graph_attr = {'splines': 'line', 
+                                                        'pad': '0.1',
+                                                        'nodesep': '0.03',
+                                                        'ranksep': '1.0',
+                                                        'concentrate': 'true',
+                                                        'newrank': 'true',
+                                                        'rankdir': 'TB'})
+        # g.attr(bgcolor='black')
+        valid_nodes = []
+        for pre, post, data in G.edges(data=True):
+            pre_name = G.nodes(data=True)[pre]['uname']
+            post_name = G.nodes(data=True)[post]['uname']
+            g.edge(str(pre_name), str(post_name), arrowsize='0.5')
+            valid_nodes.append(str(pre_name))
+            valid_nodes.append(str(post_name))
+            valid_nodes = list(set(valid_nodes))
+            
+        for _pre in valid_nodes:
+            if '--' in str(_pre):
+                g.node(str(_pre), 
+                    shape='circle', 
+                    height='0.05', 
+                    fontsize='4.0', 
+                    fixedsize='true', 
+                    color='red', 
+                    style='filled')
+            else:
+                g.node(str(_pre), 
+                    shape='circle', 
+                    height='0.15', 
+                    fontsize='4.0', 
+                    fixedsize='true', 
+                    color='cyan', 
+                    style='filled')
+            
+        g.attr(size='25,25')
+
+        g.save('G_auto.gv')
+
+        g.render('G_auto', format = 'svg', view=False)
+
+        g.render('G_auto', format = 'png', view=False) 
     def processConnectivity(self, connectivity):
         """Processes a Neuroarch connectivity dictionary.
 
