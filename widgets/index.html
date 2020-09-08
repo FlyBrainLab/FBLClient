@@ -12,18 +12,18 @@
       
       
       
-      <link rel="shortcut icon" href="/assets/images/favicon.png">
+      <link rel="shortcut icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.5.12">
     
     
       
-        <title>FlyBrainLab Client Documentation</title>
+        <title>Widgets - FlyBrainLab Client Documentation</title>
       
     
     
-      <link rel="stylesheet" href="/assets/stylesheets/main.4dd2dd8d.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.4dd2dd8d.min.css">
       
-        <link rel="stylesheet" href="/assets/stylesheets/palette.6a5ad368.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.6a5ad368.min.css">
       
       
         
@@ -59,6 +59,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#callbackmanager" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -66,7 +71,7 @@
     
       <header class="md-header" data-md-component="header">
   <nav class="md-header-nav md-grid" aria-label="Header">
-    <a href="/." title="FlyBrainLab Client Documentation" class="md-header-nav__button md-logo" aria-label="FlyBrainLab Client Documentation">
+    <a href=".." title="FlyBrainLab Client Documentation" class="md-header-nav__button md-logo" aria-label="FlyBrainLab Client Documentation">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 003-3 3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54z"/></svg>
@@ -83,7 +88,7 @@
           </span>
           <span class="md-header-nav__topic md-ellipsis">
             
-              
+              Widgets
             
           </span>
         </div>
@@ -140,7 +145,7 @@
                   <div class="md-sidebar__inner">
                     <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="/." title="FlyBrainLab Client Documentation" class="md-nav__button md-logo" aria-label="FlyBrainLab Client Documentation">
+    <a href=".." title="FlyBrainLab Client Documentation" class="md-nav__button md-logo" aria-label="FlyBrainLab Client Documentation">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 003-3 3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54z"/></svg>
@@ -157,7 +162,7 @@
 
 
   <li class="md-nav__item">
-    <a href="/index.md" title="Home" class="md-nav__link">
+    <a href="../index.md" title="Home" class="md-nav__link">
       Home
     </a>
   </li>
@@ -169,7 +174,7 @@
 
 
   <li class="md-nav__item">
-    <a href="/client/" title="Core" class="md-nav__link">
+    <a href="../client/" title="Core" class="md-nav__link">
       Core
     </a>
   </li>
@@ -179,11 +184,20 @@
       
       
 
+  
 
-  <li class="md-nav__item">
-    <a href="/widgets/" title="Widgets" class="md-nav__link">
+
+  <li class="md-nav__item md-nav__item--active">
+    
+    <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    
+      
+    
+    
+    <a href="./" title="Widgets" class="md-nav__link md-nav__link--active">
       Widgets
     </a>
+    
   </li>
 
     
@@ -194,12 +208,74 @@
               </div>
             
             
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+    
+  
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
           
           <div class="md-content">
             <article class="md-content__inner md-typeset">
               
-  <h1>404 - Not found</h1>
+                
+                
+                  
+                
+                
+                <h3 id="callbackmanager">CallbackManager</h3>
+<pre><code class="python">flybrainlab.widget.CallbackManager()
+</code></pre>
 
+<p>Callback manager class that stores a number of callbacks that try to access messages sent from frontend to the Python kernel.</p>
+<p><strong>Example:</strong></p>
+<h1 id="start-by-creating-a-neu3d-widget-in-the-frontend-then-execute-this-code-in-a-jupyter-notebook-running-the-same-kernel">Start by creating a Neu3D widget in the frontend, then execute this code in a Jupyter notebook running the same kernel.</h1>
+<p>my_data = []
+def process_data(data): # Example callback function
+    if 'hello' in data:
+        my_data.append(data)
+fbl.widget_manager.callback_manager.reset() # Remove old callbacks
+fbl.widget_manager.callback_manager.add(process_data)</p>
+<h1 id="fblwidget_managercallback_manageraddprocess_data-69409cc87c344c9db06654848821b58a-if-you-want-a-specific-comm-id-give-it-as-the-second-argument">fbl.widget_manager.callback_manager.add(process_data, "69409cc87c344c9db06654848821b58a") # If you want a specific comm id, give it as the second argument</h1>
+<h1 id="the-comm-id-corresponds-to-_id-attribute-of-the-commhandler-in-the-frontend-or-to-one-of">The comm id corresponds to _id attribute of the CommHandler in the frontend, or to one of</h1>
+<h1 id="printicommcomm_id-for-i-in-fblwidget_managerwidgetsvalues">print([i.comm.comm_id for i in fbl.widget_manager.widgets.values()])</h1>
+<h1 id="in-the-backend">in the backend.</h1>
+<p>print(fbl.widget_manager.widgets)</p>
+<h1 id="in-js-execute">in JS, execute:</h1>
+<h1 id="windowneu3d_widgetcommsendhello-world">window.neu3d_widget.comm.send('hello world')</h1>
+<h1 id="windowneu3d_widgetcommsendmy-world">window.neu3d_widget.comm.send('my world')</h1>
+<p>print(my_data) # returns ['hello world']</p>
+<p><strong>Attributes:</strong></p>
+<p>callbacks (list): A list of functions.</p>
+<hr />
+<h3 id="widgetmanager">WidgetManager</h3>
+<pre><code class="python">flybrainlab.widget.WidgetManager()
+</code></pre>
+
+<p>Widget Manager class that keeps track of all widgets associated with the current FBLClient session.</p>
+<p><strong>Attributes:</strong></p>
+<p>widgets (dict): a dictionary of instances of Widget.
+_comms (dict): all comm objects opend for this client.</p>
+<hr />
+<h3 id="metaclient">MetaClient</h3>
+<pre><code class="python">flybrainlab.Client.MetaClient(initializer=None)
+</code></pre>
+
+<p>FlyBrainLab MetaClient class that tracks available FBL clients and connected frontend widgets.</p>
+<p><strong>Attributes:</strong></p>
+<p>clients (obj): A list of dictionaries with the following keys: (i) 'name': Contains the common name of the client. (ii) 'client': A reference to the client object. (iii) 'widgets': List of widget names associated with the client.</p>
+<hr />
+                
+              
               
                 
 
@@ -212,6 +288,27 @@
       
         
 <footer class="md-footer">
+  
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid" aria-label="Footer">
+        
+          <a href="../client/" title="Core" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+            </div>
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
+                <span class="md-footer-nav__direction">
+                  Previous
+                </span>
+                Core
+              </div>
+            </div>
+          </a>
+        
+        
+      </nav>
+    </div>
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
@@ -229,15 +326,15 @@
       
     </div>
     
-      <script src="/assets/javascripts/vendor.3636a4ec.min.js"></script>
-      <script src="/assets/javascripts/bundle.e9fe3281.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
+      <script src="../assets/javascripts/vendor.3636a4ec.min.js"></script>
+      <script src="../assets/javascripts/bundle.e9fe3281.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({
-          base: "/",
+          base: "..",
           features: [],
           search: Object.assign({
-            worker: "/assets/javascripts/worker/search.5eca75d3.min.js"
+            worker: "../assets/javascripts/worker/search.5eca75d3.min.js"
           }, typeof search !== "undefined" && search)
         })
       </script>
