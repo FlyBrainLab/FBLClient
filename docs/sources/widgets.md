@@ -10,7 +10,8 @@ Callback manager class that stores a number of callbacks that try to access mess
 
 __Example:__
 
-# Start by creating a Neu3D widget in the frontend, then execute this code in a Jupyter notebook running the same kernel.
+Start by creating a Neu3D widget in the frontend, then execute this code in a Jupyter notebook running the same kernel.
+```python
 my_data = []
 def process_data(data): # Example callback function
     if 'hello' in data:
@@ -26,6 +27,7 @@ print(fbl.widget_manager.widgets)
 # window.neu3d_widget.comm.send('hello world')
 # window.neu3d_widget.comm.send('my world')
 print(my_data) # returns ['hello world']
+```
 
 __Attributes:__
 
