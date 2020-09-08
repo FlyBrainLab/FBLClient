@@ -217,12 +217,51 @@
     
     <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
     
-      
     
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        Widgets
+        <span class="md-nav__icon md-icon"></span>
+      </label>
     
     <a href="./" title="Widgets" class="md-nav__link md-nav__link--active">
       Widgets
     </a>
+    
+      
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#callbackmanager" class="md-nav__link">
+    CallbackManager
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#widgetmanager" class="md-nav__link">
+    WidgetManager
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metaclient" class="md-nav__link">
+    MetaClient
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
     
   </li>
 
@@ -241,8 +280,35 @@
 <nav class="md-nav md-nav--secondary" aria-label="Table of contents">
   
   
-    
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#callbackmanager" class="md-nav__link">
+    CallbackManager
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#widgetmanager" class="md-nav__link">
+    WidgetManager
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metaclient" class="md-nav__link">
+    MetaClient
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -258,28 +324,32 @@
                   
                 
                 
+                  <h1>Widgets</h1>
+                
                 <h3 id="callbackmanager">CallbackManager</h3>
 <pre><code class="python">flybrainlab.widget.CallbackManager()
 </code></pre>
 
 <p>Callback manager class that stores a number of callbacks that try to access messages sent from frontend to the Python kernel.</p>
 <p><strong>Example:</strong></p>
-<h1 id="start-by-creating-a-neu3d-widget-in-the-frontend-then-execute-this-code-in-a-jupyter-notebook-running-the-same-kernel">Start by creating a Neu3D widget in the frontend, then execute this code in a Jupyter notebook running the same kernel.</h1>
-<p>my_data = []
+<p>Start by creating a Neu3D widget in the frontend, then execute this code in a Jupyter notebook running the same kernel.</p>
+<pre><code class="python">my_data = []
 def process_data(data): # Example callback function
     if 'hello' in data:
         my_data.append(data)
 fbl.widget_manager.callback_manager.reset() # Remove old callbacks
-fbl.widget_manager.callback_manager.add(process_data)</p>
-<h1 id="fblwidget_managercallback_manageraddprocess_data-69409cc87c344c9db06654848821b58a-if-you-want-a-specific-comm-id-give-it-as-the-second-argument">fbl.widget_manager.callback_manager.add(process_data, "69409cc87c344c9db06654848821b58a") # If you want a specific comm id, give it as the second argument</h1>
-<h1 id="the-comm-id-corresponds-to-_id-attribute-of-the-commhandler-in-the-frontend-or-to-one-of">The comm id corresponds to _id attribute of the CommHandler in the frontend, or to one of</h1>
-<h1 id="printicommcomm_id-for-i-in-fblwidget_managerwidgetsvalues">print([i.comm.comm_id for i in fbl.widget_manager.widgets.values()])</h1>
-<h1 id="in-the-backend">in the backend.</h1>
-<p>print(fbl.widget_manager.widgets)</p>
-<h1 id="in-js-execute">in JS, execute:</h1>
-<h1 id="windowneu3d_widgetcommsendhello-world">window.neu3d_widget.comm.send('hello world')</h1>
-<h1 id="windowneu3d_widgetcommsendmy-world">window.neu3d_widget.comm.send('my world')</h1>
-<p>print(my_data) # returns ['hello world']</p>
+fbl.widget_manager.callback_manager.add(process_data)
+# fbl.widget_manager.callback_manager.add(process_data, &quot;69409cc87c344c9db06654848821b58a&quot;) # If you want a specific comm id, give it as the second argument
+# The comm id corresponds to _id attribute of the CommHandler in the frontend, or to one of
+# print([i.comm.comm_id for i in fbl.widget_manager.widgets.values()])
+# in the backend.
+print(fbl.widget_manager.widgets)
+# in JS, execute:
+# window.neu3d_widget.comm.send('hello world')
+# window.neu3d_widget.comm.send('my world')
+print(my_data) # returns ['hello world']
+</code></pre>
+
 <p><strong>Attributes:</strong></p>
 <p>callbacks (list): A list of functions.</p>
 <hr />
