@@ -1,5 +1,6 @@
 from keras_autodoc import DocumentationGenerator
 import keras_autodoc
+import shutil
 
 client_methods = keras_autodoc.get_methods('flybrainlab.Client.Client')
 ordered_methods = ['flybrainlab.Client.Client',
@@ -14,3 +15,4 @@ pages = {'client.md': client_methods_final,
 
 doc_generator = DocumentationGenerator(pages)
 doc_generator.generate('./sources')
+shutil.copyfile('index.md','sources/index.md')

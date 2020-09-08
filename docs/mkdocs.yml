@@ -1,6 +1,7 @@
 site_name: FlyBrainLab Client Documentation
 docs_dir: sources
 site_description: 'Documentation for FlyBrainLab Client.'
+repo_url: https://flybrainlab.github.io/FBLClient/
 
 theme:
   name: 'material'
