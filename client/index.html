@@ -1,0 +1,1819 @@
+
+
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for FlyBrainLab Client.">
+      
+      
+      
+      <link rel="shortcut icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.5.12">
+    
+    
+      
+        <title>Core - FlyBrainLab Client Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.4dd2dd8d.min.css">
+      
+        <link rel="stylesheet" href="../assets/stylesheets/palette.6a5ad368.min.css">
+      
+      
+        
+        
+        <meta name="theme-color" content="#546d78">
+      
+    
+    
+    
+      
+        <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,400i,700%7CRoboto+Mono&display=fallback">
+        <style>body,input{font-family:"Roboto",-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif}code,kbd,pre{font-family:"Roboto Mono",SFMono-Regular,Consolas,Menlo,monospace}</style>
+      
+    
+    
+    
+    
+      
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="" data-md-color-primary="blue-grey" data-md-color-accent="red">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#client" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <header class="md-header" data-md-component="header">
+  <nav class="md-header-nav md-grid" aria-label="Header">
+    <a href=".." title="FlyBrainLab Client Documentation" class="md-header-nav__button md-logo" aria-label="FlyBrainLab Client Documentation">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 003-3 3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54z"/></svg>
+
+    </a>
+    <label class="md-header-nav__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2z"/></svg>
+    </label>
+    <div class="md-header-nav__title" data-md-component="header-title">
+      
+        <div class="md-header-nav__ellipsis">
+          <span class="md-header-nav__topic md-ellipsis">
+            FlyBrainLab Client Documentation
+          </span>
+          <span class="md-header-nav__topic md-ellipsis">
+            
+              Core
+            
+          </span>
+        </div>
+      
+    </div>
+    
+      <label class="md-header-nav__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0116 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 019.5 16 6.5 6.5 0 013 9.5 6.5 6.5 0 019.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg>
+      </label>
+      
+<div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" data-md-state="active">
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0116 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 019.5 16 6.5 6.5 0 013 9.5 6.5 6.5 0 019.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </label>
+      <button type="reset" class="md-search__icon md-icon" aria-label="Clear" data-md-component="search-reset" tabindex="-1">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>
+      </button>
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+  </nav>
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+        
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              <div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="FlyBrainLab Client Documentation" class="md-nav__button md-logo" aria-label="FlyBrainLab Client Documentation">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 003-3 3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54z"/></svg>
+
+    </a>
+    FlyBrainLab Client Documentation
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href=".." title="Home" class="md-nav__link">
+      Home
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+  
+
+
+  <li class="md-nav__item md-nav__item--active">
+    
+    <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    
+    
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        Core
+        <span class="md-nav__icon md-icon"></span>
+      </label>
+    
+    <a href="./" title="Core" class="md-nav__link md-nav__link--active">
+      Core
+    </a>
+    
+      
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#client" class="md-nav__link">
+    Client
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#init" class="md-nav__link">
+    init
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trycomms" class="md-nav__link">
+    tryComms
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#executenlpquery" class="md-nav__link">
+    executeNLPquery
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#executenaquery" class="md-nav__link">
+    executeNAquery
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ficurvegenerator" class="md-nav__link">
+    FICurveGenerator
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ficurveplotsimresults" class="md-nav__link">
+    FICurvePlotSimResults
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gfxcall" class="md-nav__link">
+    GFXcall
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jscall" class="md-nav__link">
+    JSCall
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ablate_by_match" class="md-nav__link">
+    ablate_by_match
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#addbyuname" class="md-nav__link">
+    addByUname
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#addinput" class="md-nav__link">
+    addInput
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alter" class="md-nav__link">
+    alter
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#autolayout" class="md-nav__link">
+    autoLayout
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#createtag" class="md-nav__link">
+    createTag
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#execute_multilpu" class="md-nav__link">
+    execute_multilpu
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export_diagram_config" class="md-nav__link">
+    export_diagram_config
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fetchcircuit" class="md-nav__link">
+    fetchCircuit
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fetchexperiment" class="md-nav__link">
+    fetchExperiment
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fetchsvg" class="md-nav__link">
+    fetchSVG
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findserverids" class="md-nav__link">
+    findServerIDs
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gennb" class="md-nav__link">
+    genNB
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getconnectivity" class="md-nav__link">
+    getConnectivity
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getconnectivitydendrogram" class="md-nav__link">
+    getConnectivityDendrogram
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getconnectivitymatrix" class="md-nav__link">
+    getConnectivityMatrix
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getexperimentconfig" class="md-nav__link">
+    getExperimentConfig
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getinfo" class="md-nav__link">
+    getInfo
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getneuropils" class="md-nav__link">
+    getNeuropils
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getpostsynapticneurons" class="md-nav__link">
+    getPostsynapticNeurons
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getpresynapticneurons" class="md-nav__link">
+    getPresynapticNeurons
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getsimdata" class="md-nav__link">
+    getSimData
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getsimresults" class="md-nav__link">
+    getSimResults
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getslowconnectivity" class="md-nav__link">
+    getSlowConnectivity
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getstats" class="md-nav__link">
+    getStats
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getsynapses" class="md-nav__link">
+    getSynapses
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get_client_info" class="md-nav__link">
+    get_client_info
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get_current_neurons" class="md-nav__link">
+    get_current_neurons
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#import_diagram_config" class="md-nav__link">
+    import_diagram_config
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#init_client" class="md-nav__link">
+    init_client
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#initiateexperiments" class="md-nav__link">
+    initiateExperiments
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#listinputs" class="md-nav__link">
+    listInputs
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loadcartridge" class="md-nav__link">
+    loadCartridge
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loadexperimentconfig" class="md-nav__link">
+    loadExperimentConfig
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loadsvg" class="md-nav__link">
+    loadSVG
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loadswc" class="md-nav__link">
+    loadSWC
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loadtag" class="md-nav__link">
+    loadTag
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#load_retina_lamina" class="md-nav__link">
+    load_retina_lamina
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parsesimresults" class="md-nav__link">
+    parseSimResults
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plotexecresult" class="md-nav__link">
+    plotExecResult
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plotsimresults" class="md-nav__link">
+    plotSimResults
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preparecircuit" class="md-nav__link">
+    prepareCircuit
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#processconnectivity" class="md-nav__link">
+    processConnectivity
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prune_retina_lamina" class="md-nav__link">
+    prune_retina_lamina
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#removebyuname" class="md-nav__link">
+    removeByUname
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runlayouting" class="md-nav__link">
+    runLayouting
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sendcircuit" class="md-nav__link">
+    sendCircuit
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sendcircuitprimitive" class="md-nav__link">
+    sendCircuitPrimitive
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sendexecutereceiveresults" class="md-nav__link">
+    sendExecuteReceiveResults
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sendneuropils" class="md-nav__link">
+    sendNeuropils
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sendsvg" class="md-nav__link">
+    sendSVG
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updatebackend" class="md-nav__link">
+    updateBackend
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updatesimresultlabel" class="md-nav__link">
+    updateSimResultLabel
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+    
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="../widgets.md" title="Widgets" class="md-nav__link">
+      Widgets
+    </a>
+  </li>
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#client" class="md-nav__link">
+    Client
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#init" class="md-nav__link">
+    init
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trycomms" class="md-nav__link">
+    tryComms
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#executenlpquery" class="md-nav__link">
+    executeNLPquery
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#executenaquery" class="md-nav__link">
+    executeNAquery
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ficurvegenerator" class="md-nav__link">
+    FICurveGenerator
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ficurveplotsimresults" class="md-nav__link">
+    FICurvePlotSimResults
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gfxcall" class="md-nav__link">
+    GFXcall
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jscall" class="md-nav__link">
+    JSCall
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ablate_by_match" class="md-nav__link">
+    ablate_by_match
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#addbyuname" class="md-nav__link">
+    addByUname
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#addinput" class="md-nav__link">
+    addInput
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alter" class="md-nav__link">
+    alter
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#autolayout" class="md-nav__link">
+    autoLayout
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#createtag" class="md-nav__link">
+    createTag
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#execute_multilpu" class="md-nav__link">
+    execute_multilpu
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export_diagram_config" class="md-nav__link">
+    export_diagram_config
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fetchcircuit" class="md-nav__link">
+    fetchCircuit
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fetchexperiment" class="md-nav__link">
+    fetchExperiment
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fetchsvg" class="md-nav__link">
+    fetchSVG
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findserverids" class="md-nav__link">
+    findServerIDs
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gennb" class="md-nav__link">
+    genNB
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getconnectivity" class="md-nav__link">
+    getConnectivity
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getconnectivitydendrogram" class="md-nav__link">
+    getConnectivityDendrogram
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getconnectivitymatrix" class="md-nav__link">
+    getConnectivityMatrix
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getexperimentconfig" class="md-nav__link">
+    getExperimentConfig
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getinfo" class="md-nav__link">
+    getInfo
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getneuropils" class="md-nav__link">
+    getNeuropils
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getpostsynapticneurons" class="md-nav__link">
+    getPostsynapticNeurons
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getpresynapticneurons" class="md-nav__link">
+    getPresynapticNeurons
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getsimdata" class="md-nav__link">
+    getSimData
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getsimresults" class="md-nav__link">
+    getSimResults
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getslowconnectivity" class="md-nav__link">
+    getSlowConnectivity
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getstats" class="md-nav__link">
+    getStats
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getsynapses" class="md-nav__link">
+    getSynapses
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get_client_info" class="md-nav__link">
+    get_client_info
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get_current_neurons" class="md-nav__link">
+    get_current_neurons
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#import_diagram_config" class="md-nav__link">
+    import_diagram_config
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#init_client" class="md-nav__link">
+    init_client
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#initiateexperiments" class="md-nav__link">
+    initiateExperiments
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#listinputs" class="md-nav__link">
+    listInputs
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loadcartridge" class="md-nav__link">
+    loadCartridge
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loadexperimentconfig" class="md-nav__link">
+    loadExperimentConfig
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loadsvg" class="md-nav__link">
+    loadSVG
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loadswc" class="md-nav__link">
+    loadSWC
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loadtag" class="md-nav__link">
+    loadTag
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#load_retina_lamina" class="md-nav__link">
+    load_retina_lamina
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parsesimresults" class="md-nav__link">
+    parseSimResults
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plotexecresult" class="md-nav__link">
+    plotExecResult
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plotsimresults" class="md-nav__link">
+    plotSimResults
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preparecircuit" class="md-nav__link">
+    prepareCircuit
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#processconnectivity" class="md-nav__link">
+    processConnectivity
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prune_retina_lamina" class="md-nav__link">
+    prune_retina_lamina
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#removebyuname" class="md-nav__link">
+    removeByUname
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runlayouting" class="md-nav__link">
+    runLayouting
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sendcircuit" class="md-nav__link">
+    sendCircuit
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sendcircuitprimitive" class="md-nav__link">
+    sendCircuitPrimitive
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sendexecutereceiveresults" class="md-nav__link">
+    sendExecuteReceiveResults
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sendneuropils" class="md-nav__link">
+    sendNeuropils
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sendsvg" class="md-nav__link">
+    sendSVG
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updatebackend" class="md-nav__link">
+    updateBackend
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updatesimresultlabel" class="md-nav__link">
+    updateSimResultLabel
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          <div class="md-content">
+            <article class="md-content__inner md-typeset">
+              
+                
+                
+                  
+                
+                
+                  <h1>Core</h1>
+                
+                <h3 id="client">Client</h3>
+<pre><code class="python">flybrainlab.Client.Client(
+    ssl=False,
+    debug=True,
+    authentication=True,
+    user=&quot;guest&quot;,
+    secret=&quot;guestpass&quot;,
+    custom_salt=None,
+    url=&quot;wss://flycircuitdev.neuronlp.fruitflybrain.org/ws&quot;,
+    realm=&quot;realm1&quot;,
+    ca_cert_file=&quot;isrgrootx1.pem&quot;,
+    intermediate_cert_file=&quot;letsencryptauthorityx3.pem&quot;,
+    FFBOLabcomm=None,
+    legacy=False,
+    initialize_client=True,
+    name=None,
+    species=&quot;&quot;,
+    use_config=False,
+    custom_config=None,
+    widgets=[],
+    dataset=&quot;default&quot;,
+)
+</code></pre>
+
+<p>FlyBrainLab Client class. This class communicates with JupyterLab frontend and connects to FFBO components.</p>
+<p><strong>Attributes:</strong></p>
+<p>FFBOLabcomm (obj): The communication object for sending and receiving data.
+circuit (obj): A Neuroballad circuit that enables local circuit execution and facilitates circuit modification.
+dataPath (str): Data path to be used.
+experimentInputs (list of dicts): Inputs as a list of dicts that can be parsed by the GFX component.
+compiled (bool): Circuits need to be compiled into networkx graphs before being sent for simulation. This is necessary as circuit compilation is a slow process.
+sendDataToGFX (bool): Whether the data received from the backend should be sent to the frontend. Useful for code-only projects.</p>
+<hr />
+<h3 id="init"><strong>init</strong></h3>
+<pre><code class="python">Client.__init__(
+    ssl=False,
+    debug=True,
+    authentication=True,
+    user=&quot;guest&quot;,
+    secret=&quot;guestpass&quot;,
+    custom_salt=None,
+    url=&quot;wss://flycircuitdev.neuronlp.fruitflybrain.org/ws&quot;,
+    realm=&quot;realm1&quot;,
+    ca_cert_file=&quot;isrgrootx1.pem&quot;,
+    intermediate_cert_file=&quot;letsencryptauthorityx3.pem&quot;,
+    FFBOLabcomm=None,
+    legacy=False,
+    initialize_client=True,
+    name=None,
+    species=&quot;&quot;,
+    use_config=False,
+    custom_config=None,
+    widgets=[],
+    dataset=&quot;default&quot;,
+)
+</code></pre>
+
+<p>Initialization function for the FBL Client class.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>ssl (bool)</strong>: Whether the FFBO server uses SSL.</li>
+<li><strong>debug (bool) </strong>: Whether debugging should be enabled.</li>
+<li><strong>authentication (bool)</strong>: Whether authentication is enabled.</li>
+<li><strong>user (str)</strong>: Username for establishing communication with FFBO components.</li>
+<li><strong>secret (str)</strong>: Password for establishing communication with FFBO components.</li>
+<li><strong>url (str)</strong>: URL of the WAMP server with the FFBO Processor component.</li>
+<li><strong>realm (str)</strong>: Realm to be connected to.</li>
+<li><strong>ca_cert_file (str)</strong>: Path to the certificate for establishing connection.</li>
+<li><strong>intermediate_cert_file (str)</strong>: Path to the intermediate certificate for establishing connection.</li>
+<li><strong>FFBOLabcomm (obj)</strong>: Communications object for the frontend.</li>
+<li><strong>legacy (bool)</strong>: Whether the server uses the old FFBO server standard or not. Should be False for most cases. Defaults to False.</li>
+<li><strong>initialize_client (bool)</strong>: Whether to connect to the database or not. Defaults to True.</li>
+<li><strong>name (str)</strong>: Name for the client. String. Defaults to None.</li>
+<li><strong>use_config (bool)</strong>: Whether to read the url from config instead of as arguments to the initializer. Defaults to False. False recommended for new users.</li>
+<li><strong>species (str)</strong>: Name of the species to use for client information. Defaults to ''.</li>
+<li><strong>custom_config (str)</strong>: A .ini file name to use to initiate a custom connection. Defaults to None. Used if provided.</li>
+<li><strong>widgets (list)</strong>: List of widgets associated with this client. Optional.</li>
+<li><strong>dataset (str)</strong>: Name of the dataset to use. Not used right now, but included for future compatibility.</li>
+</ul>
+<hr />
+<h3 id="trycomms">tryComms</h3>
+<pre><code class="python">Client.tryComms(a)
+</code></pre>
+
+<p>Communication function to communicate with a JupyterLab frontend if one exists.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>a (obj)</strong>: Arbitrarily formatted data to be sent via communication.</li>
+</ul>
+<hr />
+<h3 id="executenlpquery">executeNLPquery</h3>
+<pre><code class="python">Client.executeNLPquery(query=None, language=&quot;en&quot;, uri=None, queryID=None, returnNAOutput=False)
+</code></pre>
+
+<p>Execute an NLP query.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>query (str)</strong>: Query string.</li>
+<li><strong>language (str)</strong>: Language to use.</li>
+<li><strong>uri (str)</strong>: Currently not used; for future NLP extensions.</li>
+<li><strong>queryID (str)</strong>: Query ID to be used. Generated automatically.</li>
+<li><strong>returnNAOutput (bool)</strong>: Whether the corresponding NA query should not be executed.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>dict: NA output or the NA query itself, depending on the returnNAOutput setting.</p>
+<hr />
+<h3 id="executenaquery">executeNAquery</h3>
+<pre><code class="python">Client.executeNAquery(res, language=&quot;en&quot;, uri=None, queryID=None, progressive=True, threshold=20)
+</code></pre>
+
+<p>Execute an NA query.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>res (dict)</strong>: Neuroarch query.</li>
+<li><strong>language (str)</strong>: Language to use.</li>
+<li><strong>uri (str)</strong>: A custom FFBO query URI if desired.</li>
+<li><strong>queryID (str)</strong>: Query ID to be used. Generated automatically.</li>
+<li><strong>progressive (bool)</strong>: Whether the loading should be progressive. Needs to be true most of the time for the connection to be stable.</li>
+<li><strong>threshold (int)</strong>: Data chunk size. Low threshold is required for the connection to be stable.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>bool: Whether the process has been successful.</p>
+<hr />
+<h3 id="ficurvegenerator">FICurveGenerator</h3>
+<pre><code class="python">Client.FICurveGenerator(model)
+</code></pre>
+
+<p>Sample library function showing how to do automated experimentation using FFBOLab's Notebook features. Takes a simple abstract neuron model and runs experiments on it.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>model (Neuroballad Model Object)</strong>: The model object to test.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>numpy array: A tuple of NumPy arrays corresponding to the X and Y of the FI curve.</p>
+<hr />
+<h3 id="ficurveplotsimresults">FICurvePlotSimResults</h3>
+<pre><code class="python">Client.FICurvePlotSimResults()
+</code></pre>
+
+<p>Plots some result curves for the FI curve generator example.</p>
+<hr />
+<h3 id="gfxcall">GFXcall</h3>
+<pre><code class="python">Client.GFXcall(args)
+</code></pre>
+
+<p>Arbitrary call to a GFX procedure in the GFX component format.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>args (list)</strong>: A list whose first element is the function name (str) and the following are the arguments.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>dict OR string: The call result.</p>
+<hr />
+<h3 id="jscall">JSCall</h3>
+<pre><code class="python">Client.JSCall(messageType=&quot;getExperimentConfig&quot;, data={})
+</code></pre>
+
+<hr />
+<h3 id="ablate_by_match">ablate_by_match</h3>
+<pre><code class="python">Client.ablate_by_match(res, neuron_list)
+</code></pre>
+
+<hr />
+<h3 id="addbyuname">addByUname</h3>
+<pre><code class="python">Client.addByUname(uname, verb=&quot;add&quot;)
+</code></pre>
+
+<p>Adds some neurons by the uname.</p>
+<p><strong>Returns</strong></p>
+<p>bool: True.</p>
+<hr />
+<h3 id="addinput">addInput</h3>
+<pre><code class="python">Client.addInput(x)
+</code></pre>
+
+<p>Adds an input to the experiment settings. The input is a Neuroballad input object.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>x (Neuroballad Input Object)</strong>: The input object to append to the list of inputs.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>dict: The input object added to the experiment list.</p>
+<hr />
+<h3 id="alter">alter</h3>
+<pre><code class="python">Client.alter(X)
+</code></pre>
+
+<p>Alters a set of models with specified Neuroballad models.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>X (list of lists)</strong>: A list of lists. Elements are lists whose first element is the neuron ID (str) and the second is the Neuroballad object corresponding to the model.</li>
+</ul>
+<hr />
+<h3 id="autolayout">autoLayout</h3>
+<pre><code class="python">Client.autoLayout()
+</code></pre>
+
+<p>Layout raw data from NeuroArch and save results as G_auto.*.</p>
+<hr />
+<h3 id="createtag">createTag</h3>
+<pre><code class="python">Client.createTag(tagName)
+</code></pre>
+
+<p>Creates a tag.</p>
+<p><strong>Returns</strong></p>
+<p>bool: True.</p>
+<hr />
+<h3 id="execute_multilpu">execute_multilpu</h3>
+<pre><code class="python">Client.execute_multilpu(name, inputProcessors={}, outputProcessors={}, steps=None, dt=None)
+</code></pre>
+
+<p>Executes a multilpu circuit. Requires a result dictionary.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>res (dict)</strong>: The result dictionary to use for execution.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>bool: A success indicator.</p>
+<hr />
+<h3 id="export_diagram_config">export_diagram_config</h3>
+<pre><code class="python">Client.export_diagram_config(res)
+</code></pre>
+
+<p>Exports a diagram configuration from Neuroarch data to GFX.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>res (dict)</strong>: The result dictionary to use for export.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>dict: The configuration to export.</p>
+<hr />
+<h3 id="fetchcircuit">fetchCircuit</h3>
+<pre><code class="python">Client.fetchCircuit(X, local=True)
+</code></pre>
+
+<p>Deprecated function that locally saves a circuit file via the backend.
+Deprecated because of connectivity issues with large files.</p>
+<hr />
+<h3 id="fetchexperiment">fetchExperiment</h3>
+<pre><code class="python">Client.fetchExperiment(X, local=True)
+</code></pre>
+
+<p>Deprecated function that locally saves an experiment file via the backend.
+Deprecated because of connectivity issues with large files.</p>
+<hr />
+<h3 id="fetchsvg">fetchSVG</h3>
+<pre><code class="python">Client.fetchSVG(X, local=True)
+</code></pre>
+
+<p>Deprecated function that locally saves an SVG via the backend.
+Deprecated because of connectivity issues with large files.</p>
+<hr />
+<h3 id="findserverids">findServerIDs</h3>
+<pre><code class="python">Client.findServerIDs(dataset=None)
+</code></pre>
+
+<p>Find server IDs to be used for the utility functions.</p>
+<hr />
+<h3 id="gennb">genNB</h3>
+<pre><code class="python">Client.genNB(
+    nodes, edges, model=&quot;auto&quot;, config={}, default_neuron=HodgkinHuxley, default_synapse=AlphaSynapse
+)
+</code></pre>
+
+<p>Processes the output of processConnectivity to generate a Neuroballad circuit.</p>
+<p><strong>Returns</strong></p>
+<p>tuple: A tuple of the Neuroballad circuit, and a dictionary that maps the neuron names to the uids.</p>
+<hr />
+<h3 id="getconnectivity">getConnectivity</h3>
+<pre><code class="python">Client.getConnectivity()
+</code></pre>
+
+<p>Obtain the connectivity matrix of the current circuit in NetworkX format.</p>
+<p><strong>Returns</strong></p>
+<p>dict: The connectivity dictionary.</p>
+<hr />
+<h3 id="getconnectivitydendrogram">getConnectivityDendrogram</h3>
+<pre><code class="python">Client.getConnectivityDendrogram()
+</code></pre>
+
+<hr />
+<h3 id="getconnectivitymatrix">getConnectivityMatrix</h3>
+<pre><code class="python">Client.getConnectivityMatrix()
+</code></pre>
+
+<hr />
+<h3 id="getexperimentconfig">getExperimentConfig</h3>
+<pre><code class="python">Client.getExperimentConfig()
+</code></pre>
+
+<hr />
+<h3 id="getinfo">getInfo</h3>
+<pre><code class="python">Client.getInfo(dbid)
+</code></pre>
+
+<p>Get information on a neuron.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>dbid (str)</strong>: Database ID of the neuron or node.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>dict: NA information regarding the node.</p>
+<hr />
+<h3 id="getneuropils">getNeuropils</h3>
+<pre><code class="python">Client.getNeuropils()
+</code></pre>
+
+<p>Get the neuropils the neurons in the workspace reside in.</p>
+<p><strong>Returns</strong></p>
+<p>list of strings: Set of neuropils corresponding to neurons.</p>
+<hr />
+<h3 id="getpostsynapticneurons">getPostsynapticNeurons</h3>
+<pre><code class="python">Client.getPostsynapticNeurons(presynapticNeuron)
+</code></pre>
+
+<p>Returns a dictionary of all postsynaptic neurons for a given presynaptic neuron.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>presynapticNeuron (str)</strong>: The name of the presynaptic neuron.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>dict: A dictionary whose keys are the presynaptic neurons and whose values are numbers of synapses for the given presynaptic neuron.</p>
+<hr />
+<h3 id="getpresynapticneurons">getPresynapticNeurons</h3>
+<pre><code class="python">Client.getPresynapticNeurons(postsynapticNeuron)
+</code></pre>
+
+<p>Returns a dictionary of all presynaptic neurons for a given postsynaptic neuron.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>postsynapticNeuron (str)</strong>: The name of the postsynaptic neuron.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>dict: A dictionary whose keys are the presynaptic neurons and whose values are numbers of synapses for the given postsynaptic neuron.</p>
+<hr />
+<h3 id="getsimdata">getSimData</h3>
+<pre><code class="python">Client.getSimData(url)
+</code></pre>
+
+<hr />
+<h3 id="getsimresults">getSimResults</h3>
+<pre><code class="python">Client.getSimResults()
+</code></pre>
+
+<p>Computes the simulation results.</p>
+<p><strong>Returns</strong></p>
+<p>numpy array: A neurons-by-time array of results.
+list: A list of neuron names, sorted according to the data.</p>
+<hr />
+<h3 id="getslowconnectivity">getSlowConnectivity</h3>
+<pre><code class="python">Client.getSlowConnectivity()
+</code></pre>
+
+<p>Obtain the connectivity matrix of the current circuit in a custom dictionary format. Necessary for large circuits.</p>
+<p><strong>Returns</strong></p>
+<p>dict: The connectivity dictionary.</p>
+<hr />
+<h3 id="getstats">getStats</h3>
+<pre><code class="python">Client.getStats(neuron_name)
+</code></pre>
+
+<hr />
+<h3 id="getsynapses">getSynapses</h3>
+<pre><code class="python">Client.getSynapses(presynapticNeuron, postsynapticNeuron)
+</code></pre>
+
+<p>Returns the synapses between a given presynaptic neuron and a postsynaptic neuron.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>presynapticNeuron (str)</strong>: The name of the presynaptic neuron.</li>
+<li><strong>postsynapticNeuron (str)</strong>: The name of the postsynaptic neuron.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>float: The number of synapses.</p>
+<hr />
+<h3 id="get_client_info">get_client_info</h3>
+<pre><code class="python">Client.get_client_info(fbl=None)
+</code></pre>
+
+<p>Receive client data for this client only.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>fbl (Object)</strong>: MetaClient object. Optional. Gives us.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>dict: dict of dicts with client name as key and widgets, name and species as keys of the value.</p>
+<hr />
+<h3 id="get_current_neurons">get_current_neurons</h3>
+<pre><code class="python">Client.get_current_neurons(res)
+</code></pre>
+
+<hr />
+<h3 id="import_diagram_config">import_diagram_config</h3>
+<pre><code class="python">Client.import_diagram_config(res, newConfig)
+</code></pre>
+
+<p>Imports a diagram configuration from Neuroarch data.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>res (dict)</strong>: The result dictionary to update.</li>
+<li><strong>newConfig (dict)</strong>: The imported configuration from a diagram.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>dict: The updated Neuroarch result dictionary.</p>
+<hr />
+<h3 id="init_client">init_client</h3>
+<pre><code class="python">Client.init_client(ssl, user, secret, custom_salt, url, ssl_con, legacy)
+</code></pre>
+
+<hr />
+<h3 id="initiateexperiments">initiateExperiments</h3>
+<pre><code class="python">Client.initiateExperiments()
+</code></pre>
+
+<p>Initializes and executes experiments for different LPUs.</p>
+<hr />
+<h3 id="listinputs">listInputs</h3>
+<pre><code class="python">Client.listInputs()
+</code></pre>
+
+<p>Sends the current experiment settings to the frontend for displaying in an editor.</p>
+<hr />
+<h3 id="loadcartridge">loadCartridge</h3>
+<pre><code class="python">Client.loadCartridge(cartridgeIndex=100)
+</code></pre>
+
+<p>Sample library function for loading cartridges, showing how one can build libraries that work with flybrainlab.</p>
+<hr />
+<h3 id="loadexperimentconfig">loadExperimentConfig</h3>
+<pre><code class="python">Client.loadExperimentConfig(x)
+</code></pre>
+
+<p>Updates the simExperimentConfig attribute using input from the diagram.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>x (string)</strong>: A JSON dictionary as a string.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>bool: True.</p>
+<hr />
+<h3 id="loadsvg">loadSVG</h3>
+<pre><code class="python">Client.loadSVG(name)
+</code></pre>
+
+<p>Loads an SVG in the FBL fileserver.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>name (str)</strong>: Name to use when loading the file.</li>
+</ul>
+<hr />
+<h3 id="loadswc">loadSWC</h3>
+<pre><code class="python">Client.loadSWC(file_name, scale_factor=1.0, uname=None)
+</code></pre>
+
+<p>Loads a neuron skeleton stored in the .swc format.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>file_name (str)</strong>: Database ID of the neuron or node.</li>
+<li><strong>scale_factor (float)</strong>: A scale factor to scale the neuron's dimensions with. Defaults to 1.</li>
+<li><strong>uname (str)</strong>: Unique name to use in the frontend. Defaults to the file_name.</li>
+</ul>
+<hr />
+<h3 id="loadtag">loadTag</h3>
+<pre><code class="python">Client.loadTag(tagName)
+</code></pre>
+
+<p>Loads a tag.</p>
+<p><strong>Returns</strong></p>
+<p>bool: True.</p>
+<hr />
+<h3 id="load_retina_lamina">load_retina_lamina</h3>
+<pre><code class="python">Client.load_retina_lamina(
+    cartridgeIndex=11, removed_neurons=[], removed_labels=[], retrieval_format=&quot;nk&quot;
+)
+</code></pre>
+
+<p>Loads retina and lamina.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>cartridgeIndex (int)</strong>: The cartridge to load. Optional.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>dict: A result dict to use with the execute_lamina_retina function.</p>
+<p><strong>Example:</strong></p>
+<p>nm[0].getExperimentConfig() # In a different cell
+experiment_configuration = nm[0].load_retina_lamina(cartridgeIndex=126)
+experiment_configuration = experiment_configuration['success']['result']
+nm[0].execute_multilpu(experiment_configuration)</p>
+<hr />
+<h3 id="parsesimresults">parseSimResults</h3>
+<pre><code class="python">Client.parseSimResults()
+</code></pre>
+
+<p>Parses the simulation results. Deprecated.</p>
+<hr />
+<h3 id="plotexecresult">plotExecResult</h3>
+<pre><code class="python">Client.plotExecResult(result_name, inputs=None, outputs=None)
+</code></pre>
+
+<hr />
+<h3 id="plotsimresults">plotSimResults</h3>
+<pre><code class="python">Client.plotSimResults(B, keys)
+</code></pre>
+
+<p>Plots the simulation results. A simple function to demonstrate result display.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>model (Neuroballad Model Object)</strong>: The model object to test.</li>
+</ul>
+<hr />
+<h3 id="preparecircuit">prepareCircuit</h3>
+<pre><code class="python">Client.prepareCircuit(model=&quot;auto&quot;)
+</code></pre>
+
+<p>Prepares the current circuit for the Neuroballad format.</p>
+<hr />
+<h3 id="processconnectivity">processConnectivity</h3>
+<pre><code class="python">Client.processConnectivity(connectivity)
+</code></pre>
+
+<p>Processes a Neuroarch connectivity dictionary.</p>
+<p><strong>Returns</strong></p>
+<p>tuple: A tuple of nodes, edges and unique edges.</p>
+<hr />
+<h3 id="prune_retina_lamina">prune_retina_lamina</h3>
+<pre><code class="python">Client.prune_retina_lamina(removed_neurons=[], removed_labels=[], retrieval_format=&quot;nk&quot;)
+</code></pre>
+
+<p>Prunes the retina and lamina circuits.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>cartridgeIndex (int)</strong>: The cartridge to load. Optional.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>dict: A result dict to use with the execute_lamina_retina function.</p>
+<p><strong>Example:</strong></p>
+<p>res = nm[0].load_retina_lamina()
+nm[0].execute_multilpu(res)</p>
+<hr />
+<h3 id="removebyuname">removeByUname</h3>
+<pre><code class="python">Client.removeByUname(uname)
+</code></pre>
+
+<p>Removes some neurons by the uname.</p>
+<p><strong>Returns</strong></p>
+<p>bool: True.</p>
+<hr />
+<h3 id="runlayouting">runLayouting</h3>
+<pre><code class="python">Client.runLayouting(type=&quot;auto&quot;, model=&quot;auto&quot;)
+</code></pre>
+
+<p>Sends a request for the running of the layouting algorithm.</p>
+<p><strong>Returns</strong></p>
+<p>bool: True.</p>
+<hr />
+<h3 id="sendcircuit">sendCircuit</h3>
+<pre><code class="python">Client.sendCircuit(name=&quot;temp&quot;)
+</code></pre>
+
+<p>Sends a circuit to the backend.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>name (str)</strong>: The name of the circuit for the backend.</li>
+</ul>
+<hr />
+<h3 id="sendcircuitprimitive">sendCircuitPrimitive</h3>
+<pre><code class="python">Client.sendCircuitPrimitive(C, args={&quot;name&quot;: &quot;temp&quot;})
+</code></pre>
+
+<p>Sends a NetworkX graph to the backend.</p>
+<hr />
+<h3 id="sendexecutereceiveresults">sendExecuteReceiveResults</h3>
+<pre><code class="python">Client.sendExecuteReceiveResults(
+    circuitName=&quot;temp&quot;, dt=1e-05, tmax=1.0, inputProcessors=[], compile=False
+)
+</code></pre>
+
+<p>Compiles and sends a circuit for execution in the GFX backend.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>circuitName (str)</strong>: The name of the circuit for the backend.</li>
+<li><strong>compile (bool)</strong>: Whether to compile the circuit first.</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>bool: Whether the call was successful.</p>
+<hr />
+<h3 id="sendneuropils">sendNeuropils</h3>
+<pre><code class="python">Client.sendNeuropils()
+</code></pre>
+
+<p>Pack the list of neuropils into a GFX message.</p>
+<p><strong>Returns</strong></p>
+<p>bool: Whether the messaging has been successful.</p>
+<hr />
+<h3 id="sendsvg">sendSVG</h3>
+<pre><code class="python">Client.sendSVG(name, file)
+</code></pre>
+
+<p>Sends an SVG to the FBL fileserver. Useful for storing data and using loadSVG.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>name (str)</strong>: Name to use when saving the file; '_visual' gets automatically appended to it.</li>
+<li><strong>file (str)</strong>: Path to the SVG file.</li>
+</ul>
+<hr />
+<h3 id="updatebackend">updateBackend</h3>
+<pre><code class="python">Client.updateBackend(type=&quot;Null&quot;, data=&quot;Null&quot;)
+</code></pre>
+
+<p>Updates variables in the backend using the data in the Editor.</p>
+<p><strong>Arguments</strong></p>
+<ul>
+<li><strong>type (str)</strong>: A string, either "WholeCircuit" or "SingleNeuron", specifying the type of the update.</li>
+<li><strong>data (str)</strong>: A stringified JSON</li>
+</ul>
+<p><strong>Returns</strong></p>
+<p>bool: Whether the update was successful.</p>
+<hr />
+<h3 id="updatesimresultlabel">updateSimResultLabel</h3>
+<pre><code class="python">Client.updateSimResultLabel(result_name, label_dict)
+</code></pre>
+
+<hr />
+                
+              
+              
+                
+
+
+              
+            </article>
+          </div>
+        </div>
+      </main>
+      
+        
+<footer class="md-footer">
+  
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid" aria-label="Footer">
+        
+          <a href=".." title="Home" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+            </div>
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
+                <span class="md-footer-nav__direction">
+                  Previous
+                </span>
+                Home
+              </div>
+            </div>
+          </a>
+        
+        
+      </nav>
+    </div>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-footer-copyright">
+        
+        Made with
+        <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+          Material for MkDocs
+        </a>
+      </div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    
+      <script src="../assets/javascripts/vendor.3636a4ec.min.js"></script>
+      <script src="../assets/javascripts/bundle.e9fe3281.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
+      
+      <script>
+        app = initialize({
+          base: "..",
+          features: [],
+          search: Object.assign({
+            worker: "../assets/javascripts/worker/search.5eca75d3.min.js"
+          }, typeof search !== "undefined" && search)
+        })
+      </script>
+      
+    
+  </body>
+</html>
