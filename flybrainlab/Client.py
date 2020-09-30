@@ -438,9 +438,10 @@ class Client:
         extra = {"auth": authentication}
         self.lmsg = 0
         self.dataset = dataset
-
+        self.NLPInterpreters = []
         self.enableResets = True  # Enable resets
         self.addToRemove = False  # Switch adds to removals
+        self.history = []
         self.experimentInputs = []  # List of current experiment inputs
         self.compiled = (
             False  # Whether the current circuit has been compiled into a NetworkX Graph
@@ -1245,17 +1246,24 @@ class Client:
         # Returns
             bool: True.
         """
-        self.executeNAquery(
-            {
-                "verb": verb,
-                "query": [
-                    {
-                        "action": {"method": {"query": {"uname": uname}}},
-                        "object": {"class": ["Neuron", "Synapse"]},
-                    }
-                ],
-            }
-        )
+        self.history.append([uname,verb])
+        if len(self.NLPInterpreters) > 0:
+            default_run = False
+            for i in self.NLPInterpreters:
+                default_run = i(self, uname, verb)
+        if default_run == True or len(self.NLPInterpreters) == 0:
+            self.executeNAquery(
+                {
+                    "verb": verb,
+                    "query": [
+                        {
+                            "action": {"method": {"query": {"uname": uname}}},
+                            "object": {"class": ["Neuron", "Synapse"]},
+                        }
+                    ],
+                }
+            )
+            return True
         return True
 
     def removeByUname(self, uname):
