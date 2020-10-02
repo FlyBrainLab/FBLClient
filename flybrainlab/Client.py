@@ -494,8 +494,20 @@ class Client:
         certs = OpenSSLCertificateAuthorities([ca_cert, intermediate_cert])
         ssl_con = CertificateOptions(trustRoot=certs)
         if initialize_client:
+            self.ssl = ssl
+            self.user = user
+            self.secret = secret
+            self.custom_salt = custom_salt
+            self.url = url
+            self.ssl_con = ssl_con
+            self.legacy = legacy
+            self.dataset = dataset
             self.init_client(ssl, user, secret, custom_salt, url, ssl_con, legacy)
             self.findServerIDs(dataset)  # Get current server IDs
+
+    def reconnect(self):
+        self.init_client( self.ssl,  self.user,  self.secret,  self.custom_salt,  self.url,  self.ssl_con,  self.legacy)
+        self.findServerIDs(self.dataset)
 
     def init_client(self, ssl, user, secret, custom_salt, url, ssl_con, legacy):
         FFBOLABClient = AutobahnSync()
