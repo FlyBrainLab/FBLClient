@@ -1259,6 +1259,7 @@ class Client:
             bool: True.
         """
         self.history.append([uname,verb])
+        default_run = True
         if len(self.NLPInterpreters) > 0:
             default_run = False
             for i in self.NLPInterpreters:
