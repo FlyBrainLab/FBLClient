@@ -26,7 +26,8 @@ class CallbackManager:
     """Callback manager class that stores a number of callbacks that try to access messages sent from frontend to the Python kernel.
 
     # Example:
-        # Start by creating a Neu3D widget in the frontend, then execute this code in a Jupyter notebook running the same kernel.
+        Start by creating a Neu3D widget in the frontend, then execute this code in a Jupyter notebook running the same kernel.
+        ```python
         my_data = []
         def process_data(data): # Example callback function
             if 'hello' in data:
@@ -42,6 +43,7 @@ class CallbackManager:
         # window.neu3d_widget.comm.send('hello world')
         # window.neu3d_widget.comm.send('my world')
         print(my_data) # returns ['hello world']
+        ```
 
     # Attributes:
         callbacks (list): A list of functions.

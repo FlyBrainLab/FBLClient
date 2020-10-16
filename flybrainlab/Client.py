@@ -69,7 +69,7 @@ def convert_from_bytes(data):
 def urlRetriever(url, savePath, verify=False):
     """Retrieves and saves a url in Python 3.
 
-    # Arguments:
+    # Arguments
         url (str): File url.
         savePath (str): Path to save the file to.
     """
@@ -81,7 +81,7 @@ def urlRetriever(url, savePath, verify=False):
 def guidGenerator():
     """Unique query ID generator for handling the backend queries
 
-    # Returns:
+    # Returns
         str: The string with time format and brackets.
     """
 
@@ -94,10 +94,10 @@ def guidGenerator():
 def printHeader(name):
     """Header printer for the console messages. Useful for debugging.
 
-    # Arguments:
+    # Arguments
         name (str): Name of the component.
 
-    # Returns:
+    # Returns
         str: The string with time format and brackets.
     """
     return "[" + name + " " + strftime("%Y-%m-%d %H:%M:%S", gmtime()) + "] "
@@ -113,7 +113,7 @@ class MetaClient:
     def __init__(self, initializer=None):
         """Initialization function for the FBL MetaClient class.
 
-        # Arguments:
+        # Arguments
             initializer (list): A list of dictionaries with initialization data for connections.
         """
         self.clients = {}
@@ -125,7 +125,7 @@ class MetaClient:
     def add_client(self, client_name, client, client_widgets=[]):
         """Adds a client with optional existing widgets to the MetaClient.
 
-        # Arguments:
+        # Arguments
             client_name (str): Name of the FlyBrainLab client.
             client (obj): A FlyBrainLab client object.
             client_widgets (list): A list of strings corresponding to the names of the currently connected client widgets. Defaults to empty list.
@@ -138,7 +138,7 @@ class MetaClient:
     def delete_client(self, client_name):
         """Delete a client from the MetaClient.
 
-        # Arguments:
+        # Arguments
             client_name (str): Name of the FlyBrainLab client.
         """
         if client_name in list(self.clients.keys()):
@@ -147,7 +147,7 @@ class MetaClient:
     def add_widget(self, client_name, widget_name):
         """Add a widget to a client in the MetaClient.
 
-        # Arguments:
+        # Arguments
             client_name (str): Name of the FlyBrainLab client.
             widget_name (str): Name of the new NeuroMynerva widget.
         """
@@ -157,7 +157,7 @@ class MetaClient:
     def delete_widget(self, client_name, widget_name):
         """Delete a widget to a client in the MetaClient.
 
-        # Arguments:
+        # Arguments
             client_name (str): Name of the FlyBrainLab client.
             widget_name (str): Name of the new NeuroMynerva widget.
         """
@@ -169,10 +169,10 @@ class MetaClient:
     def get_client(self, client_name):
         """Get a client in the MetaClient by name.
 
-        # Arguments:
+        # Arguments
             client_name (str): Name of the FlyBrainLab client.
 
-        # Returns:
+        # Returns
             obj: The associated FlyBrainLab client.
         """
         return self.clients[client_name]["client"]
@@ -192,10 +192,10 @@ class MetaClient:
             cl = fbl.client_manager.clients['client-Neu3D-1-473e4837-8b1d-440a-a361-172507db1b38']['client']
             cl.get_client_info()
 
-        # Arguments:
+        # Arguments
             client_name (str): Name of the FlyBrainLab client.
 
-        # Returns:
+        # Returns
             obj: The associated FlyBrainLab client.
         """
         self.update_client_names()
@@ -235,9 +235,15 @@ class Client:
     def tryComms(self, a):
         """Communication function to communicate with a JupyterLab frontend if one exists.
 
-        # Arguments:
+        # Arguments
             a (obj): Arbitrarily formatted data to be sent via communication.
         """
+        try:
+            for i in fbl.widget_manager.widgets:
+                if fbl.widget_manager.widgets[i].widget_id not in fbl.client_manager.clients[fbl.widget_manager.widgets[i].client_id]['widgets']:
+                    fbl.client_manager.clients[fbl.widget_manager.widgets[i].client_id]['widgets'].append(fbl.widget_manager.widgets[i].widget_id)
+        except:
+            pass
         try:
             self.FFBOLabcomm.send(data=a)
         except:
@@ -267,7 +273,8 @@ class Client:
     ):
         """Initialization function for the FBL Client class.
 
-        # Arguments:
+
+        # Arguments
             ssl (bool): Whether the FFBO server uses SSL.
             debug (bool) : Whether debugging should be enabled.
             authentication (bool): Whether authentication is enabled.
@@ -431,9 +438,10 @@ class Client:
         extra = {"auth": authentication}
         self.lmsg = 0
         self.dataset = dataset
-
+        self.NLPInterpreters = []
         self.enableResets = True  # Enable resets
         self.addToRemove = False  # Switch adds to removals
+        self.history = []
         self.experimentInputs = []  # List of current experiment inputs
         self.compiled = (
             False  # Whether the current circuit has been compiled into a NetworkX Graph
@@ -486,8 +494,20 @@ class Client:
         certs = OpenSSLCertificateAuthorities([ca_cert, intermediate_cert])
         ssl_con = CertificateOptions(trustRoot=certs)
         if initialize_client:
+            self.ssl = ssl
+            self.user = user
+            self.secret = secret
+            self.custom_salt = custom_salt
+            self.url = url
+            self.ssl_con = ssl_con
+            self.legacy = legacy
+            self.dataset = dataset
             self.init_client(ssl, user, secret, custom_salt, url, ssl_con, legacy)
             self.findServerIDs(dataset)  # Get current server IDs
+
+    def reconnect(self):
+        self.init_client( self.ssl,  self.user,  self.secret,  self.custom_salt,  self.url,  self.ssl_con,  self.legacy)
+        self.findServerIDs(self.dataset)
 
     def init_client(self, ssl, user, secret, custom_salt, url, ssl_con, legacy):
         FFBOLABClient = AutobahnSync()
@@ -495,10 +515,10 @@ class Client:
         def on_challenge(challenge):
             """The On Challenge function that computes the user signature for verification.
 
-            # Arguments:
+            # Arguments
                 challenge (obj): The challenge object received.
 
-            # Returns:
+            # Returns
                 str: The signature sent to the router for verification.
             """
             print(printHeader("FFBOLab Client") + "Initiating authentication.")
@@ -545,7 +565,7 @@ class Client:
         def updateServers(data):
             """Updates available servers.
 
-            # Arguments:
+            # Arguments
                 data (obj): Obtained servers list.
 
             """
@@ -560,10 +580,10 @@ class Client:
         def receiveCommand(data):
             """The Receive Command function that receives commands and sends them to the frontend.
 
-            # Arguments:
+            # Arguments
                 data (dict): Data to be sent to the frontend
 
-            # Returns:
+            # Returns
                 bool: Whether the data has been received.
             """
             self.clientData.append("Received Command")
@@ -594,10 +614,10 @@ class Client:
         def receiveGFX(data):
             """The Receive GFX function that receives commands and sends them to the GFX frontend.
 
-            # Arguments:
+            # Arguments
                 data (dict): Data to be sent to the frontend.
 
-            # Returns:
+            # Returns
                 bool: Whether the data has been received.
             """
             self.clientData.append("Received GFX Data")
@@ -644,10 +664,10 @@ class Client:
         def get_circuit(X):
             """Obtain a circuit and save it to the local FFBOLab folder.
 
-            # Arguments:
+            # Arguments
                 X (str): Name of the circuit.
 
-            # Returns:
+            # Returns
                 bool: Whether the process has been successful.
             """
             name = X["name"]
@@ -664,10 +684,10 @@ class Client:
         def get_experiment(X):
             """Obtain an experiment and save it to the local FFBOLab folder.
 
-            # Arguments:
+            # Arguments
                 X (str): Name of the experiment.
 
-            # Returns:
+            # Returns
                 bool: Whether the process has been successful.
             """
             print(printHeader("FFBOLab Client GFX") + "get_experiment called.")
@@ -688,10 +708,10 @@ class Client:
         def receiveData(data):
             """The Receive Data function that receives commands and sends them to the NLP frontend.
 
-            # Arguments:
+            # Arguments
                 data (dict): Data from the backend.
 
-            # Returns:
+            # Returns
                 bool: Whether the process has been successful.
             """
             self.clientData.append("Received Data")
@@ -771,10 +791,10 @@ class Client:
         def receivePartial(data):
             """The Receive Partial Data function that receives commands and sends them to the NLP frontend.
 
-            # Arguments:
+            # Arguments
                 data (dict): Data from the backend.
 
-            # Returns:
+            # Returns
                 bool: Whether the process has been successful.
             """
             self.clientData.append("Received Data")
@@ -798,10 +818,10 @@ class Client:
             # def receivePartialGFX(data):
             #     """The Receive Partial Data function that receives commands and sends them to the NLP frontend.
             #
-            #     # Arguments:
+            #     # Arguments
             #         data (dict): Data from the backend.
             #
-            #     # Returns:
+            #     # Returns
             #         bool: Whether the process has been successful.
             #     """
             #     self.clientData.append('Received Data')
@@ -819,10 +839,10 @@ class Client:
             def receivePartialGFX(data):
                 """The Receive Partial Data function that receives commands and sends them to the NLP frontend.
 
-                # Arguments:
+                # Arguments
                     data (dict): Data from the backend.
 
-                # Returns:
+                # Returns
                     bool: Whether the process has been successful.
                 """
                 self.clientData.append('Received Data')
@@ -884,10 +904,10 @@ class Client:
         def receiveMessage(data):
             """The Receive Message function that receives commands and sends them to the NLP frontend.
 
-            # Arguments:
+            # Arguments
                 data (dict): Data from the backend.
 
-            # Returns:
+            # Returns
                 bool: Whether the process has been successful.
             """
             self.clientData.append("Received Message")
@@ -1024,10 +1044,10 @@ class Client:
     def get_client_info(self, fbl=None):
         """Receive client data for this client only.
 
-        # Arguments:
+        # Arguments
             fbl (Object): MetaClient object. Optional. Gives us.
 
-        # Returns:
+        # Returns
             dict: dict of dicts with client name as key and widgets, name and species as keys of the value.
         """
         if fbl is None:
@@ -1055,14 +1075,14 @@ class Client:
     ):
         """Execute an NLP query.
 
-        # Arguments:
+        # Arguments
             query (str): Query string.
             language (str): Language to use.
             uri (str): Currently not used; for future NLP extensions.
             queryID (str): Query ID to be used. Generated automatically.
             returnNAOutput (bool): Whether the corresponding NA query should not be executed.
 
-        # Returns:
+        # Returns
             dict: NA output or the NA query itself, depending on the returnNAOutput setting.
         """
         if query is None:
@@ -1147,7 +1167,7 @@ class Client:
     ):
         """Execute an NA query.
 
-        # Arguments:
+        # Arguments
             res (dict): Neuroarch query.
             language (str): Language to use.
             uri (str): A custom FFBO query URI if desired.
@@ -1155,7 +1175,7 @@ class Client:
             progressive (bool): Whether the loading should be progressive. Needs to be true most of the time for the connection to be stable.
             threshold (int): Data chunk size. Low threshold is required for the connection to be stable.
 
-        # Returns:
+        # Returns
             bool: Whether the process has been successful.
         """
 
@@ -1208,7 +1228,7 @@ class Client:
     def createTag(self, tagName):
         """Creates a tag.
 
-        # Returns:
+        # Returns
             bool: True.
         """
         metadata = {
@@ -1226,7 +1246,7 @@ class Client:
     def loadTag(self, tagName):
         """Loads a tag.
 
-        # Returns:
+        # Returns
             bool: True.
         """
         self.executeNAquery({"tag": tagName, "uri": "ffbo.na.retrieve_tag"})
@@ -1235,26 +1255,34 @@ class Client:
     def addByUname(self, uname, verb="add"):
         """Adds some neurons by the uname.
 
-        # Returns:
+        # Returns
             bool: True.
         """
-        self.executeNAquery(
-            {
-                "verb": verb,
-                "query": [
-                    {
-                        "action": {"method": {"query": {"uname": uname}}},
-                        "object": {"class": ["Neuron", "Synapse"]},
-                    }
-                ],
-            }
-        )
+        self.history.append([uname,verb])
+        default_run = True
+        if len(self.NLPInterpreters) > 0:
+            default_run = False
+            for i in self.NLPInterpreters:
+                default_run = i(self, uname, verb)
+        if default_run == True or len(self.NLPInterpreters) == 0:
+            self.executeNAquery(
+                {
+                    "verb": verb,
+                    "query": [
+                        {
+                            "action": {"method": {"query": {"uname": uname}}},
+                            "object": {"class": ["Neuron", "Synapse"]},
+                        }
+                    ],
+                }
+            )
+            return True
         return True
 
     def removeByUname(self, uname):
         """Removes some neurons by the uname.
 
-        # Returns:
+        # Returns
             bool: True.
         """
         return self.addByUname(uname, verb="remove")
@@ -1262,7 +1290,7 @@ class Client:
     def runLayouting(self, type="auto", model="auto"):
         """Sends a request for the running of the layouting algorithm.
 
-        # Returns:
+        # Returns
             bool: True.
         """
         self.prepareCircuit(model=model)
@@ -1298,7 +1326,7 @@ class Client:
     def getNeuropils(self):
         """Get the neuropils the neurons in the workspace reside in.
 
-        # Returns:
+        # Returns
             list of strings: Set of neuropils corresponding to neurons.
         """
         res = {}
@@ -1331,7 +1359,7 @@ class Client:
     def sendNeuropils(self):
         """Pack the list of neuropils into a GFX message.
 
-        # Returns:
+        # Returns
             bool: Whether the messaging has been successful.
         """
         a = {}
@@ -1342,21 +1370,54 @@ class Client:
         self.tryComms(a)
         return True
 
-    def getInfo(self, args):
+    def loadSWC(self, file_name, scale_factor=1., uname=None):
+        """Loads a neuron skeleton stored in the .swc format.
+
+        # Arguments
+            file_name (str): Database ID of the neuron or node.
+            scale_factor (float): A scale factor to scale the neuron's dimensions with. Defaults to 1.
+            uname (str): Unique name to use in the frontend. Defaults to the file_name.
+
+        """
+        neuron_pd = pd.read_csv(file_name, 
+                        names=['sample','identifier','x','y','z','r','parent'], 
+                        comment='#', 
+                        delim_whitespace=True)
+        if uname == None:
+            uname = file_name.split('.')[0]
+        rid = '#'+file_name
+        neuron_data = {'data': {'data': {rid: {'name': file_name,
+                'uname': uname,
+                'morph_type': 'swc',
+                'x': list(scale_factor * neuron_pd['x']),
+                'y': list(scale_factor * neuron_pd['y']),
+                'z': list(scale_factor * neuron_pd['z']),
+                'r': list(scale_factor * neuron_pd['r']),
+                'parent': list(neuron_pd['parent']),
+                'identifier': list(neuron_pd['identifier']),
+                'sample': list(neuron_pd['sample']),
+                'class': 'MorphologyData'}},
+              'queryID': '0-0'},
+             'messageType': 'Data',
+             'widget': 'NLP'}
+        self.tryComms(neuron_data)
+
+        return True
+
+    def getInfo(self, dbid):
         """Get information on a neuron.
 
-        # Arguments:
-            args (str): Database ID of the neuron or node.
+        # Arguments
+            dbid (str): Database ID of the neuron or node.
 
-        # Returns:
+        # Returns
             dict: NA information regarding the node.
         """
-        res = {"uri": "ffbo.na.get_data.", "id": args}
+        res = {"uri": "ffbo.na.get_data.", "id": dbid}
         queryID = guidGenerator()
         res = self.executeNAquery(
             res, uri= "{}{}".format(res["uri"], self.naServerID), queryID=queryID, progressive=False
         )
-        # res['data']['data']['summary']['rid'] = args
         a = {}
         a["data"] = res
         a["messageType"] = "Data"
@@ -1383,10 +1444,10 @@ class Client:
     def GFXcall(self, args):
         """Arbitrary call to a GFX procedure in the GFX component format.
 
-        # Arguments:
+        # Arguments
             args (list): A list whose first element is the function name (str) and the following are the arguments.
 
-        # Returns:
+        # Returns
             dict OR string: The call result.
         """
         if isinstance(args, str):
@@ -1430,11 +1491,11 @@ class Client:
     def updateBackend(self, type="Null", data="Null"):
         """Updates variables in the backend using the data in the Editor.
 
-        # Arguments:
+        # Arguments
             type (str): A string, either "WholeCircuit" or "SingleNeuron", specifying the type of the update.
             data (str): A stringified JSON
 
-        # Returns:
+        # Returns
             bool: Whether the update was successful.
         """
 
@@ -1446,7 +1507,7 @@ class Client:
     def getConnectivity(self):
         """Obtain the connectivity matrix of the current circuit in NetworkX format.
 
-        # Returns:
+        # Returns
             dict: The connectivity dictionary.
         """
         res = json.loads(
@@ -1462,11 +1523,11 @@ class Client:
     ):
         """Compiles and sends a circuit for execution in the GFX backend.
 
-        # Arguments:
+        # Arguments
             circuitName (str): The name of the circuit for the backend.
             compile (bool): Whether to compile the circuit first.
 
-        # Returns:
+        # Returns
             bool: Whether the call was successful.
         """
         print(
@@ -1532,7 +1593,7 @@ class Client:
     def getSlowConnectivity(self):
         """Obtain the connectivity matrix of the current circuit in a custom dictionary format. Necessary for large circuits.
 
-        # Returns:
+        # Returns
             dict: The connectivity dictionary.
         """
         hashids = []
@@ -1568,15 +1629,87 @@ class Client:
     def sendCircuit(self, name="temp"):
         """Sends a circuit to the backend.
 
-        # Arguments:
+        # Arguments
             name (str): The name of the circuit for the backend.
         """
         self.sendCircuitPrimitive(self.C, args={"name": name})
 
+    def autoLayout(self):
+        """Layout raw data from NeuroArch and save results as G_auto.*.
+        """
+        import json
+        res = json.loads(
+                    """
+                {"format":"nx","query":[{"action":{"method":{"add_connecting_synapses":{}}},"object":{"state":0}}],"temp":true}
+                """
+                )
+        res = self.executeNAquery(res)
+        nodes = res[-2]["data"]["data"]['nodes']
+        edges = res[-2]["data"]["data"]['edges']
+        import networkx as nx
+        G = nx.DiGraph()
+        for e_pre in nodes:
+            G.add_node(e_pre, **{'uname': nodes[e_pre]['uname']})
+        for edge in edges:
+            G.add_edge(edge[0],edge[1])
+        from graphviz import Digraph
+        graph_struct = {'splines': 'ortho', 
+                        'pad': '0.5',
+                        'ranksep': '1.5',
+                        'concentrate': 'true',
+                        'newrank': 'true',
+                        'rankdir': 'LR'}
+
+        g = Digraph('G', filename='G_ex.gv',graph_attr = {'splines': 'line', 
+                                                        'pad': '0.1',
+                                                        'nodesep': '0.03',
+                                                        'outputorder': 'edgesfirst',
+                                                        'ranksep': '0.2',
+                                                        'bgcolor': '#212529',
+                                                        'concentrate': 'true',
+                                                        'newrank': 'true',
+                                                        'rankdir': 'LR'})
+        # g.attr(bgcolor='black')
+        valid_nodes = []
+        for pre, post, data in G.edges(data=True):
+            pre_name = G.nodes(data=True)[pre]['uname']
+            post_name = G.nodes(data=True)[post]['uname']
+            g.edge(str(pre_name), str(post_name), arrowsize='0.2', color='dimgray')
+            valid_nodes.append(str(pre_name))
+            valid_nodes.append(str(post_name))
+            valid_nodes = list(set(valid_nodes))
+            
+        for _pre in valid_nodes:
+            if '--' in str(_pre):
+                g.node(str(_pre), 
+                    shape='circle', 
+                    height='0.05', 
+                    label='',
+                    fontsize='4.0', 
+                    fixedsize='true', 
+                    color='dimgray', 
+                    style='filled')
+            else:
+                g.node(str(_pre), 
+                    shape='circle', 
+                    height='0.20', 
+                    fontsize='3.0', 
+                    fixedsize='true', 
+                    fontcolor='white',
+                    color='dodgerblue3', 
+                    style='filled')
+            
+        g.attr(size='25,25')
+
+        g.save('G_auto.gv')
+
+        g.render('G_auto', format = 'svg', view=False)
+
+        g.render('G_auto', format = 'png', view=False) 
     def processConnectivity(self, connectivity):
         """Processes a Neuroarch connectivity dictionary.
 
-        # Returns:
+        # Returns
             tuple: A tuple of nodes, edges and unique edges.
         """
         edges = connectivity["edges"]
@@ -1653,11 +1786,11 @@ class Client:
     def getSynapses(self, presynapticNeuron, postsynapticNeuron):
         """Returns the synapses between a given presynaptic neuron and a postsynaptic neuron.
 
-        # Arguments:
+        # Arguments
             presynapticNeuron (str): The name of the presynaptic neuron.
             postsynapticNeuron (str): The name of the postsynaptic neuron.
 
-        # Returns:
+        # Returns
             float: The number of synapses.
         """
         if self.compiled == False:
@@ -1680,10 +1813,10 @@ class Client:
     def getPresynapticNeurons(self, postsynapticNeuron):
         """Returns a dictionary of all presynaptic neurons for a given postsynaptic neuron.
 
-        # Arguments:
+        # Arguments
             postsynapticNeuron (str): The name of the postsynaptic neuron.
 
-        # Returns:
+        # Returns
             dict: A dictionary whose keys are the presynaptic neurons and whose values are numbers of synapses for the given postsynaptic neuron.
         """
         if self.compiled == False:
@@ -1703,10 +1836,10 @@ class Client:
     def getPostsynapticNeurons(self, presynapticNeuron):
         """Returns a dictionary of all postsynaptic neurons for a given presynaptic neuron.
 
-        # Arguments:
+        # Arguments
             presynapticNeuron (str): The name of the presynaptic neuron.
 
-        # Returns:
+        # Returns
             dict: A dictionary whose keys are the presynaptic neurons and whose values are numbers of synapses for the given presynaptic neuron.
         """
         if self.compiled == False:
@@ -1734,7 +1867,7 @@ class Client:
     ):
         """Processes the output of processConnectivity to generate a Neuroballad circuit.
 
-        # Returns:
+        # Returns
             tuple: A tuple of the Neuroballad circuit, and a dictionary that maps the neuron names to the uids.
         """
         edge_strengths = []
@@ -1796,7 +1929,7 @@ class Client:
     def alter(self, X):
         """Alters a set of models with specified Neuroballad models.
 
-       # Arguments:
+        # Arguments
             X (list of lists): A list of lists. Elements are lists whose first element is the neuron ID (str) and the second is the Neuroballad object corresponding to the model.
         """
         if any(isinstance(el, list) for el in X):  # Check if input is a list of lists
@@ -1817,10 +1950,10 @@ class Client:
     def addInput(self, x):
         """Adds an input to the experiment settings. The input is a Neuroballad input object.
 
-        # Arguments:
+        # Arguments
             x (Neuroballad Input Object): The input object to append to the list of inputs.
 
-        # Returns:
+        # Returns
             dict: The input object added to the experiment list.
         """
         self.experimentInputs.append(x.params)
@@ -1915,7 +2048,7 @@ class Client:
     def sendSVG(self, name, file):
         """Sends an SVG to the FBL fileserver. Useful for storing data and using loadSVG.
 
-        # Arguments:
+        # Arguments
             name (str): Name to use when saving the file; '_visual' gets automatically appended to it.
             file (str): Path to the SVG file.
         """
@@ -1927,7 +2060,7 @@ class Client:
     def loadSVG(self, name):
         """Loads an SVG in the FBL fileserver.
 
-        # Arguments:
+        # Arguments
             name (str): Name to use when loading the file.
         """
         self.tryComms({"widget": "GFX", "messageType": "loadCircuit", "data": name})
@@ -1935,10 +2068,10 @@ class Client:
     def FICurveGenerator(self, model):
         """Sample library function showing how to do automated experimentation using FFBOLab's Notebook features. Takes a simple abstract neuron model and runs experiments on it.
 
-        # Arguments:
+        # Arguments
             model (Neuroballad Model Object): The model object to test.
 
-        # Returns:
+        # Returns
             numpy array: A tuple of NumPy arrays corresponding to the X and Y of the FI curve.
         """
         del self.data
@@ -1994,7 +2127,7 @@ class Client:
     def getSimResults(self):
         """Computes the simulation results.
 
-        # Returns:
+        # Returns
             numpy array: A neurons-by-time array of results.
             list: A list of neuron names, sorted according to the data.
         """
@@ -2027,7 +2160,7 @@ class Client:
     def plotSimResults(self, B, keys):
         """Plots the simulation results. A simple function to demonstrate result display.
 
-        # Arguments:
+        # Arguments
             model (Neuroballad Model Object): The model object to test.
         """
         plt.figure(figsize=(22, 10))
@@ -2289,10 +2422,10 @@ class Client:
     def loadExperimentConfig(self, x):
         """Updates the simExperimentConfig attribute using input from the diagram.
 
-        # Arguments:
+        # Arguments
             x (string): A JSON dictionary as a string.
 
-        # Returns:
+        # Returns
             bool: True.
         """
         print("Obtained Experiment Configuration: ", x)
@@ -2325,10 +2458,10 @@ class Client:
     ):
         """Prunes the retina and lamina circuits.
 
-        # Arguments:
+        # Arguments
             cartridgeIndex (int): The cartridge to load. Optional.
 
-        # Returns:
+        # Returns
             dict: A result dict to use with the execute_lamina_retina function.
 
         # Example:
@@ -2447,10 +2580,10 @@ class Client:
     ):
         """Loads retina and lamina.
 
-        # Arguments:
+        # Arguments
             cartridgeIndex (int): The cartridge to load. Optional.
 
-        # Returns:
+        # Returns
             dict: A result dict to use with the execute_lamina_retina function.
 
         # Example:
@@ -2717,10 +2850,10 @@ class Client:
                          steps= None, dt = None):
         """Executes a multilpu circuit. Requires a result dictionary.
 
-        # Arguments:
+        # Arguments
             res (dict): The result dictionary to use for execution.
 
-        # Returns:
+        # Returns
             bool: A success indicator.
         """
         # labels = []
@@ -2825,10 +2958,10 @@ class Client:
     def export_diagram_config(self, res):
         """Exports a diagram configuration from Neuroarch data to GFX.
 
-        # Arguments:
+        # Arguments
             res (dict): The result dictionary to use for export.
 
-        # Returns:
+        # Returns
             dict: The configuration to export.
         """
         newConfig = {"cx": {"disabled": []}}
@@ -2872,11 +3005,11 @@ class Client:
     def import_diagram_config(self, res, newConfig):
         """Imports a diagram configuration from Neuroarch data.
 
-        # Arguments:
+        # Arguments
             res (dict): The result dictionary to update.
             newConfig (dict): The imported configuration from a diagram.
 
-        # Returns:
+        # Returns
             dict: The updated Neuroarch result dictionary.
         """
         param_names = [
