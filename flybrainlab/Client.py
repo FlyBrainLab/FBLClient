@@ -1397,7 +1397,7 @@ class Client:
         """
         self.tryComms({'data': {'info': {'success': message}},
             'messageType': 'Message',
-            'widget': 'popup'})
+            'widget': 'toast'})
 
     def raise_error(self, e, error):
         """Raises an error in the frontend.
@@ -1409,7 +1409,7 @@ class Client:
         self.errors.append(e)
         self.tryComms({'data': {'info': {'error': error}},
             'messageType': 'Message',
-            'widget': 'popup'})
+            'widget': 'toast'})
 
     def getStats(self, neuron_name):
         displayDict = {
