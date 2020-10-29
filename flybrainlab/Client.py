@@ -1,3 +1,24 @@
+import os
+import sys
+import subprocess
+import importlib.util
+
+def install(package):
+    if package == 'neuroballad':
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'git+https://github.com/FlyBrainLab/Neuroballad.git'])
+    else:
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
+
+def check_then_import(package):
+    spec = importlib.util.find_spec(package.replace('pypiwin32','win32').replace('-','_'))
+    if spec is None:
+        install(package)
+
+package_list = ['txaio','twisted','autobahn','crochet','service_identity','autobahn-sync','matplotlib','h5py','seaborn','fastcluster','networkx','msgpack','pandas','scipy','sympy','nose','neuroballad']
+if os.name == 'nt':
+    package_list.append('pypiwin32')
+for i in package_list:
+    check_then_import(i)
 
 from time import sleep, gmtime, strftime
 import os, sys, json, binascii, warnings, urllib
@@ -38,6 +59,7 @@ msgpack_numpy.patch()
 
 import neuroballad as nb
 from .utils import setProtocolOptions
+
 
 # import txaio
 # txaio.start_logging(level='info')
