@@ -14,7 +14,7 @@ def check_then_import(package):
     if spec is None:
         install(package)
 
-package_list = ['txaio','twisted','autobahn','crochet','service_identity','autobahn-sync','matplotlib','h5py','seaborn','fastcluster','networkx','msgpack','pandas','scipy','sympy','nose','neuroballad']
+package_list = ['txaio','twisted','autobahn','crochet','service_identity','autobahn-sync','matplotlib','h5py','seaborn','fastcluster','networkx','msgpack','pandas','scipy','sympy','nose','neuroballad','jupyter','jupyterlab']
 if os.name == 'nt':
     package_list.append('pypiwin32')
 for i in package_list:
