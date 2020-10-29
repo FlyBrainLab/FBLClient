@@ -468,6 +468,7 @@ class Client:
         self.experimentWatcher = None
         self.exec_result = {}
         self.current_exec_result = None
+        self.connected = False
 
         if self.legacy:
             self.query_threshold = 2
@@ -479,6 +480,7 @@ class Client:
         self.y_shift = 0.0
         self.z_shift = 0.0
         self.r_shift = 0.0
+        self.errors = [] # Buffer that stores errors
         st_cert = open(ca_cert_file, "rt").read()
         c = OpenSSL.crypto
         ca_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
@@ -504,10 +506,45 @@ class Client:
             self.dataset = dataset
             self.init_client(ssl, user, secret, custom_salt, url, ssl_con, legacy)
             self.findServerIDs(dataset)  # Get current server IDs
+            self.connected = True
+
+            """
+            try:
+                self.init_client(ssl, user, secret, custom_salt, url, ssl_con, legacy)
+                self.connected = True
+            except Exception as e:
+                self.raise_error(e, 'Failed to connect to the server. Check your server configuration or contact the backend administrator. Alternatively, use the client.reconnect function.')
+                print(e)
+                self.connected = False
+            
+            try:
+                self.findServerIDs(dataset)  # Get current server IDs
+                self.connected = True
+            except Exception as e:
+                self.raise_error(e, 'There was an error in trying to find servers. Check your server configuration or contact the backend administrator.')
+                print(e)
+                self.connected = False
+            """
+            
+            
 
     def reconnect(self):
-        self.init_client( self.ssl,  self.user,  self.secret,  self.custom_salt,  self.url,  self.ssl_con,  self.legacy)
-        self.findServerIDs(self.dataset)
+        try:
+            self.init_client( self.ssl,  self.user,  self.secret,  self.custom_salt,  self.url,  self.ssl_con,  self.legacy)
+            self.connected = True
+            try:
+                self.findServerIDs(self.dataset)  # Get current server IDs
+                self.connected = True
+            except Exception as e:
+                self.raise_error(e, 'There was an error in trying to find servers. Check your server configuration or contact the backend administrator.')
+                print(e)
+                self.connected = False
+        except Exception as e:
+            self.raise_error(e, 'Failed to connect to the server. Check your server configuration or contact the backend administrator. Alternatively, use the client.reconnect function.')
+            print(e)
+            self.connected = False
+        
+
 
     def init_client(self, ssl, user, secret, custom_salt, url, ssl_con, legacy):
         FFBOLABClient = AutobahnSync()
@@ -731,26 +768,30 @@ class Client:
                     a["data"] = data
                     a["messageType"] = "Command"
             # Change scales
-            if a["messageType"] == "Data":
-                if "data" in a["data"]:
-                    for i in a["data"]["data"].keys():
-                        if "name" in a["data"]["data"][i]:
-                            a["data"]["data"][i]["x"] = [
-                                i * self.x_scale + self.x_shift
-                                for i in a["data"]["data"][i]["x"]
-                            ]
-                            a["data"]["data"][i]["y"] = [
-                                i * self.y_scale + self.y_shift
-                                for i in a["data"]["data"][i]["y"]
-                            ]
-                            a["data"]["data"][i]["z"] = [
-                                i * self.z_scale + self.z_shift
-                                for i in a["data"]["data"][i]["z"]
-                            ]
-                            a["data"]["data"][i]["r"] = [
-                                i * self.r_scale + self.r_shift
-                                for i in a["data"]["data"][i]["r"]
-                            ]
+            try:
+                if a["messageType"] == "Data":
+                    if "data" in a["data"]:
+                        for i in a["data"]["data"].keys():
+                            if "name" in a["data"]["data"][i]:
+                                a["data"]["data"][i]["x"] = [
+                                    i * self.x_scale + self.x_shift
+                                    for i in a["data"]["data"][i]["x"]
+                                ]
+                                a["data"]["data"][i]["y"] = [
+                                    i * self.y_scale + self.y_shift
+                                    for i in a["data"]["data"][i]["y"]
+                                ]
+                                a["data"]["data"][i]["z"] = [
+                                    i * self.z_scale + self.z_shift
+                                    for i in a["data"]["data"][i]["z"]
+                                ]
+                                a["data"]["data"][i]["r"] = [
+                                    i * self.r_scale + self.r_shift
+                                    for i in a["data"]["data"][i]["r"]
+                                ]
+            except Exception as e:
+                self.raise_error(e, 'There was an error when scaling data.')
+                self.errors.append(e)
             self.data.append(a)
             displayDict = {
                 "totalLength": "Total Length (µm)",
@@ -1085,6 +1126,10 @@ class Client:
         # Returns
             dict: NA output or the NA query itself, depending on the returnNAOutput setting.
         """
+        if self.connected == False:
+            self.reconnect()
+        if self.connected == False:
+            return False
         if query is None:
             print(
                 printHeader("FFBOLab Client")
@@ -1163,7 +1208,7 @@ class Client:
             """
 
     def executeNAquery(
-        self, res, language="en", uri=None, queryID=None, progressive=True, threshold=20
+        self, res, language="en", uri=None, queryID=None, progressive=True, threshold=5
     ):
         """Execute an NA query.
 
@@ -1199,15 +1244,35 @@ class Client:
         res["data_callback_uri"] = "ffbo.ui.receive_data"
         res_list = []
         if self.legacy == False and progressive == True:
-            res = self.client.session.call(
-                uri,
-                res,
-                options=CallOptions(
-                    on_progress=partial(on_progress, res=res_list), timeout=300000
-                ),
-            )
+            try:
+                res = self.client.session.call(
+                    uri,
+                    res,
+                    options=CallOptions(
+                        on_progress=partial(on_progress, res=res_list), timeout=300000
+                    ),
+                )
+            except Exception as e:
+                self.raise_error(e,'A connection error occured during a progressive NLP call. Check client.errors for more details. Attempting to reconnect.')
+                print(e)
+                try:
+                    self.reconnect()
+                    self.raise_message('Successfully reconnected to server. Note that previous workspace state will be lost in the backend (for add or remove queries).')
+                except Exception as e:
+                    self.raise_error(e, 'There was an error during the reconnection attempt. Check the server.')
+                    print(e)
         else:
-            res = self.client.session.call(uri, res)
+            try:
+                res = self.client.session.call(uri, res)
+            except Exception as e:
+                self.raise_error(e,'A connection error occured during a NeuroArch call. Check client.errors for more details.')
+                print(e)
+                try:
+                    self.reconnect()
+                    self.raise_message('Successfully reconnected to server. Note that previous workspace state will be lost in the backend (for add or remove queries).')
+                except Exception as e:
+                    self.raise_error(e, 'There was an error during the reconnection attempt. Check the server.')
+                    print(e)
         res = convert_from_bytes(res)
         a = {}
         a["data"] = res
@@ -1301,6 +1366,28 @@ class Client:
         a["widget"] = "GFX"
         self.tryComms(a)
         return True
+
+    def raise_message(self, message):
+        """Raises an message in the frontend.
+
+        # Arguments
+            message (str): String message to raise.
+        """
+        self.tryComms({'data': {'info': {'success': message}},
+            'messageType': 'Message',
+            'widget': 'NLP'})
+
+    def raise_error(self, e, error):
+        """Raises an error in the frontend.
+
+        # Arguments
+            e (str): The error string to add to self.errors.
+            error (str): String error to raise.
+        """
+        self.errors.append(e)
+        self.tryComms({'data': {'info': {'error': error}},
+            'messageType': 'Message',
+            'widget': 'NLP'})
 
     def getStats(self, neuron_name):
         displayDict = {
