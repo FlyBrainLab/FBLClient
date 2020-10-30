@@ -1832,6 +1832,10 @@ class Client:
         out_nodes = []
         csv = ""
         for e_pre in nodes:
+            if "class" in nodes[e_pre]:
+                if "uname" not in nodes[e_pre].keys():
+                    nodes[e_pre]["uname"] = nodes[e_pre]["name"]
+        for e_pre in nodes:
             # e_pre = node
             pre = None
             if "class" in nodes[e_pre]:
@@ -1840,6 +1844,7 @@ class Client:
                         pre = nodes[e_pre]["uname"]
                     else:
                         pre = nodes[e_pre]["name"]
+                        nodes[e_pre]["uname"] = nodes[e_pre]["name"]
                 # print(pre)
                 if pre is not None:
                     synapse_nodes = [
