@@ -67,18 +67,18 @@ from .utils import setProtocolOptions
 ## Create the home directory
 
 home = str(Path.home())
-if not os.path.exists(os.path.join(home, ".ffbolab")):
-    os.makedirs(os.path.join(home, ".ffbolab"), mode=0o777)
-if not os.path.exists(os.path.join(home, ".ffbolab", "data")):
-    os.makedirs(os.path.join(home, ".ffbolab", "data"), mode=0o777)
-if not os.path.exists(os.path.join(home, ".ffbolab", "config")):
-    os.makedirs(os.path.join(home, ".ffbolab", "config"), mode=0o777)
-if not os.path.exists(os.path.join(home, ".ffbolab", "lib")):
-    os.makedirs(os.path.join(home, ".ffbolab", "lib"), mode=0o777)
+if not os.path.exists(os.path.join(home, ".ffbo")):
+    os.makedirs(os.path.join(home, ".ffbo"), mode=0o777)
+if not os.path.exists(os.path.join(home, ".ffbo", "data")):
+    os.makedirs(os.path.join(home, ".ffbo", "data"), mode=0o777)
+if not os.path.exists(os.path.join(home, ".ffbo", "config")):
+    os.makedirs(os.path.join(home, ".ffbo", "config"), mode=0o777)
+if not os.path.exists(os.path.join(home, ".ffbo", "lib")):
+    os.makedirs(os.path.join(home, ".ffbo", "lib"), mode=0o777)
 
 # Generate the data path to be used for imports
-_FFBOLabDataPath = os.path.join(home, ".ffbolab", "data")
-_FFBOLabConfigPath = os.path.join(home, ".ffbolab", "config", "ffbo.flybrainlab.ini")
+_FFBOLabDataPath = os.path.join(home, ".ffbo", "data")
+_FFBOLabConfigPath = os.path.join(home, ".ffbo", "config", "ffbo.flybrainlab.ini")
 
 def convert_from_bytes(data):
   if isinstance(data, bytes):      return data.decode()
@@ -320,51 +320,51 @@ class Client:
         self.species = species
         self.url = url
         self.widgets = widgets
-        if os.path.exists(os.path.join(home, ".ffbolab", "lib")):
+        if os.path.exists(os.path.join(home, ".ffbo", "lib")):
             print(
                 printHeader("FFBOLab Client") + "Downloading the latest certificates."
             )
             # CertificateDownloader = urllib.URLopener()
             if not os.path.exists(
-                os.path.join(home, ".ffbolab", "config", "FBLClient.ini")
+                os.path.join(home, ".ffbo", "config", "FBLClient.ini")
             ):
                 urlRetriever(
                     "https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
-                    os.path.join(home, ".ffbolab", "config", "FBLClient.ini"),
+                    os.path.join(home, ".ffbo", "config", "FBLClient.ini"),
                 )
             if not os.path.exists(
-                os.path.join(home, ".ffbolab", "config", "flycircuit_config.ini")
+                os.path.join(home, ".ffbo", "config", "flycircuit_config.ini")
             ):
                 urlRetriever(
                     "https://data.flybrainlab.fruitflybrain.org/config/flycircuit_config.ini",
-                    os.path.join(home, ".ffbolab", "config", "flycircuit_config.ini"),
+                    os.path.join(home, ".ffbo", "config", "flycircuit_config.ini"),
                 )
             if not os.path.exists(
-                os.path.join(home, ".ffbolab", "config", "hemibrain_config.ini")
+                os.path.join(home, ".ffbo", "config", "hemibrain_config.ini")
             ):
                 urlRetriever(
                     "https://data.flybrainlab.fruitflybrain.org/config/hemibrain_config.ini",
-                    os.path.join(home, ".ffbolab", "config", "hemibrain_config.ini"),
+                    os.path.join(home, ".ffbo", "config", "hemibrain_config.ini"),
                 )
             if not os.path.exists(
-                os.path.join(home, ".ffbolab", "config", "larva_config.ini")
+                os.path.join(home, ".ffbo", "config", "larva_config.ini")
             ):
                 urlRetriever(
                     "https://data.flybrainlab.fruitflybrain.org/config/larva_config.ini",
-                    os.path.join(home, ".ffbolab", "config", "larva_config.ini"),
+                    os.path.join(home, ".ffbo", "config", "larva_config.ini"),
                 )
             urlRetriever(
                 "https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
-                os.path.join(home, ".ffbolab", "lib", "caCertFile.pem"),
+                os.path.join(home, ".ffbo", "lib", "caCertFile.pem"),
             )
             urlRetriever(
                 "https://data.flybrainlab.fruitflybrain.org/lib/letsencryptauthorityx3.pem",
-                os.path.join(home, ".ffbolab", "lib", "intermediateCertFile.pem"),
+                os.path.join(home, ".ffbo", "lib", "intermediateCertFile.pem"),
             )
-            config_file = os.path.join(home, ".ffbolab", "config", "FBLClient.ini")
-            ca_cert_file = os.path.join(home, ".ffbolab", "lib", "caCertFile.pem")
+            config_file = os.path.join(home, ".ffbo", "config", "FBLClient.ini")
+            ca_cert_file = os.path.join(home, ".ffbo", "lib", "caCertFile.pem")
             intermediate_cert_file = os.path.join(
-                home, ".ffbolab", "lib", "intermediateCertFile.pem"
+                home, ".ffbo", "lib", "intermediateCertFile.pem"
             )
         # config = ConfigParser()
         # print(config_file)
@@ -376,7 +376,7 @@ class Client:
             homedir = os.path.expanduser("~")
             filepath = os.path.dirname(os.path.abspath(__file__))
             config_files = []
-            os.path.join(home, ".ffbolab", "config", "FFBO.ini"),
+            os.path.join(home, ".ffbo", "config", "FFBO.ini"),
             config = ConfigParser()
             configured = False
             file_type = 0
@@ -416,9 +416,9 @@ class Client:
             homedir = os.path.expanduser("~")
             filepath = os.path.dirname(os.path.abspath(__file__))
             config_files = []
-            config_files.append(os.path.join(home, ".ffbolab", "config", custom_config))
-            config_files.append(os.path.join(homedir, ".ffbolab", "config", custom_config))
-            config_files.append(os.path.join(root, ".ffbolab", "config", custom_config))
+            config_files.append(os.path.join(home, ".ffbo", "config", custom_config))
+            config_files.append(os.path.join(homedir, ".ffbo", "config", custom_config))
+            config_files.append(os.path.join(root, ".ffbo", "config", custom_config))
             config = ConfigParser()
             configured = False
             file_type = 0
@@ -1397,7 +1397,7 @@ class Client:
         """
         self.tryComms({'data': {'info': {'success': message}},
             'messageType': 'Message',
-            'widget': 'toast'})
+            'widget': 'NLP'})
 
     def raise_error(self, e, error):
         """Raises an error in the frontend.
@@ -1409,7 +1409,7 @@ class Client:
         self.errors.append(e)
         self.tryComms({'data': {'info': {'error': error}},
             'messageType': 'Message',
-            'widget': 'toast'})
+            'widget': 'NLP'})
 
     def getStats(self, neuron_name):
         displayDict = {
