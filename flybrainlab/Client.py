@@ -1813,12 +1813,13 @@ class Client:
                     style='filled')
             
         g.attr(size='25,25')
-
-        g.save('G_auto.gv')
-
-        g.render('G_auto', format = 'svg', view=False)
-
-        g.render('G_auto', format = 'png', view=False) 
+        try:
+            g.save('G_auto.gv')
+            g.render('G_auto', format = 'svg', view=False)
+            g.render('G_auto', format = 'png', view=False) 
+        except Exception as e:
+            self.raise_error(e, 'There was an error during diagram generation. Please execute "conda install -c anaconda graphviz" in your terminal in your conda environment, or try to install GraphViz globally from https://graphviz.org/download/.')
+            print(e)
     def processConnectivity(self, connectivity):
         """Processes a Neuroarch connectivity dictionary.
 
