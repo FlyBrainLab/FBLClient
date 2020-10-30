@@ -283,6 +283,7 @@ class Client:
         realm=u"realm1",
         ca_cert_file="isrgrootx1.pem",
         intermediate_cert_file="letsencryptauthorityx3.pem",
+        FFBOLabcomm=None,
         FBLcomm=None,
         legacy=False,
         initialize_client=True,
@@ -306,6 +307,7 @@ class Client:
             realm (str): Realm to be connected to.
             ca_cert_file (str): Path to the certificate for establishing connection.
             intermediate_cert_file (str): Path to the intermediate certificate for establishing connection.
+            FFBOLabcomm (obj): Communications object for the frontend.
             FBLcomm (obj): Communications object for the frontend.
             legacy (bool): Whether the server uses the old FFBO server standard or not. Should be False for most cases. Defaults to False.
             initialize_client (bool): Whether to connect to the database or not. Defaults to True.
@@ -320,6 +322,8 @@ class Client:
         self.species = species
         self.url = url
         self.widgets = widgets
+        if FBLcomm is None and FFBOLabcomm is not None:
+            FBLcomm = FFBOLabcomm
         if os.path.exists(os.path.join(home, ".ffbo", "lib")):
             print(
                 printHeader("FBL Client") + "Downloading the latest certificates."
@@ -1841,11 +1845,15 @@ class Client:
                     synapse_nodes = [
                         i[1]
                         for i in edges
-                        if nodes[i[0]]["name"] == pre
+                        if (nodes[i[0]]["name"] == pre
                         and (
                             nodes[i[1]]["class"] == "Synapse"
                             or nodes[i[1]]["class"] == "InferredSynapse"
-                        )
+                        )) or (nodes[i[0]]["uname"] == pre
+                        and (
+                            nodes[i[1]]["class"] == "Synapse"
+                            or nodes[i[1]]["class"] == "InferredSynapse"
+                        ))
                     ]
                     # print(len(synapse_nodes))
                     for synapse in synapse_nodes:
