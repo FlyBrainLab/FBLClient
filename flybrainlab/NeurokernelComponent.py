@@ -639,7 +639,7 @@ class ffbolabComponent:
         FBLClient = AutobahnSync()
         self.client = FBLClient
 
-        @FFBOLABClient.on_challenge
+        @FBLClient.on_challenge
         def on_challenge(challenge):
             if challenge.method == u"wampcra":
                 print("WAMP-CRA challenge received: {}".format(challenge))
