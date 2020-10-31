@@ -677,7 +677,7 @@ class ffbolabComponent:
         self.data = []
         self.launch_queue = []
 
-        @FFBOLABClient.register(
+        @FBLClient.register(
             "ffbo.nk.launch." + str(FBLClient._async_session._session_id)
         )
         def nk_launch_progressive(task, details=None):
