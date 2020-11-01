@@ -70,35 +70,25 @@ import msgpack
 import msgpack_numpy
 msgpack_numpy.patch()
 
-home = str(Path.home())
-if not os.path.exists(os.path.join(home, ".ffbolab")):
-    os.makedirs(os.path.join(home, ".ffbolab"), mode=0o777)
-if not os.path.exists(os.path.join(home, ".ffbolab", "data")):
-    os.makedirs(os.path.join(home, ".ffbolab", "data"), mode=0o777)
-if not os.path.exists(os.path.join(home, ".ffbolab", "config")):
-    os.makedirs(os.path.join(home, ".ffbolab", "config"), mode=0o777)
-if not os.path.exists(os.path.join(home, ".ffbolab", "lib")):
-    os.makedirs(os.path.join(home, ".ffbolab", "lib"), mode=0o777)
-
-
 ## Create the home directory
 import os
 import urllib
 
 home = str(Path.home())
-if not os.path.exists(os.path.join(home, ".ffbolab")):
-    os.makedirs(os.path.join(home, ".ffbolab"), mode=0o777)
-if not os.path.exists(os.path.join(home, ".ffbolab", "data")):
-    os.makedirs(os.path.join(home, ".ffbolab", "data"), mode=0o777)
-if not os.path.exists(os.path.join(home, ".ffbolab", "config")):
-    os.makedirs(os.path.join(home, ".ffbolab", "config"), mode=0o777)
-if not os.path.exists(os.path.join(home, ".ffbolab", "lib")):
-    os.makedirs(os.path.join(home, ".ffbolab", "lib"), mode=0o777)
+if not os.path.exists(os.path.join(home, ".ffbo")):
+    os.makedirs(os.path.join(home, ".ffbo"), mode=0o777)
+if not os.path.exists(os.path.join(home, ".ffbo", "data")):
+    os.makedirs(os.path.join(home, ".ffbo", "data"), mode=0o777)
+if not os.path.exists(os.path.join(home, ".ffbo", "config")):
+    os.makedirs(os.path.join(home, ".ffbo", "config"), mode=0o777)
+if not os.path.exists(os.path.join(home, ".ffbo", "lib")):
+    os.makedirs(os.path.join(home, ".ffbo", "lib"), mode=0o777)
 
-_FFBOLabDataPath = os.path.join(home, ".ffbolab", "data")
-_FFBOLabExperimentPath = os.path.join(home, ".ffbolab", "experiments")
+# Generate the data path to be used for imports
+_FBLDataPath = os.path.join(home, ".ffbo", "data")
+_FBLExperimentPath = os.path.join(home, ".ffbo", "experiments")
 
-print(os.path.exists(_FFBOLabDataPath))
+print(os.path.exists(_FBLDataPath))
 
 import binascii
 from os import listdir
@@ -600,37 +590,40 @@ class ffbolabComponent:
         ca_cert_file="isrgrootx1.pem",
         intermediate_cert_file="letsencryptauthorityx3.pem",
         FFBOLabcomm=None,
+        FBLcomm = None,
         server_name = 'nk',
     ):
+        if FBLcomm is None and FFBOLabcomm is not None:
+            FBLcomm = FFBOLabcomm
         if os.path.exists(os.path.join(home, ".ffbolab", "lib")):
             print(
-                printHeader("FFBOLab Client") + "Downloading the latest certificates."
+                printHeader("FBL Client") + "Downloading the latest certificates."
             )
             # CertificateDownloader = urllib.URLopener()
-            if not os.path.exists(os.path.join(home, ".ffbolab", "lib")):
+            if not os.path.exists(os.path.join(home, ".ffbo", "lib")):
                 urlRetriever(
                     "https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
-                    os.path.join(home, ".ffbolab", "config", "FBLClient.ini"),
+                    os.path.join(home, ".ffbo", "config", "FBLClient.ini"),
                 )
             urlRetriever(
                 "https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
-                os.path.join(home, ".ffbolab", "lib", "caCertFile.pem"),
+                os.path.join(home, ".ffbo", "lib", "caCertFile.pem"),
             )
             urlRetriever(
                 "https://data.flybrainlab.fruitflybrain.org/lib/letsencryptauthorityx3.pem",
-                os.path.join(home, ".ffbolab", "lib", "intermediateCertFile.pem"),
+                os.path.join(home, ".ffbo", "lib", "intermediateCertFile.pem"),
             )
-            config_file = os.path.join(home, ".ffbolab", "config", "FBLClient.ini")
-            ca_cert_file = os.path.join(home, ".ffbolab", "lib", "caCertFile.pem")
+            config_file = os.path.join(home, ".ffbo", "config", "FBLClient.ini")
+            ca_cert_file = os.path.join(home, ".ffbo", "lib", "caCertFile.pem")
             intermediate_cert_file = os.path.join(
-                home, ".ffbolab", "lib", "intermediateCertFile.pem"
+                home, ".ffbo", "lib", "intermediateCertFile.pem"
             )
         config = ConfigParser()
         config.read(config_file)
         # user = config["ComponentInfo"]["user"]
         # secret = config["ComponentInfo"]["secret"]
         # url = config["ComponentInfo"]["url"]
-        self.FFBOLabcomm = FFBOLabcomm
+        self.FBLcomm = FBLcomm
         self.NKSimState = 0
         self.executionSettings = []
         extra = {"auth": authentication}
@@ -643,10 +636,10 @@ class ffbolabComponent:
         certs = OpenSSLCertificateAuthorities([ca_cert, intermediate_cert])
         ssl_con = CertificateOptions(trustRoot=certs)
 
-        FFBOLABClient = AutobahnSync()
-        self.client = FFBOLABClient
+        FBLClient = AutobahnSync()
+        self.client = FBLClient
 
-        @FFBOLABClient.on_challenge
+        @FBLClient.on_challenge
         def on_challenge(challenge):
             if challenge.method == u"wampcra":
                 print("WAMP-CRA challenge received: {}".format(challenge))
@@ -671,11 +664,11 @@ class ffbolabComponent:
                 raise Exception("Invalid authmethod {}".format(challenge.method))
 
         if ssl:
-            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user, ssl=ssl_con)
+            FBLClient.run(url=url, authmethods=[u'wampcra'], authid=user, ssl=ssl_con)
         else:
-            FFBOLABClient.run(url=url, authmethods=[u'wampcra'], authid=user)
+            FBLClient.run(url=url, authmethods=[u'wampcra'], authid=user)
 
-        setProtocolOptions(FFBOLABClient._async_session._transport,
+        setProtocolOptions(FBLClient._async_session._transport,
                            maxFramePayloadSize = 0,
                            maxMessagePayloadSize = 0,
                            autoFragmentSize = 65536)
@@ -684,8 +677,8 @@ class ffbolabComponent:
         self.data = []
         self.launch_queue = []
 
-        @FFBOLABClient.register(
-            "ffbo.nk.launch." + str(FFBOLABClient._async_session._session_id)
+        @FBLClient.register(
+            "ffbo.nk.launch." + str(FBLClient._async_session._session_id)
         )
         def nk_launch_progressive(task, details=None):
             # print(task['user'])
@@ -711,9 +704,9 @@ class ffbolabComponent:
 
         print("Procedure nk_launch_progressive Registered...")
 
-        res = FFBOLABClient.session.call(
+        res = FBLClient.session.call(
             u"ffbo.server.register",
-            FFBOLABClient._async_session._session_id,
+            FBLClient._async_session._session_id,
             "nk",
             {"name": server_name, "version": 1.05},
         )

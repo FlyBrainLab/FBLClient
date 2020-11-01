@@ -22,10 +22,10 @@ if __name__ == "__main__":
     home = os.path.expanduser("~")
     filepath = os.path.dirname(os.path.abspath(__file__))
     config_files = []
-    config_files.append(os.path.join(home, "config", "ffbo.FBLClient.ini"))
-    config_files.append(os.path.join(root, "config", "ffbo.FBLClient.ini"))
-    config_files.append(os.path.join(home, "config", "config.ini"))
-    config_files.append(os.path.join(root, "config", "config.ini"))
+    config_files.append(os.path.join(home, ".ffbo/config", "ffbo.FBLClient.ini"))
+    config_files.append(os.path.join(root, ".ffbo/config", "ffbo.FBLClient.ini"))
+    config_files.append(os.path.join(home, ".ffbo/config", "config.ini"))
+    config_files.append(os.path.join(root, ".ffbo/config", "config.ini"))
     config_files.append(os.path.join(filepath, "..", "FBLClient.ini"))
     config = ConfigParser()
     configured = False
