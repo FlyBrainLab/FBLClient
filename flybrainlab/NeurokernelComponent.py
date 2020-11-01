@@ -595,7 +595,7 @@ class ffbolabComponent:
     ):
         if FBLcomm is None and FFBOLabcomm is not None:
             FBLcomm = FFBOLabcomm
-        if os.path.exists(os.path.join(home, ".ffbolab", "lib")):
+        if os.path.exists(os.path.join(home, ".ffbo", "lib")):
             print(
                 printHeader("FBL Client") + "Downloading the latest certificates."
             )
