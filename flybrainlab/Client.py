@@ -3,6 +3,9 @@ import sys
 import subprocess
 import importlib.util
 
+# Install all necessary packages
+## We attempt to resolve package installation errors during the import.
+
 def install(package):
     if package == 'neuroballad':
         subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'git+https://github.com/FlyBrainLab/Neuroballad.git'])
@@ -19,6 +22,8 @@ if os.name == 'nt':
     package_list.append('pypiwin32')
 for i in package_list:
     check_then_import(i)
+
+# Go ahead with imports
 
 from time import sleep, gmtime, strftime
 import os, sys, json, binascii, warnings, urllib
@@ -61,10 +66,8 @@ import neuroballad as nb
 from .utils import setProtocolOptions
 
 
-# import txaio
-# txaio.start_logging(level='info')
-
-## Create the home directory
+# Create the home directory
+## The home directory is situated at the home directory of the user, and is named ".ffbo".
 
 home = str(Path.home())
 if not os.path.exists(os.path.join(home, ".ffbo")):
@@ -81,6 +84,13 @@ _FBLDataPath = os.path.join(home, ".ffbo", "data")
 _FBLConfigPath = os.path.join(home, ".ffbo", "config", "ffbo.flybrainlab.ini")
 
 def convert_from_bytes(data):
+    """Attempt to decode data from bytes; useful for certain data types retrieved from servers.
+
+    # Arguments
+        data (object): Data in bytes, or some other data structure whose elements are in bytes.
+    # Returns
+        object: The object that was in bytes.
+    """
   if isinstance(data, bytes):      return data.decode()
   if isinstance(data, dict):       return dict(map(convert_from_bytes, data.items()))
   if isinstance(data, tuple):      return tuple(map(convert_from_bytes, data))
@@ -232,12 +242,29 @@ class MetaClient:
         return res
 
 class MetaComm:
+    """A meta-communications object to assist in sending messages to the frontend.
+
+    # Attributes:
+        name (str): Name of the communications object.
+        manager (obj): A WidgetManager  object that manages the widgets connected to this object..
+    """
     def __init__(self, name, manager):
+        """Initialization function for the MetaComm class.
+
+        # Arguments
+            name (str): Name of the communications object.
+            manager (obj): A WidgetManager  object that manages the widgets connected to this object..
+        """
         self.name = name
         self.manager = manager
 
 
     def send(self, data=None):
+        """A function to send data to all widgets connected to the manager of this meta-communications object.
+
+        # Arguments
+            data (object): The data object to send.
+        """
         for widget_name in self.manager.client_manager.clients[self.name]['widgets']:
             self.manager.widget_manager.widgets[widget_name].comm.send(data=data)
 
@@ -534,34 +561,14 @@ class Client:
             self.findServerIDs(dataset)  # Get current server IDs
             self.connected = True
 
-            """
-            try:
-                self.init_client(ssl, user, secret, custom_salt, url, ssl_con, legacy)
-                self.connected = True
-            except Exception as e:
-                self.raise_error(e, 'Failed to connect to the server. Check your server configuration or contact the backend administrator. Alternatively, use the client.reconnect function.')
-                print(e)
-                self.connected = False
-            
-            try:
-                self.findServerIDs(dataset)  # Get current server IDs
-                self.connected = True
-            except Exception as e:
-                self.raise_error(e, 'There was an error in trying to find servers. Check your server configuration or contact the backend administrator.')
-                print(e)
-                self.connected = False
-            """
-            
-            
-
     def reconnect(self):
         try:
             self.init_client( self.ssl,  self.user,  self.secret,  self.custom_salt,  self.url,  self.ssl_con,  self.legacy)
             self.connected = True
             try:
-                self.findServerIDs(self.dataset)  # Get current server IDs
+                self.findServerIDs(self.dataset)  # Attempt to retrieve current server IDs
                 self.connected = True
-            except Exception as e:
+            except Exception as e: # Server finding fails
                 self.raise_error(e, 'There was an error in trying to find servers. Check your server configuration or contact the backend administrator.')
                 print(e)
                 self.connected = False
@@ -997,6 +1004,9 @@ class Client:
 
     def findServerIDs(self, dataset = None):
         """Find server IDs to be used for the utility functions.
+
+        # Arguments
+            dataset (str): Name of the dataset to connect to. Optional.
         """
         res = self.client.session.call(u"ffbo.processor.server_information")
         res = convert_from_bytes(res)
@@ -1416,6 +1426,11 @@ class Client:
             'widget': 'NLP'})
 
     def getStats(self, neuron_name):
+        """Print various statistics for a given neuron.
+
+        # Arguments
+            neuron_name (str): Name of the neuron to print the data for. The neuron must have been queried beforehand.
+        """
         displayDict = {
             "totalLength": "Total Length (µm)",
             "totalSurfaceArea": "Total Surface Area (µm^2)",
@@ -2260,8 +2275,6 @@ class Client:
         while True:
             if not i == -1:
                 sim_output["data"] = sim_output_new["data"] + sim_output["data"]
-            # sim_output['data'].update(sim_output_new['data'])
-            # print(sim_output_new['data'].keys())
             i = i - 1
             try:
                 sim_output_new = json.loads(self.data[i]["data"]["data"])
@@ -3170,20 +3183,6 @@ class Client:
                                     state_names[state_idx]
                                 ] = updated_node_data[state]
         return res
-
-import importlib
-
-LPU_list = ["cx", "mb"]
-
-for i in LPU_list:
-    try:
-        module = importlib.import_module(i)
-        print("Loaded LPU {}.".format(i))
-        sim_func = getattr(module, "sim")
-        sim_func({"hello": "world"})
-    except:
-        # print('Failed to load LPU {}.'.format(i))
-        pass
 
 
 FBLClient = Client
