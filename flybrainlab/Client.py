@@ -91,12 +91,12 @@ def convert_from_bytes(data):
     # Returns
         object: The object that was in bytes.
     """
-  if isinstance(data, bytes):      return data.decode()
-  if isinstance(data, dict):       return dict(map(convert_from_bytes, data.items()))
-  if isinstance(data, tuple):      return tuple(map(convert_from_bytes, data))
-  if isinstance(data, list):       return list(map(convert_from_bytes, data))
-  if isinstance(data, set):        return set(map(convert_from_bytes, data))
-  return data
+    if isinstance(data, bytes):      return data.decode()
+    if isinstance(data, dict):       return dict(map(convert_from_bytes, data.items()))
+    if isinstance(data, tuple):      return tuple(map(convert_from_bytes, data))
+    if isinstance(data, list):       return list(map(convert_from_bytes, data))
+    if isinstance(data, set):        return set(map(convert_from_bytes, data))
+    return data
 
 def urlRetriever(url, savePath, verify=False):
     """Retrieves and saves a url in Python 3.
