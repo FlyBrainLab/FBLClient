@@ -839,17 +839,20 @@ class Client:
             }
             if a["messageType"] == "Data":
                 if "data" in a["data"]:
-                    for i in a["data"]["data"].keys():
-                        if "name" in a["data"]["data"][i]:
-                            self.uname_to_rid[a["data"]["data"][i]["name"]] = i
-                            self.neuronStats[a["data"]["data"][i]["name"]] = {}
-                            for displayKey in displayDict.keys():
-                                try:
-                                    self.neuronStats[a["data"]["data"][i]["name"]][
-                                        displayKey
-                                    ] = a["data"]["data"][i][displayKey]
-                                except:
-                                    pass
+                    try:
+                        for i in a["data"]["data"].keys():
+                            if "name" in a["data"]["data"][i]:
+                                self.uname_to_rid[a["data"]["data"][i]["name"]] = i
+                                self.neuronStats[a["data"]["data"][i]["name"]] = {}
+                                for displayKey in displayDict.keys():
+                                    try:
+                                        self.neuronStats[a["data"]["data"][i]["name"]][
+                                            displayKey
+                                        ] = a["data"]["data"][i][displayKey]
+                                    except:
+                                        pass
+                    except:
+                        print(a["data"]["data"])
             print(printHeader("FBL Client NLP") + "Received data.")
             self.tryComms(a)
             return True
