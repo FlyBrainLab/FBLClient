@@ -320,6 +320,7 @@ class Client:
         custom_config = None,
         widgets = [],
         dataset = 'default',
+        log_level = 1
     ):
         """Initialization function for the FBL Client class.
 
@@ -344,11 +345,13 @@ class Client:
             custom_config (str): A .ini file name to use to initiate a custom connection. Defaults to None. Used if provided.
             widgets (list): List of widgets associated with this client. Optional.
             dataset (str): Name of the dataset to use. Not used right now, but included for future compatibility.
+            log_level (int): Level of logging to output. 2 outputs everything, 1 outputs only the most important messages, 0 outputs nothing.
         """
         self.name = name
         self.species = species
         self.url = url
         self.widgets = widgets
+        self.log_level = log_level
         if FBLcomm is None and FFBOLabcomm is not None:
             FBLcomm = FFBOLabcomm
         if os.path.exists(os.path.join(home, ".ffbo", "lib")):
@@ -663,7 +666,8 @@ class Client:
             a["messageType"] = "Command"
             a["widget"] = "NLP"
             self.data.append(a)
-            print(printHeader("FBL Client NLP") + "Received a command.")
+            if self.log_level>1:
+                print(printHeader("FBL Client NLP") + "Received a command.")
             to_send = True
             if self.enableResets == False:
                 if "commands" in data:
@@ -693,7 +697,8 @@ class Client:
             self.clientData.append("Received GFX Data")
             data = convert_from_bytes(data)
             self.data.append(data)
-            print(printHeader("FBL Client GFX") + "Received a message for GFX.")
+            if self.log_level>1:
+                print(printHeader("FBL Client GFX") + "Received a message for GFX.")
             if self.sendDataToGFX == True:
                 self.tryComms(data)
             else:
@@ -784,7 +789,8 @@ class Client:
             # Returns
                 bool: Whether the process has been successful.
             """
-            self.clientData.append("Received Data")
+            if self.log_level>1:
+                self.clientData.append("Received Data")
             a = {}
             data = convert_from_bytes(data)
             if self.legacy == True:
@@ -853,7 +859,8 @@ class Client:
                                         pass
                     except:
                         print(a["data"]["data"])
-            print(printHeader("FBL Client NLP") + "Received data.")
+            if self.log_level>1:
+                print(printHeader("FBL Client NLP") + "Received data.")
             self.tryComms(a)
             return True
 
@@ -874,7 +881,8 @@ class Client:
             # Returns
                 bool: Whether the process has been successful.
             """
-            self.clientData.append("Received Data")
+            if self.log_level>1:
+                self.clientData.append("Received Data")
             a = {}
             data = convert_from_bytes(data)
             a["data"] = {"data": data, "queryID": guidGenerator()}
@@ -922,7 +930,8 @@ class Client:
                 # Returns
                     bool: Whether the process has been successful.
                 """
-                self.clientData.append('Received Data')
+                if self.log_level>1:
+                    self.clientData.append('Received Data')
                 if self.current_exec_result is None:
                     try:
                         temp = msgpack.unpackb(data)
@@ -994,7 +1003,8 @@ class Client:
             a["messageType"] = "Message"
             a["widget"] = "NLP"
             self.data.append(a)
-            print(printHeader("FBL Client NLP") + "Received a message.")
+            if self.log_level>1:
+                print(printHeader("FBL Client NLP") + "Received a message.")
             self.tryComms(a)
             return True
 
@@ -1196,7 +1206,8 @@ class Client:
                 a["widget"] = "NLP"
                 self.tryComms(a)
                 return a
-            print(printHeader("FBL Client NLP") + "NLP successfully parsed query.")
+            if self.log_level>0:
+                print(printHeader("FBL Client NLP") + "NLP successfully parsed query.")
 
             if returnNAOutput == True:
                 return resNA
@@ -1495,7 +1506,8 @@ class Client:
         """
         a = {}
         a["data"] = self.getNeuropils()
-        print(a["data"])
+        if self.log_level>1:
+            print('Available Neuropils:', a["data"])
         a["messageType"] = "updateActiveNeuropils"
         a["widget"] = "GFX"
         self.tryComms(a)
