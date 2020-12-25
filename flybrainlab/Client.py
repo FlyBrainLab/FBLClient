@@ -43,6 +43,7 @@ import txaio
 import h5py
 import pandas as pd
 import networkx as nx
+import autobahn
 from autobahn.twisted.util import sleep
 from autobahn.twisted.wamp import ApplicationSession, ApplicationRunner
 from autobahn.wamp.exception import ApplicationError
@@ -579,7 +580,7 @@ class Client:
             self.raise_error(e, 'Failed to connect to the server. Check your server configuration or contact the backend administrator. Alternatively, use the client.reconnect function.')
             print(e)
             self.connected = False
-        
+
 
 
     def init_client(self, ssl, user, secret, custom_salt, url, ssl_con, legacy):
@@ -1025,6 +1026,9 @@ class Client:
         res = convert_from_bytes(res)
         print(res)
 
+        if not res["processor"]["autobahn"].split('.')[0] == autobahn.__version__.split('.')[0]:
+            raise RuntimeError("Autobahn major version mismatch between your environment {} and the backend servers {}.\nPlease update your autobahn version to match with the processor version.".format(autobahn.__version__, res["processor"]["autobahn"]))
+
         default_mode = False
 
         server_dict = {}
@@ -1303,6 +1307,8 @@ class Client:
                     ),
                 )
             except Exception as e:
+                #TODO: this reconnect also affects runtime error in the backend, should only reconnect
+                #      when seeing an error from autobahn, like autobahn.wamp.exception.TransportLost
                 self.raise_error(e,'A connection error occured during a progressive NLP call. Check client.errors for more details. Attempting to reconnect.')
                 print(e)
                 try:
@@ -1522,9 +1528,9 @@ class Client:
             uname (str): Unique name to use in the frontend. Defaults to the file_name.
 
         """
-        neuron_pd = pd.read_csv(file_name, 
-                        names=['sample','identifier','x','y','z','r','parent'], 
-                        comment='#', 
+        neuron_pd = pd.read_csv(file_name,
+                        names=['sample','identifier','x','y','z','r','parent'],
+                        comment='#',
                         delim_whitespace=True)
         if uname == None:
             uname = file_name.split('.')[0]
@@ -1796,14 +1802,14 @@ class Client:
         for edge in edges:
             G.add_edge(edge[0],edge[1])
         from graphviz import Digraph
-        graph_struct = {'splines': 'ortho', 
+        graph_struct = {'splines': 'ortho',
                         'pad': '0.5',
                         'ranksep': '1.5',
                         'concentrate': 'true',
                         'newrank': 'true',
                         'rankdir': 'LR'}
 
-        g = Digraph('G', filename='G_ex.gv',graph_attr = {'splines': 'line', 
+        g = Digraph('G', filename='G_ex.gv',graph_attr = {'splines': 'line',
                                                         'pad': '0.1',
                                                         'nodesep': '0.03',
                                                         'outputorder': 'edgesfirst',
@@ -1821,32 +1827,32 @@ class Client:
             valid_nodes.append(str(pre_name))
             valid_nodes.append(str(post_name))
             valid_nodes = list(set(valid_nodes))
-            
+
         for _pre in valid_nodes:
             if '--' in str(_pre):
-                g.node(str(_pre), 
-                    shape='circle', 
-                    height='0.05', 
+                g.node(str(_pre),
+                    shape='circle',
+                    height='0.05',
                     label='',
-                    fontsize='4.0', 
-                    fixedsize='true', 
-                    color='dimgray', 
+                    fontsize='4.0',
+                    fixedsize='true',
+                    color='dimgray',
                     style='filled')
             else:
-                g.node(str(_pre), 
-                    shape='circle', 
-                    height='0.20', 
-                    fontsize='3.0', 
-                    fixedsize='true', 
+                g.node(str(_pre),
+                    shape='circle',
+                    height='0.20',
+                    fontsize='3.0',
+                    fixedsize='true',
                     fontcolor='white',
-                    color='dodgerblue3', 
+                    color='dodgerblue3',
                     style='filled')
-            
+
         g.attr(size='25,25')
         try:
             g.save('G_auto.gv')
             g.render('G_auto', format = 'svg', view=False)
-            g.render('G_auto', format = 'png', view=False) 
+            g.render('G_auto', format = 'png', view=False)
         except Exception as e:
             self.raise_error(e, 'There was an error during diagram generation. Please execute "conda install -c anaconda graphviz" in your terminal in your conda environment, or try to install GraphViz globally from https://graphviz.org/download/.')
             print(e)
@@ -3048,6 +3054,10 @@ class Client:
             ),
         )
         print("Execution request sent. Please wait.")
+        if 'success' in res:
+            print(res['success'])
+        else:
+            raise RuntimeError('Job not received for unknown reason.')
 
     def updateSimResultLabel(self, result_name, label_dict):
         result = self.exec_result[result_name]
