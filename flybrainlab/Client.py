@@ -1208,6 +1208,8 @@ class Client:
             try:
                 resNA = self.client.session.call(uri, query, language)
                 # Send the parsed query to the fronedned to be displayed if need be
+                if resNA == {}:
+                    self.raise_error('Interpretation Error','The query could not be interpreted. Look at the server to check for potential errors.')
                 a = {}
                 a["data"] = resNA
                 a["messageType"] = "ParsedQuery"
@@ -1230,7 +1232,8 @@ class Client:
                     res = self.executeNAquery(
                         resNA, queryID=queryID, threshold=self.query_threshold
                     )
-                    self.sendNeuropils()
+                    if 'show ' in query or 'add ' in query or 'remove ' in query:
+                        self.sendNeuropils()
                     """
                     a = {}
                     a['data'] = {'info': {'success': 'Finished fetching results from database'}}
