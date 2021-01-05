@@ -3245,4 +3245,39 @@ class Client:
         M = nx.adj_matrix(g, nodelist = rid_order).todense()
         return M, uname_order
 
+    def select_DataSource(self, name, version):
+        uri = "ffbo.na.datasource.{}".format(self.naServerID)
+        res = self.client.session.call(
+                uri,
+                name, version
+                options=CallOptions(timeout=10000) )
+        if 'error' in res:
+            raise Error(res['error']['message'] + res['error']['exception'])
+        elif 'success' in res:
+            print(res['success']['message'])
+
+    def add_neuron(self, uname,
+                   name,
+                   referenceId = None,
+                   locality = None,
+                   synonyms = None,
+                   info = None,
+                   morphology = None,
+                   arborization = None,
+                   neurotransmitters = None):
+        uri = "ffbo.na.add_neuron.{}".format(self.naServerID)
+        res = self.client.session.call(
+                uri,
+                uname, name, referenceId = referenceId, locality = locality,
+                synonyms = None,
+                info = None,
+                morphology = None,
+                arborization = None,
+                neurotransmitters = None,
+                options=CallOptions(timeout=10000) )
+        if 'error' in res:
+            raise Error(res['error']['message'] + res['error']['exception'])
+        elif 'success' in res:
+            return res['success']['data']
+
 FBLClient = Client
