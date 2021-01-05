@@ -491,6 +491,7 @@ class Client:
         self.C = (
             nb.Circuit()
         )  # The Neuroballd Circuit object describing the loaded neural circuit
+        self.neuron_data = {}
         self.dataPath = _FBLDataPath
         extra = {"auth": authentication}
         self.lmsg = 0
@@ -798,6 +799,15 @@ class Client:
                 a["data"] = {"data": data, "queryID": guidGenerator()}
             else:
                 a["data"] = data
+            try:
+                if 'data' in data:
+                    self.neuron_data.update(data['data'])
+                    for i in data['data'].keys():
+                        if 'MorphologyData' in data['data'][i]:
+                            data['data'][i].update(data['data'][i]['MorphologyData'])
+            except Exception as e:
+                self.raise_error(e, 'A potential error was detected during data parsing.')
+                print(e)
             a["messageType"] = "Data"
             a["widget"] = "NLP"
             if self.addToRemove == True:
@@ -1024,10 +1034,9 @@ class Client:
         """
         res = self.client.session.call(u"ffbo.processor.server_information")
         res = convert_from_bytes(res)
-        print(res)
 
         if not res["processor"]["autobahn"].split('.')[0] == autobahn.__version__.split('.')[0]:
-            raise RuntimeError("Autobahn major version mismatch between your environment {} and the backend servers {}.\nPlease update your autobahn version to match with the processor version.".format(autobahn.__version__, res["processor"]["autobahn"]))
+            self.raise_error(Exception(), "Autobahn major version mismatch between your environment {} and the backend servers {}.\nPlease update your autobahn version to match with the processor version by running ``pip install --upgrade autobahn`` in your terminal.".format(autobahn.__version__, res["processor"]["autobahn"]))
 
         default_mode = False
 
@@ -1330,10 +1339,22 @@ class Client:
                     self.raise_error(e, 'There was an error during the reconnection attempt. Check the server.')
                     print(e)
         res = convert_from_bytes(res)
+        
+        try:
+            if 'data' in res:
+                self.neuron_data.update(res['data'])
+                for i in res['data'].keys():
+                    if 'MorphologyData' in res['data'][i]:
+                        res['data'][i].update(res['data'][i]['MorphologyData'])
+        except Exception as e:
+            self.raise_error(e, 'A potential error was detected during data parsing.')
+            print(e)
+
         a = {}
         a["data"] = res
         a["messageType"] = "Data"
         a["widget"] = "NLP"
+
         if "retrieve_tag" in uri:
             a["messageType"] = "TagData"
             self.tryComms(a)
