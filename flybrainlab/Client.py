@@ -3209,5 +3209,40 @@ class Client:
                                 ] = updated_node_data[state]
         return res
 
+    def get_neuron_graph(self, query_result = None):
+        if query_result is None:
+            data = self.getConnectivity()
+        else:
+            #data = self.executeNAquery()
+            pass
+        nodes = data[-2]['data']['data']['nodes']
+        edges = data[-2]['data']['data']['edges']
+        neurons = {n: v for n, v in nodes.items() if v['class'] in ['Neuron']}
+        synapses = {n: v for n, v in nodes.items() if v['class'] in ['Synapse', 'InferredSynapse']}
+
+        pre_to_synapse_edges = {post:pre for pre, post, prop in edges if prop.get('class', None) == 'SendsTo' and pre in neurons}
+        synapse_to_post_edges = {pre:post for pre, post, prop in edges if prop.get('class', None) == 'SendsTo' and post in neurons}
+
+        connections = [(pre, synapse_to_post_edges[syn], synapses[syn]['N']) for syn, pre in pre_to_synapse_edges.items()]
+        g = nx.MultiDiGraph()
+        g.add_nodes_from( list(neurons.items()))
+        g.add_weighted_edges_from(connections)
+        return g
+
+    def get_neuron_adjacency_matrix(self, query_result = None, uname_order = None, rid_order = None):
+        g = self.get_neuron_graph(query_result = query_result)
+        if uname_order is None and rid_order is None:
+            order = sorted([(g.nodes[n]['uname'], n) for n in g.nodes()])
+            uname_order = [uname for uname, _ in order]
+            rid_order = [rid for _, rid in order]
+        elif uname_order is None:
+            # rid_order
+            uname_order = [g.nodes[n]['uname'] for n in rid_order]
+        else:
+            # uname_order
+            order_dict = {g.nodes[n]['uname']: n for n in g.nodes()}
+            rid_order = [order_dict[uname] for uname in uname_order]
+        M = nx.adj_matrix(g, nodelist = rid_order).todense()
+        return M, uname_order
 
 FBLClient = Client
