@@ -1057,10 +1057,7 @@ class Client:
             self.tryComms(a)
             return True
 
-        print(
-            printHeader("FBL Client")
-            + "Procedure ffbo.ui.receive_msg Registered..."
-        )
+        self.log['Client'].debug("Procedure ffbo.ui.receive_msg Registered...")
 
         self.client = FBLClient  # Set current client to the FBLClient Client
 
@@ -1070,7 +1067,7 @@ class Client:
         # Arguments
             dataset (str): Name of the dataset to connect to. Optional.
         """
-        res = self.client.session.call(u"ffbo.processor.server_information")
+        res = self.rpc(u"ffbo.processor.server_information")
         res = convert_from_bytes(res)
 
         if not res["processor"]["autobahn"].split('.')[0] == autobahn.__version__.split('.')[0]:
@@ -1177,6 +1174,9 @@ class Client:
             self.log['Client'].warning("Neurokernel Server not found on the FFBO processor. Circuit execution on the server side is not supported.")
             Warning("Neurokernel Server not found on the FFBO processor. Circuit execution on the server side is not supported.")
 
+    @property
+    def rpc(self):
+        return self.client.session.call
 
     def get_client_info(self, fbl=None):
         """Receive client data for this client only.
@@ -1237,7 +1237,7 @@ class Client:
             uri = "ffbo.nlp.query.{}".format(self.nlpServerID)
             queryID = guidGenerator()
             try:
-                resNA = self.client.session.call(uri, query, language)
+                resNA = self.rpc(uri, query, language)
                 # Send the parsed query to the fronedned to be displayed if need be
                 if resNA == {}:
                     self.raise_error('Interpretation Error','The query could not be interpreted. Look at the server to check for potential errors.')
@@ -1411,10 +1411,6 @@ class Client:
         a["messageType"] = "Data"
         a["widget"] = "NLP"
 
-        if "retrieve_tag" in uri:
-            a["messageType"] = "TagData"
-            self.tryComms(a)
-            self.executeNAquery({"command": {"retrieve": {"state": 0}}})
         if progressive == True:
             self.tryComms(a)
             #self.data.append(a)
@@ -1436,9 +1432,15 @@ class Client:
             "camera": {"position": {}, "up": {}},
             "target": {},
         }
-        res = self.executeNAquery(
-            {"tag": tagName, "metadata": metadata, "uri": "ffbo.na.create_tag"}
-        )
+        # res = self.executeNAquery(
+        #     {"tag": tagName, "metadata": metadata, "uri": "ffbo.na.create_tag"}
+        # )
+        task = {"tag": tagName, "metadata": metadata}
+        res = self.rpc('ffbo.na.create_tag.{}'.format(self.naServerID), task)
+        if 'success' in res['info']:
+            self.log['Client'].info(res['info']['success'])
+        elif 'error' in res['info']:
+            raise FlyBrainLabNAserverException(res['info']['error'])
         return res
 
     def loadTag(self, tagName):
@@ -1447,8 +1449,22 @@ class Client:
         # Returns
             bool: True.
         """
-        self.executeNAquery({"tag": tagName, "uri": "ffbo.na.retrieve_tag"})
-        return True
+        # self.executeNAquery({"tag": tagName, "uri": "ffbo.na.retrieve_tag"})
+        task = {"tag": tagName}
+        res = self.rpc('ffbo.na.retrieve_tag.{}'.format(self.naServerID), task)
+        if 'success' in res['info']:
+            self.log['Client'].info(res['info']['success'])
+        elif 'error' in res['info']:
+            raise FlyBrainLabNAserverException(res['info']['error'])
+        a = {}
+        a["data"] = res
+        a["messageType"] = "TagData"
+        a["widget"] = "NLP"
+
+        self.tryComms(a)
+        res = self.executeNAquery({"command": {"retrieve": {"state": 0}},
+                                   "loadtag": tagName})
+        return res
 
     def addByUname(self, uname, verb="add"):
         """Adds some neurons by the uname.
@@ -1638,13 +1654,10 @@ class Client:
         # Returns
             dict: NA information regarding the node.
         """
-        res = {"uri": "ffbo.na.get_data.", "id": dbid}
-        queryID = guidGenerator()
-        res = self.executeNAquery(
-            res, uri= "{}{}".format(res["uri"], self.naServerID), queryID=queryID, progressive=False
-        )
+        task = {"id": dbid, 'queryID': guidGenerator()}
+        res = self.rpc('ffbo.na.get_data.{}'.format(self.naServerID), task)
         a = {}
-        a["data"] = res
+        a["data"] = {"data": res, "messageType": "Data", "widget": "NLP"} # the extra message type seems to be needed to update info panel, why?
         a["messageType"] = "Data"
         a["widget"] = "INFO"
         self.tryComms(a)
@@ -1653,7 +1666,7 @@ class Client:
         if self.compiled == True:
             try:
                 a = {}
-                name = res["data"]["data"]["summary"]["name"]
+                name = res["data"]["summary"]["uname"]
                 if name in self.node_keys.keys():
                     data = self.C.G.node["uid" + str(self.node_keys[name])]
                     data["uid"] = str(self.node_keys[name])
@@ -1663,7 +1676,6 @@ class Client:
                     self.tryComms(a)
             except:
                 pass
-
         return res
 
     def GFXcall(self, args):
@@ -1676,9 +1688,9 @@ class Client:
             dict OR string: The call result.
         """
         if isinstance(args, str):
-            res = self.client.session.call(args)
+            res = self.rpc(args)
         else:
-            res = self.client.session.call(args[0], args[1:])
+            res = self.rpc(args[0], args[1:])
         if type(res) == dict:
             a = res
             a["widget"] = "GFX"
@@ -1765,7 +1777,7 @@ class Client:
         self.sendCircuitPrimitive(self.C, args={"name": circuitName})
         self.log['GFX'].info("Circuit sent. Queuing execution.")
         if len(inputProcessors) > 0:
-            res = self.client.session.call(
+            res = self.rpc(
                 "ffbo.gfx.startExecution",
                 {
                     "name": circuitName,
@@ -1775,7 +1787,7 @@ class Client:
                 },
             )
         else:
-            res = self.client.session.call(
+            res = self.rpc(
                 "ffbo.gfx.startExecution", {"name": circuitName, "dt": dt, "tmax": tmax}
             )
         return True
@@ -1832,13 +1844,13 @@ class Client:
 
         for i in range(len(hashids)):
             res = self.getInfo(hashids[i])
-            if "connectivity" in res["data"]["data"].keys():
-                presyn = res["data"]["data"]["connectivity"]["pre"]["details"]
+            if "connectivity" in res["data"].keys():
+                presyn = re["data"]["connectivity"]["pre"]["details"]
 
                 for syn in presyn:
                     synapses.append([syn["uname"], names[i], syn["number"]])
 
-                postsyn = res["data"]["data"]["connectivity"]["post"]["details"]
+                postsyn = res["data"]["connectivity"]["post"]["details"]
                 for syn in postsyn:
                     synapses.append([names[i], syn["uname"], syn["number"]])
                 clear_output()
@@ -2209,7 +2221,7 @@ class Client:
         """Deprecated function that locally saves a circuit file via the backend.
            Deprecated because of connectivity issues with large files.
         """
-        X = self.client.session.call(u"ffbo.gfx.getCircuit", X)
+        X = self.rpc(u"ffbo.gfx.getCircuit", X)
         X["data"] = binascii.unhexlify(X["data"].encode())
         if local == False:
             with open(
@@ -2225,7 +2237,7 @@ class Client:
         """Deprecated function that locally saves an experiment file via the backend.
            Deprecated because of connectivity issues with large files.
         """
-        X = self.client.session.call(u"ffbo.gfx.getExperiment", X)
+        X = self.rpc(u"ffbo.gfx.getExperiment", X)
         X["data"] = json.dumps(X["data"])
         if local == False:
             with open(os.path.join(_FBLDataPath, X["name"] + ".json"), "w") as file:
@@ -2249,7 +2261,7 @@ class Client:
         """Deprecated function that locally saves an SVG via the backend.
            Deprecated because of connectivity issues with large files.
         """
-        X = self.client.session.call(u"ffbo.gfx.getSVG", X)
+        X = self.rpc(u"ffbo.gfx.getSVG", X)
         X["data"] = binascii.unhexlify(X["data"].encode())
         # X['data'] = json.dumps(X['data'])
         if local == False:
@@ -2284,7 +2296,7 @@ class Client:
         with open(file, "r") as ifile:
             data = ifile.read()
         data = json.dumps({"name": name, "svg": data})
-        self.client.session.call("ffbo.gfx.sendSVG", data)
+        self.rpc("ffbo.gfx.sendSVG", data)
 
     def loadSVG(self, name):
         """Loads an SVG in the FBL fileserver.
@@ -2332,8 +2344,8 @@ class Client:
         self.executionSuccessful = False
         a = self.experimentQueue.pop(0)
         # self.parseSimResults()
-        res = self.client.session.call("ffbo.gfx.sendExperiment", a)
-        res = self.client.session.call("ffbo.gfx.startExecution", {"name": circuitName})
+        res = self.rpc("ffbo.gfx.sendExperiment", a)
+        res = self.rpc("ffbo.gfx.startExecution", {"name": circuitName})
 
         return True
 
@@ -2786,12 +2798,12 @@ class Client:
                 "server": self.naServerID,
             },
         ]
-        res = self.client.session.call(
+        res = self.rpc(
             "ffbo.processor.neuroarch_query", list_of_queries[0]
         )
         print("Pruning ", removed_neurons)
         print("Pruning ", removed_labels)
-        res = self.client.session.call(
+        res = self.rpc(
             "ffbo.processor.neuroarch_query",
             list_of_queries[1],
             options=CallOptions(timeout=30000000000),
@@ -3000,7 +3012,7 @@ class Client:
             "server": self.naServerID,
         }
 
-        res = self.client.session.call("ffbo.processor.neuroarch_query", inp)
+        res = self.rpc("ffbo.processor.neuroarch_query", inp)
 
         inp = {
             "query": [{"action": {"method": {"has": {}}}, "object": {"state": 0}}],
@@ -3009,13 +3021,13 @@ class Client:
             "server": self.naServerID,
         }
 
-        res = self.client.session.call("ffbo.processor.neuroarch_query", inp)
+        res = self.rpc("ffbo.processor.neuroarch_query", inp)
         #print(res)
         """
-        res_info = self.client.session.call(u'ffbo.processor.server_information')
+        res_info = self.rpc(u'ffbo.processor.server_information')
         msg = {"user": self.client._async_session._session_id,
             "servers": {'na': self.naServerID, 'nk': list(res_info['nk'].keys())[0]}}
-        res = self.client.session.call(u'ffbo.na.query.' + msg['servers']['na'], {'user': msg['user'],
+        res = self.rpc(u'ffbo.na.query.' + msg['servers']['na'], {'user': msg['user'],
                                         'command': {"retrieve":{"state":0}},
                                         'format': "nk"}, options=CallOptions(
                                         timeout = 30000000000
@@ -3045,10 +3057,10 @@ class Client:
             retrieval_format=retrieval_format,
         )
         """
-        res_info = self.client.session.call(u'ffbo.processor.server_information')
+        res_info = self.rpc(u'ffbo.processor.server_information')
         msg = {"user": self.client._async_session._session_id,
             "servers": {'na': self.naServerID, 'nk': list(res_info['nk'].keys())[0]}}
-        res = self.client.session.call(u'ffbo.na.query.' + msg['servers']['na'], {'user': msg['user'],
+        res = self.rpc(u'ffbo.na.query.' + msg['servers']['na'], {'user': msg['user'],
                                 'command': {"retrieve":{"state":0}},
                                 'format': "nk"})
         """
@@ -3091,7 +3103,7 @@ class Client:
         #             if 'port' not in label and 'synapse' not in label:
         #                 labels.append(label)
 
-        res = self.client.session.call(u'ffbo.processor.server_information')
+        res = self.rpc(u'ffbo.processor.server_information')
         if len(res['nk']) == 0:
             raise RuntimeError('Neurokernel Server not found. If it halts, please restart it.')
         # TODO: randomly choose from the nk servers that are not busy. If all are busy, randomly choose one.
@@ -3109,14 +3121,14 @@ class Client:
         if steps is not None:
             msg["steps"] = steps
 
-        print(res)
+        self.log['NK'].debug('server_info: {}'.format(res))
         res = []
 
         def on_progress(x, res):
             res.append(x)
 
         res_list = []
-        res = self.client.session.call(
+        res = self.rpc(
             "ffbo.processor.nk_execute",
             msg,
             options=CallOptions(
@@ -3317,9 +3329,9 @@ class Client:
 
     def select_DataSource(self, name, version):
         uri = "ffbo.na.datasource.{}".format(self.naServerID)
-        res = self.client.session.call(
+        res = self.rpc(
                 uri,
-                name, version
+                name, version,
                 options=CallOptions(timeout=10000) )
         if 'error' in res:
             raise Error(res['error']['message'] + res['error']['exception'])
@@ -3336,7 +3348,7 @@ class Client:
                    arborization = None,
                    neurotransmitters = None):
         uri = "ffbo.na.add_neuron.{}".format(self.naServerID)
-        res = self.client.session.call(
+        res = self.rpc(
                 uri,
                 uname, name, referenceId = referenceId, locality = locality,
                 synonyms = None,
