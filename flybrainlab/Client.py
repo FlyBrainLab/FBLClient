@@ -492,6 +492,7 @@ class Client:
             nb.Circuit()
         )  # The Neuroballd Circuit object describing the loaded neural circuit
         self.neuron_data = {}
+        self.active_data = []
         self.dataPath = _FBLDataPath
         extra = {"auth": authentication}
         self.lmsg = 0
@@ -577,6 +578,17 @@ class Client:
                 self.raise_error(e, 'There was an error in trying to find servers. Check your server configuration or contact the backend administrator.')
                 print(e)
                 self.connected = False
+            if len(self.active_data)>0:
+                self.active_data = [i for i in self.active_data if '#' in i]
+                self.executeNAquery({'query': [{'action': {'method': {'query': {} }},
+                                                'object': {'rid': self.active_data }
+                                            },
+                                                {'action': {'method': {'gen_traversal_in': {'pass_through': ['HasData'], 'min_depth': 1} }},
+                                                'object': {'memory': 0 }
+                                            },
+                                            ],
+                                    'user': 'test',
+                                    'format': 'no_result'})
         except Exception as e:
             self.raise_error(e, 'Failed to connect to the server. Check your server configuration or contact the backend administrator. Alternatively, use the client.reconnect function.')
             print(e)
@@ -667,6 +679,13 @@ class Client:
             a["data"] = data
             a["messageType"] = "Command"
             a["widget"] = "NLP"
+
+            if "commands" in data:
+                if "remove" in data["commands"]:
+                    to_remove = data["commands"]['remove'][0]
+                    for i in to_remove:
+                        if i in self.active_data:
+                            self.active_data.remove(i)
             #self.data.append(a)
             if self.log_level in ['debug']:
                 print(printHeader("FBL Client NLP") + "Received a command.")
@@ -795,85 +814,91 @@ class Client:
                 self.clientData.append("Received Data")
             a = {}
             data = convert_from_bytes(data)
-            if self.legacy == True:
-                a["data"] = {"data": data, "queryID": guidGenerator()}
-            else:
-                a["data"] = data
-            try:
-                if 'data' in data:
-                    self.neuron_data.update(data['data'])
-                    for i in data['data'].keys():
-                        if 'MorphologyData' in data['data'][i]:
-                            data['data'][i].update(data['data'][i]['MorphologyData'])
-            except Exception as e:
-                self.raise_error(e, 'A potential error was detected during data parsing.')
-                print(e)
-            a["messageType"] = "Data"
-            a["widget"] = "NLP"
-            if self.addToRemove == True:
-                if "data" in data:
-                    keys = list(data["data"].keys())
-                    data["commands"] = {"remove": [keys, []]}
-                    del data["data"]
+            if isinstance(data['data'],dict):
+                if self.legacy == True:
+                    a["data"] = {"data": data, "queryID": guidGenerator()}
+                else:
                     a["data"] = data
-                    a["messageType"] = "Command"
-            # Change scales
-            try:
+                try:
+                    if 'data' in data:
+                        if isinstance(data['data'],dict):
+                            for i in data['data'].keys():
+                                if 'MorphologyData' in data['data'][i]:
+                                    data['data'][i].update(data['data'][i]['MorphologyData'])
+                except Exception as e:
+                    self.raise_error(e, 'A potential error was detected during data parsing.')
+                    print(e)
+                if isinstance(data['data'],dict):
+                    self.neuron_data.update(data['data'])
+                    self.active_data = list(set(self.active_data + list(data['data'].keys())))
+                else:
+                    print(data)
+                a["messageType"] = "Data"
+                a["widget"] = "NLP"
+                if self.addToRemove == True:
+                    if "data" in data:
+                        keys = list(data["data"].keys())
+                        data["commands"] = {"remove": [keys, []]}
+                        del data["data"]
+                        a["data"] = data
+                        a["messageType"] = "Command"
+                # Change scales
+                try:
+                    if a["messageType"] == "Data":
+                        if "data" in a["data"]:
+                            for i in a["data"]["data"].keys():
+                                if "name" in a["data"]["data"][i]:
+                                    a["data"]["data"][i]["x"] = [
+                                        i * self.x_scale + self.x_shift
+                                        for i in a["data"]["data"][i]["x"]
+                                    ]
+                                    a["data"]["data"][i]["y"] = [
+                                        i * self.y_scale + self.y_shift
+                                        for i in a["data"]["data"][i]["y"]
+                                    ]
+                                    a["data"]["data"][i]["z"] = [
+                                        i * self.z_scale + self.z_shift
+                                        for i in a["data"]["data"][i]["z"]
+                                    ]
+                                    a["data"]["data"][i]["r"] = [
+                                        i * self.r_scale + self.r_shift
+                                        for i in a["data"]["data"][i]["r"]
+                                    ]
+                except Exception as e:
+                    self.raise_error(e, 'There was an error when scaling data.')
+                    self.errors.append(e)
+                self.data.append(a)
+                displayDict = {
+                    "totalLength": "Total Length (µm)",
+                    "totalSurfaceArea": "Total Surface Area (µm<sup>2</sup>)",
+                    "totalVolume": "Total Volume (µm<sup>3</sup>)",
+                    "maximumEuclideanDistance": "Maximum Euclidean Distance (µm)",
+                    "width": "Width (µm)",
+                    "height": "Height (µm)",
+                    "depth": "Depth (µm)",
+                    "maxPathDistance": "Max Path Distance (µm)",
+                    "averageDiameter": "Average Diameter (µm)",
+                }
                 if a["messageType"] == "Data":
                     if "data" in a["data"]:
-                        for i in a["data"]["data"].keys():
-                            if "name" in a["data"]["data"][i]:
-                                a["data"]["data"][i]["x"] = [
-                                    i * self.x_scale + self.x_shift
-                                    for i in a["data"]["data"][i]["x"]
-                                ]
-                                a["data"]["data"][i]["y"] = [
-                                    i * self.y_scale + self.y_shift
-                                    for i in a["data"]["data"][i]["y"]
-                                ]
-                                a["data"]["data"][i]["z"] = [
-                                    i * self.z_scale + self.z_shift
-                                    for i in a["data"]["data"][i]["z"]
-                                ]
-                                a["data"]["data"][i]["r"] = [
-                                    i * self.r_scale + self.r_shift
-                                    for i in a["data"]["data"][i]["r"]
-                                ]
-            except Exception as e:
-                self.raise_error(e, 'There was an error when scaling data.')
-                self.errors.append(e)
-            self.data.append(a)
-            displayDict = {
-                "totalLength": "Total Length (µm)",
-                "totalSurfaceArea": "Total Surface Area (µm<sup>2</sup>)",
-                "totalVolume": "Total Volume (µm<sup>3</sup>)",
-                "maximumEuclideanDistance": "Maximum Euclidean Distance (µm)",
-                "width": "Width (µm)",
-                "height": "Height (µm)",
-                "depth": "Depth (µm)",
-                "maxPathDistance": "Max Path Distance (µm)",
-                "averageDiameter": "Average Diameter (µm)",
-            }
-            if a["messageType"] == "Data":
-                if "data" in a["data"]:
-                    try:
-                        for i in a["data"]["data"].keys():
-                            if "name" in a["data"]["data"][i]:
-                                self.uname_to_rid[a["data"]["data"][i]["name"]] = i
-                                self.neuronStats[a["data"]["data"][i]["name"]] = {}
-                                for displayKey in displayDict.keys():
-                                    try:
-                                        self.neuronStats[a["data"]["data"][i]["name"]][
-                                            displayKey
-                                        ] = a["data"]["data"][i][displayKey]
-                                    except:
-                                        pass
-                    except:
-                        print(a["data"]["data"])
-            if self.log_level in ['debug']:
-                print(printHeader("FBL Client NLP") + "Received data.")
-            self.tryComms(a)
-            return True
+                        try:
+                            for i in a["data"]["data"].keys():
+                                if "name" in a["data"]["data"][i]:
+                                    self.uname_to_rid[a["data"]["data"][i]["uname"]] = i
+                                    self.neuronStats[a["data"]["data"][i]["uname"]] = {}
+                                    for displayKey in displayDict.keys():
+                                        try:
+                                            self.neuronStats[a["data"]["data"][i]["uname"]][
+                                                displayKey
+                                            ] = a["data"]["data"][i][displayKey]
+                                        except:
+                                            pass
+                        except:
+                            print(a["data"]["data"])
+                if self.log_level>1:
+                    print(printHeader("FBL Client NLP") + "Received data.")
+                self.tryComms(a)
+                return True
 
         print(
             printHeader("FBL Client")
@@ -1219,6 +1244,8 @@ class Client:
             try:
                 resNA = self.client.session.call(uri, query, language)
                 # Send the parsed query to the fronedned to be displayed if need be
+                if resNA == {}:
+                    self.raise_error('Interpretation Error','The query could not be interpreted. Look at the server to check for potential errors.')
                 a = {}
                 a["data"] = resNA
                 a["messageType"] = "ParsedQuery"
@@ -1241,7 +1268,8 @@ class Client:
                     res = self.executeNAquery(
                         resNA, queryID=queryID, threshold=self.query_threshold
                     )
-                    self.sendNeuropils()
+                    if 'show ' in query or 'add ' in query or 'remove ' in query:
+                        self.sendNeuropils()
                     """
                     a = {}
                     a['data'] = {'info': {'success': 'Finished fetching results from database'}}
@@ -1312,6 +1340,29 @@ class Client:
             queryID = guidGenerator()
         # del self.data # Reset the data in the backend
         # self.data = []
+
+        """
+        if 'verb' in res:
+            if res['verb'] == 'remove':
+                self.data.append(res)
+                if 'query' in res:
+                    try:
+                        rids = res['query'][0]['action']['method']['query']['rid']
+                        for i in rids:
+                            if i in self.active_data:
+                                self.active_data.remove(i)
+                    except Exception as e:
+                        pass
+                    try:
+                        unames = res['query'][0]['action']['method']['query']['uname']
+                        for i in unames:
+                            if i in self.uname_to_rid:
+                                rid = self.uname_to_rid[i]
+                                if rid in self.active_data:
+                                    self.active_data.remove(rid)
+                    except Exception as e:
+                        pass
+        """
 
         res["queryID"] = queryID
         res["threshold"] = threshold
