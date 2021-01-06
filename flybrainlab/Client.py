@@ -321,7 +321,7 @@ class Client:
         custom_config = None,
         widgets = [],
         dataset = 'default',
-        log_level = 1
+        log_level = 'info'
     ):
         """Initialization function for the FBL Client class.
 
@@ -346,7 +346,7 @@ class Client:
             custom_config (str): A .ini file name to use to initiate a custom connection. Defaults to None. Used if provided.
             widgets (list): List of widgets associated with this client. Optional.
             dataset (str): Name of the dataset to use. Not used right now, but included for future compatibility.
-            log_level (int): Level of logging to output. 2 outputs everything, 1 outputs only the most important messages, 0 outputs nothing.
+            log_level (str): 'info', 'debug', 'none'. Defaults to 'info'
         """
         self.name = name
         self.species = species
@@ -667,8 +667,8 @@ class Client:
             a["data"] = data
             a["messageType"] = "Command"
             a["widget"] = "NLP"
-            self.data.append(a)
-            if self.log_level>1:
+            #self.data.append(a)
+            if self.log_level in ['debug']:
                 print(printHeader("FBL Client NLP") + "Received a command.")
             to_send = True
             if self.enableResets == False:
@@ -699,7 +699,7 @@ class Client:
             self.clientData.append("Received GFX Data")
             data = convert_from_bytes(data)
             self.data.append(data)
-            if self.log_level>1:
+            if self.log_level in ['debug']:
                 print(printHeader("FBL Client GFX") + "Received a message for GFX.")
             if self.sendDataToGFX == True:
                 self.tryComms(data)
@@ -791,7 +791,7 @@ class Client:
             # Returns
                 bool: Whether the process has been successful.
             """
-            if self.log_level>1:
+            if self.log_level in ['debug']:
                 self.clientData.append("Received Data")
             a = {}
             data = convert_from_bytes(data)
@@ -870,7 +870,7 @@ class Client:
                                         pass
                     except:
                         print(a["data"]["data"])
-            if self.log_level>1:
+            if self.log_level in ['debug']:
                 print(printHeader("FBL Client NLP") + "Received data.")
             self.tryComms(a)
             return True
@@ -892,7 +892,7 @@ class Client:
             # Returns
                 bool: Whether the process has been successful.
             """
-            if self.log_level>1:
+            if self.log_level in ['debug']:
                 self.clientData.append("Received Data")
             a = {}
             data = convert_from_bytes(data)
@@ -941,7 +941,7 @@ class Client:
                 # Returns
                     bool: Whether the process has been successful.
                 """
-                if self.log_level>1:
+                if self.log_level in ['debug']:
                     self.clientData.append('Received Data')
                 if self.current_exec_result is None:
                     try:
@@ -1013,9 +1013,20 @@ class Client:
             a["data"] = data
             a["messageType"] = "Message"
             a["widget"] = "NLP"
-            self.data.append(a)
-            if self.log_level>1:
-                print(printHeader("FBL Client NLP") + "Received a message.")
+            #self.data.append(a)
+
+            if self.log_level in ['debug']:
+                message_type = list(data.keys())[0]
+                status = data[message_type]
+                if 'success' in status:
+                    message = status['success']
+                    print(printHeader("FBL Client") + "Received a {message_type} message: {message}".format(message_type = message_type, message = message))
+                elif 'error' in status:
+                    message = status['error']
+                    print(printHeader("FBL Client") + "Received an Error message: {message}".format(message = message))
+                else:
+                    message = list(status.values())[0]
+                    print(printHeader("FBL Client") + "Received a {message_type} message: {message}".format(message_type = message_type, message = message))
             self.tryComms(a)
             return True
 
@@ -1219,7 +1230,7 @@ class Client:
                 a["widget"] = "NLP"
                 self.tryComms(a)
                 return a
-            if self.log_level>0:
+            if self.log_level != 'none':
                 print(printHeader("FBL Client NLP") + "NLP successfully parsed query.")
 
             if returnNAOutput == True:
@@ -1287,9 +1298,9 @@ class Client:
             bool: Whether the process has been successful.
         """
 
-        def on_progress(x, res):
-            x = convert_from_bytes(x)
-            res.append(x)
+        # def on_progress(x, res):
+        #     x = convert_from_bytes(x)
+        #     res.append(x)
 
         if isinstance(res, str):
             res = json.loads(res)
@@ -1339,7 +1350,7 @@ class Client:
                     self.raise_error(e, 'There was an error during the reconnection attempt. Check the server.')
                     print(e)
         res = convert_from_bytes(res)
-        
+
         try:
             if 'data' in res:
                 self.neuron_data.update(res['data'])
@@ -1361,7 +1372,7 @@ class Client:
             self.executeNAquery({"command": {"retrieve": {"state": 0}}})
         if progressive == True:
             self.tryComms(a)
-            self.data.append(a)
+            #self.data.append(a)
             return self.data
         else:
             self.tryComms(a)
@@ -1533,7 +1544,7 @@ class Client:
         """
         a = {}
         a["data"] = self.getNeuropils()
-        if self.log_level>1:
+        if self.log_level in ['debug']:
             print('Available Neuropils:', a["data"])
         a["messageType"] = "updateActiveNeuropils"
         a["widget"] = "GFX"
