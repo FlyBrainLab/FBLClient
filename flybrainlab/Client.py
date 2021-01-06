@@ -274,6 +274,18 @@ class MetaComm:
             self.manager.widget_manager.widgets[widget_name].comm.send(data=data)
 
 
+morphometric_displayDict = {
+    "totalLength": "Total Length (µm)",
+    "totalSurfaceArea": "Total Surface Area (µm^2)",
+    "totalVolume": "Total Volume (µm^3)",
+    "maximumEuclideanDistance": "Maximum Euclidean Distance (µm)",
+    "width": "Width (µm)",
+    "height": "Height (µm)",
+    "depth": "Depth (µm)",
+    "maxPathDistance": "Max Path Distance (µm)",
+    "averageDiameter": "Average Diameter (µm)",
+}
+
 class Client:
     """FlyBrainLab Client class. This class communicates with JupyterLab frontend and connects to FFBO components.
 
@@ -879,17 +891,7 @@ class Client:
                     self.raise_error(e, 'There was an error when scaling data.')
                     self.errors.append(e)
                 self.data.append(a)
-                displayDict = {
-                    "totalLength": "Total Length (µm)",
-                    "totalSurfaceArea": "Total Surface Area (µm<sup>2</sup>)",
-                    "totalVolume": "Total Volume (µm<sup>3</sup>)",
-                    "maximumEuclideanDistance": "Maximum Euclidean Distance (µm)",
-                    "width": "Width (µm)",
-                    "height": "Height (µm)",
-                    "depth": "Depth (µm)",
-                    "maxPathDistance": "Max Path Distance (µm)",
-                    "averageDiameter": "Average Diameter (µm)",
-                }
+
                 if a["messageType"] == "Data":
                     if "data" in a["data"]:
                         try:
@@ -897,7 +899,7 @@ class Client:
                                 if "name" in a["data"]["data"][i]:
                                     self.uname_to_rid[a["data"]["data"][i]["uname"]] = i
                                     self.neuronStats[a["data"]["data"][i]["uname"]] = {}
-                                    for displayKey in displayDict.keys():
+                                    for displayKey in morphometric_displayDict.keys():
                                         try:
                                             self.neuronStats[a["data"]["data"][i]["uname"]][
                                                 displayKey
@@ -906,8 +908,7 @@ class Client:
                                             pass
                         except:
                             print(a["data"]["data"])
-                if self.log_level>1:
-                    print(printHeader("FBL Client NLP") + "Received data.")
+                self.log['NLP'].debug("Received data.")
                 self.tryComms(a)
                 return True
 
@@ -1544,22 +1545,11 @@ class Client:
         # Arguments
             neuron_name (str): Name of the neuron to print the data for. The neuron must have been queried beforehand.
         """
-        displayDict = {
-            "totalLength": "Total Length (µm)",
-            "totalSurfaceArea": "Total Surface Area (µm^2)",
-            "totalVolume": "Total Volume (µm^3)",
-            "maximumEuclideanDistance": "Maximum Euclidean Distance (µm)",
-            "width": "Width (µm)",
-            "height": "Height (µm)",
-            "depth": "Depth (µm)",
-            "maxPathDistance": "Max Path Distance (µm)",
-            "averageDiameter": "Average Diameter (µm)",
-        }
         if neuron_name in self.neuronStats.keys():
             print("Statistics for " + neuron_name + ":")
             print("-----------")
-            for i in displayDict.keys():
-                print(displayDict[i] + ":", self.neuronStats[neuron_name][i])
+            for i in morphometric_displayDict.keys():
+                print(morphometric_displayDict[i] + ":", self.neuronStats[neuron_name][i])
         else:
             print("No statistics found for " + str(neuron_name) + ".")
         return None
