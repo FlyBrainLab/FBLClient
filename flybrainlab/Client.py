@@ -65,6 +65,7 @@ msgpack_numpy.patch()
 
 import neuroballad as nb
 from .utils import setProtocolOptions
+from .exceptions import *
 
 
 # Create the home directory
