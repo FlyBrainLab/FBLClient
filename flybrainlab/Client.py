@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import logging
 import importlib.util
 
 # Install all necessary packages
@@ -84,6 +85,8 @@ if not os.path.exists(os.path.join(home, ".ffbo", "lib")):
 # Generate the data path to be used for imports
 _FBLDataPath = os.path.join(home, ".ffbo", "data")
 _FBLConfigPath = os.path.join(home, ".ffbo", "config", "ffbo.flybrainlab.ini")
+
+logging.basicConfig(format = '[%(name)s %(asctime)s] %(message)s')
 
 def convert_from_bytes(data):
     """Attempt to decode data from bytes; useful for certain data types retrieved from servers.
@@ -347,19 +350,24 @@ class Client:
             custom_config (str): A .ini file name to use to initiate a custom connection. Defaults to None. Used if provided.
             widgets (list): List of widgets associated with this client. Optional.
             dataset (str): Name of the dataset to use. Not used right now, but included for future compatibility.
-            log_level (str): 'info', 'debug', 'none'. Defaults to 'info'
+            log_level (str): Log level, can be any of the standard Python logging.logger levels: CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET. (see also https://docs.python.org/3/library/logging.html#logging-levels)
         """
+        self.log_level = log_level.upper()
+        self.log = {'Client': logging.getLogger('FBL Client'),
+                    'NA': logging.getLogger('FBL NA'),
+                    'NLP': logging.getLogger('FBL NLP'),
+                    'GFX': logging.getLogger('FBL GFX'),
+                    'NK': logging.getLogger('FBL NK'),
+                    'Master': logging.getLogger('FBL Master')}
+        self.set_log_level(log_level.upper(), logger_names = None)
         self.name = name
         self.species = species
         self.url = url
         self.widgets = widgets
-        self.log_level = log_level
         if FBLcomm is None and FFBOLabcomm is not None:
             FBLcomm = FFBOLabcomm
         if os.path.exists(os.path.join(home, ".ffbo", "lib")):
-            print(
-                printHeader("FBL Client") + "Downloading the latest certificates."
-            )
+            self.log['Client'].debug("Downloading the latest certificates.")
             # CertificateDownloader = urllib.URLopener()
             if not os.path.exists(
                 os.path.join(home, ".ffbo", "config", "FBLClient.ini")
@@ -568,6 +576,24 @@ class Client:
             self.findServerIDs(dataset)  # Get current server IDs
             self.connected = True
 
+    def set_log_level(self, level, logger_names = None):
+        """
+        Set the log level of the Client instance.
+
+        # Arguments
+            level (str):  Log level, can be any of the standard Python logging.logger levels: CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET. (see also https://docs.python.org/3/library/logging.html#logging-levels)
+
+            logger_names (list): the names of the logger in a list. Defaults to None and will set level for all logs.
+        """
+        if logger_names is None:
+            logger_names = list(self.log.keys())
+        for log in logger_names:
+            try:
+                self.log[log].setLevel(level.upper())
+            except KeyError:
+                Warning('log {} does not exist - level not set'.format(log))
+                pass
+
     def reconnect(self):
         try:
             self.init_client( self.ssl,  self.user,  self.secret,  self.custom_salt,  self.url,  self.ssl_con,  self.legacy)
@@ -609,16 +635,16 @@ class Client:
             # Returns
                 str: The signature sent to the router for verification.
             """
-            print(printHeader("FBL Client") + "Initiating authentication.")
+            self.log['Client'].debug("Initiating authentication.")
             if challenge.method == u"wampcra":
-                print(printHeader('FBL Client') + "WAMP-CRA challenge received: {}".format(challenge))
-                print(challenge.extra['salt'])
+                self.log['Client'].debug("WAMP-CRA challenge received: {}".format(challenge))
+                self.log['Client'].debug(challenge.extra['salt'])
                 if custom_salt is not None:
                     salted_key = custom_salt
                 else:
                     if u'salt' in challenge.extra:
                         # Salted secret
-                        print(printHeader('FBL Client') + 'Deriving key...')
+                        self.log['Client'].debug('Deriving key...')
                         salted_key = auth.derive_key(secret,
                                               challenge.extra['salt'],
                                               challenge.extra['iterations'],
@@ -660,7 +686,7 @@ class Client:
             self.clientData.append(data)
             print("Updated the Servers")
 
-        print("Subscribed to topic 'ffbo.server.update'")
+        self.log['Client'].debug("Subscribed to topic 'ffbo.server.update'")
 
         @FBLClient.register(
             "ffbo.ui.receive_cmd." + str(FBLClient._async_session._session_id)
@@ -688,8 +714,7 @@ class Client:
                         if i in self.active_data:
                             self.active_data.remove(i)
             #self.data.append(a)
-            if self.log_level in ['debug']:
-                print(printHeader("FBL Client NLP") + "Received a command.")
+            self.log['NLP'].debug("Received a command.")
             to_send = True
             if self.enableResets == False:
                 if "commands" in data:
@@ -699,10 +724,7 @@ class Client:
                 self.tryComms(a)
             return True
 
-        print(
-            printHeader("FBL Client")
-            + "Procedure ffbo.ui.receive_cmd Registered..."
-        )
+        self.log['Client'].debug("Procedure ffbo.ui.receive_cmd Registered...")
 
         @FBLClient.register(
             "ffbo.ui.receive_gfx." + str(FBLClient._async_session._session_id)
@@ -719,41 +741,29 @@ class Client:
             self.clientData.append("Received GFX Data")
             data = convert_from_bytes(data)
             self.data.append(data)
-            if self.log_level in ['debug']:
-                print(printHeader("FBL Client GFX") + "Received a message for GFX.")
+            self.log['GFX'].debug("Received a message for GFX.")
             if self.sendDataToGFX == True:
                 self.tryComms(data)
             else:
                 if "messageType" in data.keys():
                     if data["messageType"] == "showServerMessage":
-                        print(
-                            printHeader("FBL Client GFX")
-                            + "Execution successful for GFX."
-                        )
+                        self.log['GFX'].info("Execution successful for GFX.")
                         if len(self.experimentQueue) > 0:
-                            print(
-                                printHeader("FBL Client GFX")
-                                + "Next execution now underway. Remaining simulations: "
-                                + str(len(self.experimentQueue))
-                            )
+                            self.log['GFX'].info(
+                                "Next execution now underway. Remaining simulations: "
+                                + str(len(self.experimentQueue)))
                             a = self.experimentQueue.pop(0)
-                            res = self.client.session.call("ffbo.gfx.sendExperiment", a)
-                            res = self.client.session.call(
+                            res = self.rpc("ffbo.gfx.sendExperiment", a)
+                            res = self.rpc(
                                 "ffbo.gfx.startExecution", {"name": a["name"]}
                             )
                         else:
                             self.executionSuccessful = True
                             self.parseSimResults()
-                            print(
-                                printHeader("FBL Client GFX")
-                                + "GFX results successfully parsed."
-                            )
+                            self.log['GFX'].info("GFX results successfully parsed.")
             return True
 
-        print(
-            printHeader("FBL Client")
-            + "Procedure ffbo.ui.receive_gfx Registered..."
-        )
+        self.log['Client'].debug("Procedure ffbo.ui.receive_gfx Registered...")
 
         @FBLClient.register(
             "ffbo.ui.get_circuit." + str(FBLClient._async_session._session_id)
@@ -773,7 +783,7 @@ class Client:
                 file.write(G)
             return True
 
-        print("Procedure ffbo.ui.get_circuit Registered...")
+        self.log['Client'].debug("Procedure ffbo.ui.get_circuit Registered...")
 
         @FBLClient.register(
             "ffbo.ui.get_experiment" + str(FBLClient._async_session._session_id)
@@ -787,17 +797,17 @@ class Client:
             # Returns
                 bool: Whether the process has been successful.
             """
-            print(printHeader("FBL Client GFX") + "get_experiment called.")
+            self.log['GFX'].debug("get_experiment called.")
             name = X["name"]
             data = json.dumps(X["experiment"])
             with open(os.path.join(_FBLDataPath, name + ".json"), "w") as file:
                 file.write(data)
             output = {}
             output["success"] = True
-            print(printHeader("FBL Client GFX") + "Experiment save successful.")
+            self.log['GFX'].info("Experiment save successful.")
             return True
 
-        print("Procedure ffbo.ui.get_experiment Registered...")
+        self.log['Client'].debug("Procedure ffbo.ui.get_experiment Registered...")
 
         @FBLClient.register(
             "ffbo.ui.receive_data." + str(FBLClient._async_session._session_id)
@@ -901,10 +911,7 @@ class Client:
                 self.tryComms(a)
                 return True
 
-        print(
-            printHeader("FBL Client")
-            + "Procedure ffbo.ui.receive_data Registered..."
-        )
+        self.log['Client'].debug("Procedure ffbo.ui.receive_data Registered...")
 
         @FBLClient.register(
             "ffbo.ui.receive_partial." + str(FBLClient._async_session._session_id)
@@ -926,14 +933,11 @@ class Client:
             a["messageType"] = "Data"
             a["widget"] = "NLP"
             self.data.append(a)
-            print(printHeader("FBL Client NLP") + "Received partial data.")
+            self.log['NLP'].debug("Received partial data.")
             self.tryComms(a)
             return True
 
-        print(
-            printHeader("FBL Client")
-            + "Procedure ffbo.ui.receive_partial Registered..."
-        )
+        self.log['Client'].debug("Procedure ffbo.ui.receive_partial Registered...")
 
         if legacy == False:
             # @FBLClient.register('ffbo.gfx.receive_partial.' + str(FBLClient._async_session._session_id))
@@ -977,7 +981,7 @@ class Client:
                     else:
                         self.current_exec_result = temp['execution_result_start']
                         self.exec_result[self.current_exec_result] = []
-                        print(printHeader('FBL Client NLP') + "Receiving Execution Result for {}.  Please wait .....".format(self.current_exec_result))
+                        self.log['GFX'].info("Receiving Execution Result for {}.  Please wait .....".format(self.current_exec_result))
                 else:
                     try:
                         temp = msgpack.unpackb(data)
@@ -1010,16 +1014,13 @@ class Client:
                                                                        'dt': v['dt']} \
                                                                    for kk, v in value.items()}
                             self.exec_result[result_name] = formatted_result
-                            print(printHeader('FBL Client NLP') + "Received Execution Result for {}. Result stored in Client.exec_result['{}']".format(result_name, result_name))
+                            self.log['GFX'].info( "Received Execution Result for {}. Result stored in Client.exec_result['{}']".format(result_name, result_name))
                             # self.tryComms(a)
                         else:
                             self.exec_result[self.current_exec_result].append(data)
                 return True
 
-            print(
-                printHeader("FBL Client")
-                + "Procedure ffbo.gfx.receive_partial Registered..."
-            )
+            self.log['Client'].debug("Procedure ffbo.gfx.receive_partial Registered...")
 
         @FBLClient.register(
             "ffbo.ui.receive_msg." + str(FBLClient._async_session._session_id)
@@ -1142,17 +1143,13 @@ class Client:
                 break
         if len(server_dict['na']):
             if self.naServerID is None:
-                print(
-                    printHeader("FBL Client")
-                    + "Found working NeuroArch Server for dataset {}: ".format(dataset)
-                    + res["na"][server_dict['na'][0]]['name']
-                )
+                self.log['Client'].debug("Found working NeuroArch Server for dataset {}: ".format(dataset)
+                    + res["na"][server_dict['na'][0]]['name'])
                 self.naServerID = server_dict['na'][0]
             else:
                 if self.naServerID not in server_dict['na']:
-                    print(
-                        printHeader("FBL Client")
-                        + "Previous NeuroArch Server not found, switching NeuroArch Servre to: "
+                    self.log['Client'].warning(
+                        "Previous NeuroArch Server not found, switching NeuroArch Servre to: "
                         + res["na"][server_dict['na'][0]]['name']
                         + " Prior query states may not be accessible."
                     )
@@ -1164,9 +1161,8 @@ class Client:
             #     + "NA Server with {} dataset not found".format(dataset)
             # )
         if len(server_dict['nlp']):
-            print(
-                printHeader("FBL Client")
-                + "Found working NeuroNLP Server for dataset {}: ".format(dataset)
+            self.log['Client'].debug(
+                "Found working NeuroNLP Server for dataset {}: ".format(dataset)
                 + res["nlp"][server_dict['nlp'][0]]['name']
             )
             self.nlpServerID = server_dict['nlp'][0]
@@ -1178,6 +1174,7 @@ class Client:
             # )
 
         if len(res["nk"]) == 0:
+            self.log['Client'].warning("Neurokernel Server not found on the FFBO processor. Circuit execution on the server side is not supported.")
             Warning("Neurokernel Server not found on the FFBO processor. Circuit execution on the server side is not supported.")
 
 
@@ -1230,10 +1227,7 @@ class Client:
         if self.connected == False:
             return False
         if query is None:
-            print(
-                printHeader("FBL Client")
-                + 'No query specified. Executing test query "eb".'
-            )
+            self.log['Client'].warning('No query specified. Executing test query "eb".')
             query = "eb"
         self.JSCall(messageType="GFXquery", data=query)
         if query.startswith("load "):
@@ -1258,8 +1252,7 @@ class Client:
                 a["widget"] = "NLP"
                 self.tryComms(a)
                 return a
-            if self.log_level != 'none':
-                print(printHeader("FBL Client NLP") + "NLP successfully parsed query.")
+            self.log['NLP'].info("NLP successfully parsed query.")
 
             if returnNAOutput == True:
                 return resNA
@@ -1299,7 +1292,7 @@ class Client:
                 def on_progress(x, res):
                     res.append({'data': x, 'queryID': guidGenerator()})
                 res_list = []
-                resNA = self.client.session.call('ffbo.processor.nlp_to_visualise', msg, options=CallOptions(
+                resNA = self.rpc('ffbo.processor.nlp_to_visualise', msg, options=CallOptions(
                                                     on_progress=partial(on_progress, res=res_list), timeout = 20))
                 if returnNAOutput == True:
                     return resNA
@@ -1596,8 +1589,7 @@ class Client:
         """
         a = {}
         a["data"] = self.getNeuropils()
-        if self.log_level in ['debug']:
-            print('Available Neuropils:', a["data"])
+        self.log['Client'].debug('Available Neuropils: {}'.format(a["data"]))
         a["messageType"] = "updateActiveNeuropils"
         a["widget"] = "GFX"
         self.tryComms(a)
@@ -1714,7 +1706,7 @@ class Client:
         a["messageType"] = "PlotResults"
         a["widget"] = "Master"
         self.data.append(a)
-        print(printHeader("FBL Client Master") + "Sending simulation data.")
+        self.log['Master'].info("Sending simulation data.")
         self.tryComms(a)
         json_str = json.dumps(h5data)
         with open(filename.split(".")[0] + ".json", "w") as f:
@@ -1763,21 +1755,15 @@ class Client:
         # Returns
             bool: Whether the call was successful.
         """
-        print(
-            printHeader("FBL Client GFX")
-            + "Initiating remote execution for the current circuit."
-        )
+        self.log['GFX'].info("Initiating remote execution for the current circuit.")
         if self.compiled == False:
             compile = True
         if compile == True:
-            print(printHeader("FBL Client GFX") + "Compiling the current circuit.")
+            self.log['GFX'].info("Compiling the current circuit.")
             self.prepareCircuit()
-        print(
-            printHeader("FBL Client GFX")
-            + "Circuit prepared. Sending to FFBO servers."
-        )
+        self.log['GFX'].info("Circuit prepared. Sending to FFBO servers.")
         self.sendCircuitPrimitive(self.C, args={"name": circuitName})
-        print(printHeader("FBL Client GFX") + "Circuit sent. Queuing execution.")
+        self.log['GFX'].info("Circuit sent. Queuing execution.")
         if len(inputProcessors) > 0:
             res = self.client.session.call(
                 "ffbo.gfx.startExecution",
@@ -2165,9 +2151,9 @@ class Client:
         a["name"] = args["name"]
         a["experiment"] = self.experimentInputs
         a["graph"] = binascii.hexlify(data).decode()
-        res = self.client.session.call("ffbo.gfx.sendCircuit", a)
-        res = self.client.session.call("ffbo.gfx.sendExperiment", a)
-        # print(_FBLClient.client.session.call('ffbo.gfx.sendCircuit', a))
+        res = self.rpc("ffbo.gfx.sendCircuit", a)
+        res = self.rpc("ffbo.gfx.sendExperiment", a)
+        # print(_FBLClient.rpc('ffbo.gfx.sendCircuit', a))
 
     def alter(self, X):
         """Alters a set of models with specified Neuroballad models.
@@ -2333,7 +2319,7 @@ class Client:
             idx = self.C.add_cluster(1, model)[0]
             self.addInput(nb.InIStep(idx, float(stepAmplitude), 0.0, 1.0))
         self.sendCircuitPrimitive(self.C, args={"name": circuitName})
-        print(printHeader("FBL Client GFX") + "Circuit sent. Queuing execution.")
+        self.log['GFX'].debug("Circuit sent. Queuing execution.")
         # while self.executionSuccessful == False:
         #    sleep(1)
         # self.experimentInputs = []
@@ -3137,9 +3123,9 @@ class Client:
                 on_progress=partial(on_progress, res=res_list), timeout=30000000000
             ),
         )
-        print("Execution request sent. Please wait.")
+        self.log['NK'].info("Execution request sent. Please wait.")
         if 'success' in res:
-            print(res['success'])
+            self.log['NK'].info(res['success'])
         else:
             raise RuntimeError('Job not received for unknown reason.')
 
@@ -3338,7 +3324,7 @@ class Client:
         if 'error' in res:
             raise Error(res['error']['message'] + res['error']['exception'])
         elif 'success' in res:
-            print(res['success']['message'])
+            self.log['NA'].info(res['success']['message'])
 
     def add_neuron(self, uname,
                    name,
