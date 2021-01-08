@@ -1106,7 +1106,7 @@ class Client:
 
         if not res["processor"]["autobahn"].split('.')[0] == autobahn.__version__.split('.')[0]:
             error_msg = "Autobahn major version mismatch between your environment {} and the backend servers {}.\nPlease update your autobahn version to match with the processor version by running ``pip install --upgrade autobahn`` in your terminal.".format(autobahn.__version__, res["processor"]["autobahn"])
-            self.raise_error(FlyBrainLabBackendException(error_msg), error_msg)
+            self.raise_error(FlyBrainLabBackendException(error_msg), error_msg, no_raise = True)
 
         default_mode = False
 
