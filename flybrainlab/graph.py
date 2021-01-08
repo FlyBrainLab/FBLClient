@@ -190,7 +190,7 @@ class NAqueryResult(object):
             dict: A dict with OrientDB record IDs as keys with values the attributes of data.
         """
         if isinstance(cls, str):
-            cls = list(cls)
+            cls = [cls]
         assert isinstance(cls, list)
         return {rid: v for rid, v in self.graph.nodes(data=True) if v['class'] in cls}
 

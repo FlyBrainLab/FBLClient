@@ -1826,7 +1826,7 @@ class Client:
         print(data)
         return True
 
-    def getConnectivity(self, query_result = None):
+    def getConnectivity(self, query_result = None, synapse_threshold = 0):
         """Obtain the connectivity matrix of the current circuit in NetworkX format.
 
         # Returns
@@ -1835,7 +1835,7 @@ class Client:
         if query_result is None:
             task = {"format": "nx",
                     "query":[
-                             {"action":{"method":{"add_connecting_synapses":{}}},
+                             {"action":{"method":{"add_connecting_synapses":{"N": synapse_threshold}}},
                               "object":{"state": 0}}],
                     }
         else:
@@ -1844,7 +1844,7 @@ class Client:
                              {"action":{"method": {'query': {} }},
                               "object":{"rid": list(query_result.neurons.keys())}
                              },
-                             {"action":{"method": {"add_connecting_synapses":{}}},
+                             {"action":{"method": {"add_connecting_synapses":{"N": synapse_threshold}}},
                               "object":{"memory": 0}
                              },
                             ]
@@ -3384,7 +3384,7 @@ class Client:
                                 ] = updated_node_data[state]
         return res
 
-    def get_neuron_graph(self, query_result = None):
+    def get_neuron_graph(self, query_result = None, synapse_threshold = 0):
         """
         Get the graph between Neurons in a query,
         where Synapses between neurons are edges with weight equals to number of synapses.
@@ -3397,7 +3397,8 @@ class Client:
             graph.NeuronGraph: A graph representing the connectivity of the neurons.
 
         """
-        conn_result = self.getConnectivity(query_result = query_result)
+        conn_result = self.getConnectivity(query_result = query_result,
+                                           synapse_threshold = synapse_threshold)
         return fblgraph.NeuronGraph(conn_result)
 
     def get_neuron_adjacency_matrix(self, query_result = None, uname_order = None, rid_order = None):
@@ -3418,7 +3419,8 @@ class Client:
             networkx.MultiDiGraph: A graph representing the connectivity of the neurons.
 
         """
-        g = self.get_neuron_graph(query_result = query_result)
+        g = self.get_neuron_graph(query_result = query_result,
+                                  synapse_threshold = synapse_threshold)
         return g.adjacency_matrix(uname_order = uname_order, rid_order = rid_order)
 
     def select_DataSource(self, name, version):
