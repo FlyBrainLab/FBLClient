@@ -52,8 +52,7 @@ class NAqueryResult(object):
 
     def initialize(self):
         if self.format == 'no_result':
-            self.neurons = {}
-            self.synapses = {}
+            self.data = {}
             return
 
         self.morphology_to_send = set()
@@ -65,7 +64,7 @@ class NAqueryResult(object):
 
     def receive_data(self, data):
         if self.format == 'no_result':
-            self.data = None
+            self.data = {}
             return
 
         if self.format == 'morphology':
@@ -165,12 +164,14 @@ class NAqueryResult(object):
             G.add_edges_from(self.data['edges'])
             self.graph = G
 
+    @property
     def neurons(self):
         if self.graph is not None:
             return self.get('Neuron')
         else:
             return {rid: v for rid, v in self.data.items() if v['class'] == 'Neuron'}
 
+    @property
     def synapses(self):
         if self.graph is not None:
             return self.get(['Synapses', 'InferredSynapses'])
