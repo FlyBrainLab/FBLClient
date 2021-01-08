@@ -547,7 +547,7 @@ class Client:
         self.uname_to_rid = {}  # local map from unames to rid's
         self.legacy = legacy
         self.neuronStats = {}
-        self.query_threshold = 20
+        self.query_threshold = 'auto'
         self.naServerID = None
         self.experimentWatcher = None
         self.exec_result = {}
@@ -594,7 +594,7 @@ class Client:
 
     @property
     def neuron_data(self):
-        return self.NLP_result.data
+        return self.NLP_result.graph
 
     @property
     def active_data(self):
@@ -635,7 +635,7 @@ class Client:
             self.raise_error(e, 'There was an error in trying to find servers. Check your server configuration or contact the backend administrator.')
             # print(e)
 
-        if len(self.NLP_result.data)>0:
+        if len(self.NLP_result.graph)>0:
             self.executeNAquery({'query': [{'action': {'method': {'query': {} }},
                                             'object': {'rid': self.NLP_result.rids }
                                         },
@@ -1344,7 +1344,7 @@ class Client:
             """
 
     def executeNAquery(
-        self, task, language="en", uri=None, queryID=None, progressive=True, threshold=5, temp = False
+        self, task, language="en", uri=None, queryID=None, progressive=True, threshold='auto', temp = False
     ):
         """Execute an NA query.
 
@@ -1406,7 +1406,7 @@ class Client:
         task["queryID"] = queryID
         task["threshold"] = threshold
         task["data_callback_uri"] = "ffbo.ui.receive_data"
-        if(temp):
+        if temp:
             task['temp'] = True
         self.active_na_queries[queryID] = fblgraph.NAqueryResult(
             task, x_scale = self.x_scale, y_scale = self.y_scale,
@@ -1431,7 +1431,6 @@ class Client:
             self.active_na_queries.pop(queryID, None)
             try:
                 self.reconnect()
-                self.raise_message()
                 error_msg = 'A connection error occured during an NLP call. Successfully reconnected to server. Note that previous workspace state will be lost in the backend (for add or remove queries).'
                 self.raise_error(FlyBrainLabNAserverException(error_msg), error_msg)
             except Exception as e:
@@ -1445,7 +1444,6 @@ class Client:
             if e.error in [e.TIMEOUT, e.CANCELED]:
                 try:
                     self.reconnect()
-                    self.raise_message()
                     error_msg = 'A connection error occured during an NLP call. Successfully reconnected to server. Note that previous workspace state will be lost in the backend (for add or remove queries).'
                     self.raise_error(FlyBrainLabNAserverException(error_msg), error_msg)
                 except Exception as e:

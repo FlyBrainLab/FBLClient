@@ -26,11 +26,14 @@ class NAqueryResult(object):
     # Attributes:
         task (dict):
             storage for the input task
-        format (string): format of the NA query return.
-        queryID (string): ID of the NA query.
-        NLPquery (string): If the NA query is initiated by a NLP query,
-                           the original NLPquery.
-        command
+        format (string):
+            format of the NA query return.
+        queryID (string):
+            ID of the NA query.
+        NLPquery (string):
+            If the NA query is initiated by a NLP query, the original NLPquery.
+        graph (networkx.MultiDiGraph):
+            a graph representing the data retrieved from NA database.
     """
     def __init__(self, task, x_scale = 1.0, y_scale = 1.0, z_scale = 1.0,
                  r_scale = 1.0, x_shift = 0.0, y_shift = 0.0, z_shift = 0.0,
@@ -47,7 +50,7 @@ class NAqueryResult(object):
         self.y_shift = y_shift
         self.z_shift = z_shift
         self.r_shift = r_shift
-        self.graph = None
+        self.graph = nx.MultiDiGraph()
         # self.initialize()
 
     def initialize(self):
@@ -55,9 +58,8 @@ class NAqueryResult(object):
             self.data = {}
             return
 
-        self.morphology_to_send = set()
         if self.format == 'morphology':
-            self.data= {}
+            self.data= {'nodes': {}, 'edges': []}
         elif self.format == 'nx':
             self.data = {'nodes': {}, 'edges': []}
         self.locked = False
@@ -88,26 +90,27 @@ class NAqueryResult(object):
             self._finalize_morphology()
         elif self.format == 'nx':
             self._finalize_nx()
+        self.data = {}
 
     def send_morphology(self, Comm, threshold = None):
-        sent = set()
         data = {}
-        for rid in self.morphology_to_send:
-            node = self.data[rid].copy()
-            morphology_data = node.pop('MorphologyData')
-            node.update(morphology_data)
-            data[morphology_data['rid']] = node
-            sent.add(rid)
+        for rid, v in self.get('MorphologyData').items():
+            morphology_data = v.copy()
+            node = self.fromData(rid)
+            if node is not None:
+                morphology_data.update(self.graph.nodes[node])
+            data[rid] = morphology_data
 
         if threshold is None:
             threshold = self.task.get('threshold', 5)
+        if threshold == 'auto':
+            threshold = 20
         for c in chunks(data, threshold):
             a = {}
             a["messageType"] = "Data"
             a["widget"] = "NLP"
             a["data"] = {"data": c, "queryID": self.queryID}
             Comm(a)
-        self.morphology_to_send -= sent
 
     def _receive_data_from_morphology_query(self, data):
         # morphology graph will only return neurons/synapses and their morphology nodes as attribute.
@@ -119,24 +122,31 @@ class NAqueryResult(object):
 
         self.locked = True
         try:
-            for rid, v in data.items():
-                if 'MorphologyData' in v:
-                    self.morphology_to_send.add(rid)
-                    morphology_data = v['MorphologyData']
-                    if "x" in morphology_data:
-                        morphology_data["x"] = [x*self.x_scale+self.x_shift for x in morphology_data["x"]]
-                    if "y" in morphology_data:
-                        morphology_data["y"] = [y*self.y_scale+self.y_shift for y in morphology_data["y"]]
-                    if "z" in morphology_data:
-                        morphology_data["z"] = [z*self.z_scale+self.z_shift for z in morphology_data["z"]]
-                    if "r" in morphology_data:
-                        morphology_data["r"] = [r*self.r_scale+self.r_shift for r in morphology_data["r"]]
-
-            self.data.update(data)
+            self.data['nodes'].update(data['nodes'])
+            self.data['edges'].extend(data['edges'])
             self.locked = False
         except:
             self.locked = False
             raise
+        # try:
+        #     for rid, v in data.items():
+        #         if 'MorphologyData' in v:
+        #             self.morphology_to_send.add(rid)
+        #             morphology_data = v['MorphologyData']
+        #             if "x" in morphology_data:
+        #                 morphology_data["x"] = [x*self.x_scale+self.x_shift for x in morphology_data["x"]]
+        #             if "y" in morphology_data:
+        #                 morphology_data["y"] = [y*self.y_scale+self.y_shift for y in morphology_data["y"]]
+        #             if "z" in morphology_data:
+        #                 morphology_data["z"] = [z*self.z_scale+self.z_shift for z in morphology_data["z"]]
+        #             if "r" in morphology_data:
+        #                 morphology_data["r"] = [r*self.r_scale+self.r_shift for r in morphology_data["r"]]
+        #
+        #     self.data.update(data)
+        #     self.locked = False
+        # except:
+        #     self.locked = False
+        #     raise
 
     def _receive_data_from_nx_query(self, data):
         while self.locked:
@@ -155,28 +165,50 @@ class NAqueryResult(object):
         while self.locked:
             time.sleep(1)
 
+        G = self.graph
+        G.add_nodes_from(list(self.data['nodes'].items()))
+        G.add_edges_from(self.data['edges'])
+
+        for rid, morphology_data in self.get('MorphologyData').items():
+            if "x" in morphology_data:
+                morphology_data["x"] = [x*self.x_scale+self.x_shift for x in morphology_data["x"]]
+            if "y" in morphology_data:
+                morphology_data["y"] = [y*self.y_scale+self.y_shift for y in morphology_data["y"]]
+            if "z" in morphology_data:
+                morphology_data["z"] = [z*self.z_scale+self.z_shift for z in morphology_data["z"]]
+            if "r" in morphology_data:
+                morphology_data["r"] = [r*self.r_scale+self.r_shift for r in morphology_data["r"]]
+
+
     def _finalize_nx(self):
         while self.locked:
             time.sleep(1)
-        if self.format == 'nx':
-            G = nx.MultiDiGraph()
-            G.add_nodes_from(list(self.data['nodes'].items()))
-            G.add_edges_from(self.data['edges'])
-            self.graph = G
+
+        G = self.graph
+        G.add_nodes_from(list(self.data['nodes'].items()))
+        G.add_edges_from(self.data['edges'])
+
 
     @property
     def neurons(self):
-        if self.graph is not None:
-            return self.get('Neuron')
-        else:
-            return {rid: v for rid, v in self.data.items() if v['class'] == 'Neuron'}
+        return self.get('Neuron')
 
     @property
     def synapses(self):
-        if self.graph is not None:
-            return self.get(['Synapses', 'InferredSynapses'])
+        return self.get(['Synapse', 'InferredSynapse'])
+
+    def fromData(self, data_rid):
+        obj_rids = [rid for rid, _, v in self.graph.in_edges(data_rid, data=True) if v.get('class', None) == 'HasData']
+        if len(obj_rids) == 1:
+            return obj_rids[0]
+        elif len(obj_rids) == 0:
+            return None
         else:
-            return {rid: v for rid, v in self.data.items() if v['class'] in ['Synapses', 'InferredSynapse']}
+            raise ValueError('Data found to be owned by 2 nodes, should not possible.')
+
+    def getData(self, rid):
+        data_rids = [data_rid for _, data_rid, v in self.graph.out_edges(data_rid, data=True) if v.get('class', None) == 'HasData']
+        return data_rids
 
     def get(self, cls):
         """
@@ -207,10 +239,8 @@ class NeuroNLPResult(NAqueryResult):
     def __init__(self, enableResets = True):
         self.commands = []
         self.enableResets = enableResets
-        self.data = {}
-        self.morphology_to_send = set()
+        self.graph = nx.MultiDiGraph()
         self.uname_to_rid = {}
-        self.morphology_rid_to_uname_rid = {}
 
     def receive_cmd(self, data):
         if 'commands' in data:
@@ -230,26 +260,23 @@ class NeuroNLPResult(NAqueryResult):
             Comm(a)
             if 'remove' in command:
                 to_remove = command['remove'][0]
-                for m_rid in to_remove:
-                    try:
-                        self.data.pop(self.morphology_rid_to_uname_rid[m_rid])
-                    except KeyError:
-                        pass
+                objs_to_remove = list(set([self.fromData(m_rid) for m_rid in to_remove])-set([None]))
+                self.graph.remove_nodes_from(objs_to_remove+to_remove)
+                self._refresh_data_map()
             if 'reset' in command:
                 self.reset()
 
     def reset(self):
-        self.data = {}
+        self.graph.clear()
         self._refresh_data_map()
 
     def _refresh_data_map(self):
-        self.uname_to_rid = {v['uname']: rid for rid, v in self.data.items() if 'uname' in v}
-        self.morphology_rid_to_uname_rid = {v['MorphologyData']['rid']: rid \
-                                            for rid, v in self.data.items()}
+        self.uname_to_rid = {v['uname']: rid for rid, v in self.graph.nodes(data=True)
+                             if 'uname' in v and v.get('class', None) != 'MorphologyData'}
 
     def process_data(self, na_query_result, Comm):
         if na_query_result.format == 'morphology':
-            self.data.update(na_query_result.data)
+            self.graph.update(na_query_result.graph)
             self._refresh_data_map()
             na_query_result.send_morphology(Comm)
 
@@ -261,18 +288,31 @@ class NeuroNLPResult(NAqueryResult):
     def getStats(self, rid = None, neuron_name = None):
         pass
 
+
     @property
     def rids(self):
-        return list(self.data.keys())
+        return list(self.uname_to_rid.values())
 
     def __getitem__(self, key):
         if key.startswith('#'):
-            return self.data[key]
+            node = self.graph.nodes[key]
+            if node.get('class', None) == 'MorphologyData':
+                obj_node = self.graph.nodes[self.fromData(key)].copy()
+                data_node = node.copy()
+            else:
+                data_nodes = [self.graph.nodes[n].copy() for n in self.getData(key)]
+                obj_node = node.copy()
+            for i, data_node in enumerate(data_nodes):
+                obj_node[data_node.get('class', 'Data{}'.format(i))] = data_node
+            return obj_node
         else:
             rid = self.uname_to_rid.get(key, None)
             if rid is None:
                 raise KeyError('Node with uname {} is not in the NLP result'.format(key))
-            return self.data[rid]
+            data_node = self.graph.nodes[self.getData(rid)].copy()
+            obj_node = self.graph.nodes[rid].copy()
+            obj_node[data_node.get('class', 'Data')] = data_node
+            return obj_node
 
     def __setitem__(self, key, value):
         if key.startswith('#'):
@@ -281,7 +321,7 @@ class NeuroNLPResult(NAqueryResult):
             rid = self.uname_to_rid.get(key, None)
             if rid is None:
                 raise KeyError('Node with uname {} is not in the NLP result'.format(key))
-        self.data[rid] = value
+        self.graph.add_node(rid, value)
 
 
 class NeuronGraph(nx.DiGraph):
