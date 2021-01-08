@@ -14,3 +14,6 @@ class FlyBrainLabNAserverException(FlyBrainLabBackendException):
 
 class FlyBrainLabNLPserverException(FlyBrainLabBackendException):
     pass
+
+class FlyBrainLabNKserverException(FlyBrainLabBackendException):
+    pass

@@ -1,5 +1,8 @@
 
+from itertools import islice
+
 from autobahn.websocket.protocol import WebSocketProtocol
+
 
 def setProtocolOptions(transport,
                        version=None,
@@ -110,3 +113,9 @@ def setProtocolOptions(transport,
         assert(type(autoPingSize) == float or type(autoPingSize) == int)
         assert(4 <= autoPingSize <= 125)
         transport.autoPingSize = autoPingSize
+
+
+def chunks(data, SIZE=1000):
+    it = iter(data)
+    for i in range(0, len(data), SIZE):
+        yield {k:data[k] for k in islice(it, SIZE)}
