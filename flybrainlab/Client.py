@@ -1,7 +1,9 @@
 import os
 import sys
 import subprocess
+import logging
 import importlib.util
+import traceback
 
 # Install all necessary packages
 ## We attempt to resolve package installation errors during the import.
@@ -46,7 +48,7 @@ import networkx as nx
 import autobahn
 from autobahn.twisted.util import sleep
 from autobahn.twisted.wamp import ApplicationSession, ApplicationRunner
-from autobahn.wamp.exception import ApplicationError
+from autobahn.wamp.exception import ApplicationError, TransportLost
 from autobahn.wamp import auth
 from autobahn.websocket.protocol import WebSocketClientFactory
 from autobahn.wamp.types import RegisterOptions, CallOptions
@@ -65,6 +67,8 @@ msgpack_numpy.patch()
 
 import neuroballad as nb
 from .utils import setProtocolOptions
+from .exceptions import *
+from . import graph as fblgraph
 
 
 # Create the home directory
@@ -83,6 +87,9 @@ if not os.path.exists(os.path.join(home, ".ffbo", "lib")):
 # Generate the data path to be used for imports
 _FBLDataPath = os.path.join(home, ".ffbo", "data")
 _FBLConfigPath = os.path.join(home, ".ffbo", "config", "ffbo.flybrainlab.ini")
+
+logging.basicConfig(format = '[%(name)s %(asctime)s] %(message)s',
+                    stream = sys.stdout)
 
 def convert_from_bytes(data):
     """Attempt to decode data from bytes; useful for certain data types retrieved from servers.
@@ -270,6 +277,18 @@ class MetaComm:
             self.manager.widget_manager.widgets[widget_name].comm.send(data=data)
 
 
+morphometric_displayDict = {
+    "totalLength": "Total Length (µm)",
+    "totalSurfaceArea": "Total Surface Area (µm^2)",
+    "totalVolume": "Total Volume (µm^3)",
+    "maximumEuclideanDistance": "Maximum Euclidean Distance (µm)",
+    "width": "Width (µm)",
+    "height": "Height (µm)",
+    "depth": "Depth (µm)",
+    "maxPathDistance": "Max Path Distance (µm)",
+    "averageDiameter": "Average Diameter (µm)",
+}
+
 class Client:
     """FlyBrainLab Client class. This class communicates with JupyterLab frontend and connects to FFBO components.
 
@@ -321,7 +340,7 @@ class Client:
         custom_config = None,
         widgets = [],
         dataset = 'default',
-        log_level = 1
+        log_level = 'info'
     ):
         """Initialization function for the FBL Client class.
 
@@ -346,19 +365,24 @@ class Client:
             custom_config (str): A .ini file name to use to initiate a custom connection. Defaults to None. Used if provided.
             widgets (list): List of widgets associated with this client. Optional.
             dataset (str): Name of the dataset to use. Not used right now, but included for future compatibility.
-            log_level (int): Level of logging to output. 2 outputs everything, 1 outputs only the most important messages, 0 outputs nothing.
+            log_level (str): Log level, can be any of the standard Python logging.logger levels: CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET. (see also https://docs.python.org/3/library/logging.html#logging-levels)
         """
+        self.log_level = log_level.upper()
+        self.log = {'Client': logging.getLogger('FBL Client'),
+                    'NA': logging.getLogger('FBL NA'),
+                    'NLP': logging.getLogger('FBL NLP'),
+                    'GFX': logging.getLogger('FBL GFX'),
+                    'NK': logging.getLogger('FBL NK'),
+                    'Master': logging.getLogger('FBL Master')}
+        self.set_log_level(log_level.upper(), logger_names = None)
         self.name = name
         self.species = species
         self.url = url
         self.widgets = widgets
-        self.log_level = log_level
         if FBLcomm is None and FFBOLabcomm is not None:
             FBLcomm = FFBOLabcomm
         if os.path.exists(os.path.join(home, ".ffbo", "lib")):
-            print(
-                printHeader("FBL Client") + "Downloading the latest certificates."
-            )
+            self.log['Client'].debug("Downloading the latest certificates.")
             # CertificateDownloader = urllib.URLopener()
             if not os.path.exists(
                 os.path.join(home, ".ffbo", "config", "FBLClient.ini")
@@ -491,8 +515,6 @@ class Client:
         self.C = (
             nb.Circuit()
         )  # The Neuroballd Circuit object describing the loaded neural circuit
-        self.neuron_data = {}
-        self.active_data = []
         self.dataPath = _FBLDataPath
         extra = {"auth": authentication}
         self.lmsg = 0
@@ -519,10 +541,13 @@ class Client:
         self.data = (
             []
         )  # A buffer for data from backend; used in multiple functions so needed
+        self.active_na_queries = {}
+        self.NLP_result = fblgraph.NeuroNLPResult(enableResets = self.enableResets)
+        self.last_NLPquery_result = None
         self.uname_to_rid = {}  # local map from unames to rid's
         self.legacy = legacy
         self.neuronStats = {}
-        self.query_threshold = 20
+        self.query_threshold = 'auto'
         self.naServerID = None
         self.experimentWatcher = None
         self.exec_result = {}
@@ -567,33 +592,56 @@ class Client:
             self.findServerIDs(dataset)  # Get current server IDs
             self.connected = True
 
+    @property
+    def neuron_data(self):
+        return self.NLP_result.graph
+
+    @property
+    def active_data(self):
+        return self.NLP_result.rids
+
+    def set_log_level(self, level, logger_names = None):
+        """
+        Set the log level of the Client instance.
+
+        # Arguments
+            level (str):  Log level, can be any of the standard Python logging.logger levels: CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET. (see also https://docs.python.org/3/library/logging.html#logging-levels)
+
+            logger_names (list): the names of the logger in a list. Defaults to None and will set level for all logs.
+        """
+        if logger_names is None:
+            logger_names = list(self.log.keys())
+        for log in logger_names:
+            try:
+                self.log[log].setLevel(level.upper())
+            except KeyError:
+                Warning('log {} does not exist - level not set'.format(log))
+                pass
+
     def reconnect(self):
         try:
             self.init_client( self.ssl,  self.user,  self.secret,  self.custom_salt,  self.url,  self.ssl_con,  self.legacy)
             self.connected = True
-            try:
-                self.findServerIDs(self.dataset)  # Attempt to retrieve current server IDs
-                self.connected = True
-            except Exception as e: # Server finding fails
-                self.raise_error(e, 'There was an error in trying to find servers. Check your server configuration or contact the backend administrator.')
-                print(e)
-                self.connected = False
-            if len(self.active_data)>0:
-                self.active_data = [i for i in self.active_data if '#' in i]
-                self.executeNAquery({'query': [{'action': {'method': {'query': {} }},
-                                                'object': {'rid': self.active_data }
-                                            },
-                                                {'action': {'method': {'gen_traversal_in': {'pass_through': ['HasData'], 'min_depth': 1} }},
-                                                'object': {'memory': 0 }
-                                            },
-                                            ],
-                                    'user': 'test',
-                                    'format': 'no_result'})
         except Exception as e:
-            self.raise_error(e, 'Failed to connect to the server. Check your server configuration or contact the backend administrator. Alternatively, use the client.reconnect function.')
-            print(e)
             self.connected = False
+            self.raise_error(e, 'Failed to connect to the server. Check your server configuration or contact the backend administrator. Alternatively, use the client.reconnect function.')
+            # print(e)
 
+        try:
+            self.findServerIDs(self.dataset)  # Attempt to retrieve current server IDs
+            self.connected = True
+        except Exception as e: # Server finding fails
+            self.connected = False
+            self.raise_error(e, 'There was an error in trying to find servers. Check your server configuration or contact the backend administrator.')
+            # print(e)
+
+        if len(self.NLP_result.graph)>0:
+            self.executeNAquery({'query': [{'action': {'method': {'query': {} }},
+                                            'object': {'rid': self.NLP_result.rids }
+                                        },
+                                        ],
+                                'user': 'test',
+                                'format': 'no_result'})
 
 
     def init_client(self, ssl, user, secret, custom_salt, url, ssl_con, legacy):
@@ -608,16 +656,16 @@ class Client:
             # Returns
                 str: The signature sent to the router for verification.
             """
-            print(printHeader("FBL Client") + "Initiating authentication.")
+            self.log['Client'].debug("Initiating authentication.")
             if challenge.method == u"wampcra":
-                print(printHeader('FBL Client') + "WAMP-CRA challenge received: {}".format(challenge))
-                print(challenge.extra['salt'])
+                self.log['Client'].debug("WAMP-CRA challenge received: {}".format(challenge))
+                self.log['Client'].debug(challenge.extra['salt'])
                 if custom_salt is not None:
                     salted_key = custom_salt
                 else:
                     if u'salt' in challenge.extra:
                         # Salted secret
-                        print(printHeader('FBL Client') + 'Deriving key...')
+                        self.log['Client'].debug('Deriving key...')
                         salted_key = auth.derive_key(secret,
                                               challenge.extra['salt'],
                                               challenge.extra['iterations'],
@@ -659,7 +707,7 @@ class Client:
             self.clientData.append(data)
             print("Updated the Servers")
 
-        print("Subscribed to topic 'ffbo.server.update'")
+        self.log['Client'].debug("Subscribed to topic 'ffbo.server.update'")
 
         @FBLClient.register(
             "ffbo.ui.receive_cmd." + str(FBLClient._async_session._session_id)
@@ -674,33 +722,33 @@ class Client:
                 bool: Whether the data has been received.
             """
             self.clientData.append("Received Command")
-            a = {}
             data = convert_from_bytes(data)
-            a["data"] = data
-            a["messageType"] = "Command"
-            a["widget"] = "NLP"
-            if "commands" in data:
-                if "remove" in data["commands"]:
-                    to_remove = data["commands"]['remove'][0]
-                    for i in to_remove:
-                        if i in self.active_data:
-                            self.active_data.remove(i)
-            self.data.append(a)
-            if self.log_level>1:
-                print(printHeader("FBL Client NLP") + "Received a command.")
-            to_send = True
-            if self.enableResets == False:
-                if "commands" in data:
-                    if "reset" in data["commands"]:
-                        to_send = False
-            if to_send == True:
-                self.tryComms(a)
+
+            self.NLP_result.receive_cmd(data)
+            #
+            # a = {}
+            # a["data"] = data
+            # a["messageType"] = "Command"
+            # a["widget"] = "NLP"
+            #
+            # if "commands" in data:
+            #     if "remove" in data["commands"]:
+            #         to_remove = data["commands"]['remove'][0]
+            #         for i in to_remove:
+            #             if i in self.active_data:
+            #                 self.active_data.remove(i)
+            # #self.data.append(a)
+            self.log['NLP'].debug("Received a command.")
+            # to_send = True
+            # if self.enableResets == False:
+            #     if "commands" in data:
+            #         if "reset" in data["commands"]:
+            #             to_send = False
+            # if to_send == True:
+            #     self.tryComms(a)
             return True
 
-        print(
-            printHeader("FBL Client")
-            + "Procedure ffbo.ui.receive_cmd Registered..."
-        )
+        self.log['Client'].debug("Procedure ffbo.ui.receive_cmd Registered...")
 
         @FBLClient.register(
             "ffbo.ui.receive_gfx." + str(FBLClient._async_session._session_id)
@@ -717,41 +765,29 @@ class Client:
             self.clientData.append("Received GFX Data")
             data = convert_from_bytes(data)
             self.data.append(data)
-            if self.log_level>1:
-                print(printHeader("FBL Client GFX") + "Received a message for GFX.")
+            self.log['GFX'].debug("Received a message for GFX.")
             if self.sendDataToGFX == True:
                 self.tryComms(data)
             else:
                 if "messageType" in data.keys():
                     if data["messageType"] == "showServerMessage":
-                        print(
-                            printHeader("FBL Client GFX")
-                            + "Execution successful for GFX."
-                        )
+                        self.log['GFX'].info("Execution successful for GFX.")
                         if len(self.experimentQueue) > 0:
-                            print(
-                                printHeader("FBL Client GFX")
-                                + "Next execution now underway. Remaining simulations: "
-                                + str(len(self.experimentQueue))
-                            )
+                            self.log['GFX'].info(
+                                "Next execution now underway. Remaining simulations: "
+                                + str(len(self.experimentQueue)))
                             a = self.experimentQueue.pop(0)
-                            res = self.client.session.call("ffbo.gfx.sendExperiment", a)
-                            res = self.client.session.call(
+                            res = self.rpc("ffbo.gfx.sendExperiment", a)
+                            res = self.rpc(
                                 "ffbo.gfx.startExecution", {"name": a["name"]}
                             )
                         else:
                             self.executionSuccessful = True
                             self.parseSimResults()
-                            print(
-                                printHeader("FBL Client GFX")
-                                + "GFX results successfully parsed."
-                            )
+                            self.log['GFX'].info("GFX results successfully parsed.")
             return True
 
-        print(
-            printHeader("FBL Client")
-            + "Procedure ffbo.ui.receive_gfx Registered..."
-        )
+        self.log['Client'].debug("Procedure ffbo.ui.receive_gfx Registered...")
 
         @FBLClient.register(
             "ffbo.ui.get_circuit." + str(FBLClient._async_session._session_id)
@@ -771,7 +807,7 @@ class Client:
                 file.write(G)
             return True
 
-        print("Procedure ffbo.ui.get_circuit Registered...")
+        self.log['Client'].debug("Procedure ffbo.ui.get_circuit Registered...")
 
         @FBLClient.register(
             "ffbo.ui.get_experiment" + str(FBLClient._async_session._session_id)
@@ -785,22 +821,22 @@ class Client:
             # Returns
                 bool: Whether the process has been successful.
             """
-            print(printHeader("FBL Client GFX") + "get_experiment called.")
+            self.log['GFX'].debug("get_experiment called.")
             name = X["name"]
             data = json.dumps(X["experiment"])
             with open(os.path.join(_FBLDataPath, name + ".json"), "w") as file:
                 file.write(data)
             output = {}
             output["success"] = True
-            print(printHeader("FBL Client GFX") + "Experiment save successful.")
+            self.log['GFX'].info("Experiment save successful.")
             return True
 
-        print("Procedure ffbo.ui.get_experiment Registered...")
+        self.log['Client'].debug("Procedure ffbo.ui.get_experiment Registered...")
 
         @FBLClient.register(
-            "ffbo.ui.receive_data." + str(FBLClient._async_session._session_id)
+            "ffbo.ui.receive_data_old." + str(FBLClient._async_session._session_id)
         )
-        def receiveData(data):
+        def receiveData_old(data):
             """The Receive Data function that receives commands and sends them to the NLP frontend.
 
             # Arguments
@@ -809,10 +845,11 @@ class Client:
             # Returns
                 bool: Whether the process has been successful.
             """
-            if self.log_level>1:
+            if self.log_level in ['debug']:
                 self.clientData.append("Received Data")
             a = {}
             data = convert_from_bytes(data)
+
             if isinstance(data['data'],dict):
                 if self.legacy == True:
                     a["data"] = {"data": data, "queryID": guidGenerator()}
@@ -826,10 +863,10 @@ class Client:
                                     data['data'][i].update(data['data'][i]['MorphologyData'])
                 except Exception as e:
                     self.raise_error(e, 'A potential error was detected during data parsing.')
-                    print(e)
+                    # print(e)
                 if isinstance(data['data'],dict):
                     self.neuron_data.update(data['data'])
-                    self.active_data = list(set(self.active_data + list(data['data'].keys())))
+                    #self.active_data = list(set(self.active_data + list(data['data'].keys())))
                 else:
                     print(data)
                 a["messageType"] = "Data"
@@ -867,17 +904,7 @@ class Client:
                     self.raise_error(e, 'There was an error when scaling data.')
                     self.errors.append(e)
                 self.data.append(a)
-                displayDict = {
-                    "totalLength": "Total Length (µm)",
-                    "totalSurfaceArea": "Total Surface Area (µm<sup>2</sup>)",
-                    "totalVolume": "Total Volume (µm<sup>3</sup>)",
-                    "maximumEuclideanDistance": "Maximum Euclidean Distance (µm)",
-                    "width": "Width (µm)",
-                    "height": "Height (µm)",
-                    "depth": "Depth (µm)",
-                    "maxPathDistance": "Max Path Distance (µm)",
-                    "averageDiameter": "Average Diameter (µm)",
-                }
+
                 if a["messageType"] == "Data":
                     if "data" in a["data"]:
                         try:
@@ -885,7 +912,7 @@ class Client:
                                 if "name" in a["data"]["data"][i]:
                                     self.uname_to_rid[a["data"]["data"][i]["uname"]] = i
                                     self.neuronStats[a["data"]["data"][i]["uname"]] = {}
-                                    for displayKey in displayDict.keys():
+                                    for displayKey in morphometric_displayDict.keys():
                                         try:
                                             self.neuronStats[a["data"]["data"][i]["uname"]][
                                                 displayKey
@@ -894,15 +921,28 @@ class Client:
                                             pass
                         except:
                             print(a["data"]["data"])
-                if self.log_level>1:
-                    print(printHeader("FBL Client NLP") + "Received data.")
+                self.log['NLP'].debug("Received data.")
                 self.tryComms(a)
                 return True
 
-        print(
-            printHeader("FBL Client")
-            + "Procedure ffbo.ui.receive_data Registered..."
+        @FBLClient.register(
+            "ffbo.ui.receive_data." + str(FBLClient._async_session._session_id)
         )
+        def receiveData(data):
+            if self.log_level in ['debug']:
+                self.clientData.append("Received Data")
+            data = convert_from_bytes(data)
+            queryID = data['queryID']
+            partial_result = data['data']
+            query_result = self.active_na_queries[queryID]
+            query_result.receive_data(partial_result)
+
+            self.log['Client'].debug("Received data.")
+
+            #query_result.send_morphology(self.tryComms)
+            return True
+
+        self.log['Client'].debug("Procedure ffbo.ui.receive_data Registered...")
 
         @FBLClient.register(
             "ffbo.ui.receive_partial." + str(FBLClient._async_session._session_id)
@@ -916,7 +956,7 @@ class Client:
             # Returns
                 bool: Whether the process has been successful.
             """
-            if self.log_level>1:
+            if self.log_level in ['debug']:
                 self.clientData.append("Received Data")
             a = {}
             data = convert_from_bytes(data)
@@ -924,14 +964,11 @@ class Client:
             a["messageType"] = "Data"
             a["widget"] = "NLP"
             self.data.append(a)
-            print(printHeader("FBL Client NLP") + "Received partial data.")
+            self.log['NLP'].debug("Received partial data.")
             self.tryComms(a)
             return True
 
-        print(
-            printHeader("FBL Client")
-            + "Procedure ffbo.ui.receive_partial Registered..."
-        )
+        self.log['Client'].debug("Procedure ffbo.ui.receive_partial Registered...")
 
         if legacy == False:
             # @FBLClient.register('ffbo.gfx.receive_partial.' + str(FBLClient._async_session._session_id))
@@ -965,7 +1002,7 @@ class Client:
                 # Returns
                     bool: Whether the process has been successful.
                 """
-                if self.log_level>1:
+                if self.log_level in ['debug']:
                     self.clientData.append('Received Data')
                 if self.current_exec_result is None:
                     try:
@@ -975,7 +1012,7 @@ class Client:
                     else:
                         self.current_exec_result = temp['execution_result_start']
                         self.exec_result[self.current_exec_result] = []
-                        print(printHeader('FBL Client NLP') + "Receiving Execution Result for {}.  Please wait .....".format(self.current_exec_result))
+                        self.log['GFX'].info("Receiving Execution Result for {}.  Please wait .....".format(self.current_exec_result))
                 else:
                     try:
                         temp = msgpack.unpackb(data)
@@ -1008,16 +1045,13 @@ class Client:
                                                                        'dt': v['dt']} \
                                                                    for kk, v in value.items()}
                             self.exec_result[result_name] = formatted_result
-                            print(printHeader('FBL Client NLP') + "Received Execution Result for {}. Result stored in Client.exec_result['{}']".format(result_name, result_name))
+                            self.log['GFX'].info( "Received Execution Result for {}. Result stored in Client.exec_result['{}']".format(result_name, result_name))
                             # self.tryComms(a)
                         else:
                             self.exec_result[self.current_exec_result].append(data)
                 return True
 
-            print(
-                printHeader("FBL Client")
-                + "Procedure ffbo.gfx.receive_partial Registered..."
-            )
+            self.log['Client'].debug("Procedure ffbo.gfx.receive_partial Registered...")
 
         @FBLClient.register(
             "ffbo.ui.receive_msg." + str(FBLClient._async_session._session_id)
@@ -1037,16 +1071,27 @@ class Client:
             a["data"] = data
             a["messageType"] = "Message"
             a["widget"] = "NLP"
-            self.data.append(a)
-            if self.log_level>1:
-                print(printHeader("FBL Client NLP") + "Received a message.")
+            #self.data.append(a)
+
+            message_type = list(data.keys())[0]
+            status = data[message_type]
+            if 'success' in status:
+                message = status['success']
+                if message == 'Fetching results from NeuroArch':
+                    queryID = status['queryID']
+                    if len(queryID):
+                        self.active_na_queries[queryID].initialize()
+                self.log['Client'].debug("Received a {message_type} message: {message}".format(message_type = message_type, message = message))
+            elif 'error' in status:
+                message = status['error']
+                self.log['Client'].debug("Received an Error message: {message}".format(message = message))
+            else:
+                message = list(status.values())[0]
+                self.log['Client'].debug("Received a {message_type} message: {message}".format(message_type = message_type, message = message))
             self.tryComms(a)
             return True
 
-        print(
-            printHeader("FBL Client")
-            + "Procedure ffbo.ui.receive_msg Registered..."
-        )
+        self.log['Client'].debug("Procedure ffbo.ui.receive_msg Registered...")
 
         self.client = FBLClient  # Set current client to the FBLClient Client
 
@@ -1056,11 +1101,12 @@ class Client:
         # Arguments
             dataset (str): Name of the dataset to connect to. Optional.
         """
-        res = self.client.session.call(u"ffbo.processor.server_information")
+        res = self.rpc(u"ffbo.processor.server_information")
         res = convert_from_bytes(res)
 
         if not res["processor"]["autobahn"].split('.')[0] == autobahn.__version__.split('.')[0]:
-            self.raise_error(Exception(), "Autobahn major version mismatch between your environment {} and the backend servers {}.\nPlease update your autobahn version to match with the processor version by running ``pip install --upgrade autobahn`` in your terminal.".format(autobahn.__version__, res["processor"]["autobahn"]))
+            error_msg = "Autobahn major version mismatch between your environment {} and the backend servers {}.\nPlease update your autobahn version to match with the processor version by running ``pip install --upgrade autobahn`` in your terminal.".format(autobahn.__version__, res["processor"]["autobahn"])
+            self.raise_error(FlyBrainLabBackendException(error_msg), error_msg)
 
         default_mode = False
 
@@ -1089,12 +1135,12 @@ class Client:
                 if len(valid_datasets):
                     pass
                 else:
-                    raise RuntimeError("No valid datasets cannot be found.\nIf you are running the NeuroArch and NeuroNLP servers locally, please check if the servers are on and connected. If you are connecting to a public server, please contact server admin.")
+                    raise FlyBrainLabBackendException("No valid datasets cannot be found.\nIf you are running the NeuroArch and NeuroNLP servers locally, please check if the servers are on and connected. If you are connecting to a public server, please contact server admin.")
             else:
                 if len(valid_datasets) == 1:
                     dataset = valid_dataset[0]
                 elif len(valid_datasets) > 1:
-                    raise RuntimeError("Multiple valid datasets are available on the specified FFBO processor. However, you did not specify which dataset to connect to. Available datasets on the FFBO processor are the following:\n{}\n\n. Please choose one of the above datasets during Client connection by passing the dataset argument.".format('\n- '.join(valid_datasets)))
+                    raise FlyBrainLabBackendException("Multiple valid datasets are available on the specified FFBO processor. However, you did not specify which dataset to connect to. Available datasets on the FFBO processor are the following:\n{}\n\n. Please choose one of the above datasets during Client connection by passing the dataset argument.".format('\n- '.join(valid_datasets)))
                 # print(
                 #     printHeader("FBL Client")
                 #     + "Found following datasets: "
@@ -1106,7 +1152,7 @@ class Client:
                 #     + " Client.findServerIDs(dataset = 'any name above')"
                 # )
                 else: #len(valid_datasets) == 0
-                    raise RuntimeError("No valid datasets cannot be found.\nIf you are running the NeuroArch and NeuroNLP servers locally, please check if the servers are on and connected. If you are connecting to a public server, please contact server admin.")
+                    raise FlyBrainLabBackendException("No valid datasets cannot be found.\nIf you are running the NeuroArch and NeuroNLP servers locally, please check if the servers are on and connected. If you are connecting to a public server, please contact server admin.")
                     # print(
                     #     printHeader("FBL Client")
                     #     + "No valid datasets found."
@@ -1129,44 +1175,43 @@ class Client:
                 break
         if len(server_dict['na']):
             if self.naServerID is None:
-                print(
-                    printHeader("FBL Client")
-                    + "Found working NeuroArch Server for dataset {}: ".format(dataset)
-                    + res["na"][server_dict['na'][0]]['name']
-                )
+                self.log['Client'].debug("Found working NeuroArch Server for dataset {}: ".format(dataset)
+                    + res["na"][server_dict['na'][0]]['name'])
                 self.naServerID = server_dict['na'][0]
             else:
                 if self.naServerID not in server_dict['na']:
-                    print(
-                        printHeader("FBL Client")
-                        + "Previous NeuroArch Server not found, switching NeuroArch Servre to: "
+                    self.log['Client'].warning(
+                        "Previous NeuroArch Server not found, switching NeuroArch Servre to: "
                         + res["na"][server_dict['na'][0]]['name']
                         + " Prior query states may not be accessible."
                     )
                     self.naServerID = server_dict['na'][0]
         else:
-            raise RuntimeError("NeuroArch Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following:\n{}\n\nIf you are running the NeuroArch server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, '\n- '.join(valid_datasets)))
+            raise FlyBrainLabNAserverException("NeuroArch Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following:\n{}\n\nIf you are running the NeuroArch server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, '\n- '.join(valid_datasets)))
             # print(
             #     printHeader("FBL Client")
             #     + "NA Server with {} dataset not found".format(dataset)
             # )
         if len(server_dict['nlp']):
-            print(
-                printHeader("FBL Client")
-                + "Found working NeuroNLP Server for dataset {}: ".format(dataset)
+            self.log['Client'].debug(
+                "Found working NeuroNLP Server for dataset {}: ".format(dataset)
                 + res["nlp"][server_dict['nlp'][0]]['name']
             )
             self.nlpServerID = server_dict['nlp'][0]
         else:
-            raise RuntimeError("NeuroNLP Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following:\n{}\n\nIf you are running the NeuroNLP server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, '\n- '.join(valid_datasets)))
+            raise FlyBrainLabNLPserverException("NeuroNLP Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following:\n{}\n\nIf you are running the NeuroNLP server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, '\n- '.join(valid_datasets)))
             # print(
             #     printHeader("FBL Client")
             #     + "NLP Server with {} dataset not found".format(dataset)
             # )
 
         if len(res["nk"]) == 0:
+            self.log['Client'].warning("Neurokernel Server not found on the FFBO processor. Circuit execution on the server side is not supported.")
             Warning("Neurokernel Server not found on the FFBO processor. Circuit execution on the server side is not supported.")
 
+    @property
+    def rpc(self):
+        return self.client.session.call
 
     def get_client_info(self, fbl=None):
         """Receive client data for this client only.
@@ -1217,10 +1262,7 @@ class Client:
         if self.connected == False:
             return False
         if query is None:
-            print(
-                printHeader("FBL Client")
-                + 'No query specified. Executing test query "eb".'
-            )
+            self.log['Client'].warning('No query specified. Executing test query "eb".')
             query = "eb"
         self.JSCall(messageType="GFXquery", data=query)
         if query.startswith("load "):
@@ -1230,14 +1272,8 @@ class Client:
             uri = "ffbo.nlp.query.{}".format(self.nlpServerID)
             queryID = guidGenerator()
             try:
-                resNA = self.client.session.call(uri, query, language)
+                resNA = self.rpc(uri, query, language)
                 # Send the parsed query to the fronedned to be displayed if need be
-                if resNA == {}:
-                    self.raise_error('Interpretation Error','The query could not be interpreted. Look at the server to check for potential errors.')
-                a = {}
-                a["data"] = resNA
-                a["messageType"] = "ParsedQuery"
-                a["widget"] = "NLP"
             except:
                 a = {}
                 a["data"] = {"info": {"timeout": "This is a timeout."}}
@@ -1245,34 +1281,44 @@ class Client:
                 a["widget"] = "NLP"
                 self.tryComms(a)
                 return a
-            if self.log_level>0:
-                print(printHeader("FBL Client NLP") + "NLP successfully parsed query.")
+
+            if resNA == {}:
+                error_msg = 'The query could not be interpreted. Look at the server to check for potential errors.'
+                self.raise_error(FlyBrainLabNLPserverException(error_msg), error_msg)
+            a = {}
+            a["data"] = resNA
+            a["messageType"] = "ParsedQuery"
+            a["widget"] = "NLP"
+
+            self.log['NLP'].info("NLP successfully parsed query.")
 
             if returnNAOutput == True:
                 return resNA
             else:
-                try:
-                    self.compiled = False
-                    res = self.executeNAquery(
-                        resNA, queryID=queryID, threshold=self.query_threshold
-                    )
-                    if 'show ' in query or 'add ' in query or 'remove ' in query:
-                        self.sendNeuropils()
-                    """
-                    a = {}
-                    a['data'] = {'info': {'success': 'Finished fetching results from database'}}
-                    a['messageType'] = 'Data'
-                    a['widget'] = 'NLP'
-                    self.tryComms(a)
-                    """
-                    return res
-                except:
-                    a = {}
-                    a["data"] = {"info": {"timeout": "This is a timeout."}}
-                    a["messageType"] = "Data"
-                    a["widget"] = "NLP"
-                    self.tryComms(a)
-                    return resNA
+                # try:
+                resNA['NLPquery'] = query
+                self.compiled = False
+                res = self.executeNAquery(
+                    resNA, queryID=queryID, threshold=self.query_threshold
+                )
+                if 'show ' in query or 'add ' in query or 'remove ' in query:
+                    self.sendNeuropils()
+                """
+                a = {}
+                a['data'] = {'info': {'success': 'Finished fetching results from database'}}
+                a['messageType'] = 'Data'
+                a['widget'] = 'NLP'
+                self.tryComms(a)
+                """
+                self.last_NLPquery_result = res
+                return res
+                # except:
+                #     a = {}
+                #     a["data"] = {"info": {"timeout": "This is a timeout."}}
+                #     a["messageType"] = "Data"
+                #     a["widget"] = "NLP"
+                #     self.tryComms(a)
+                #     return resNA
             """
             else:
                 msg = {}
@@ -1286,7 +1332,7 @@ class Client:
                 def on_progress(x, res):
                     res.append({'data': x, 'queryID': guidGenerator()})
                 res_list = []
-                resNA = self.client.session.call('ffbo.processor.nlp_to_visualise', msg, options=CallOptions(
+                resNA = self.rpc('ffbo.processor.nlp_to_visualise', msg, options=CallOptions(
                                                     on_progress=partial(on_progress, res=res_list), timeout = 20))
                 if returnNAOutput == True:
                     return resNA
@@ -1298,12 +1344,12 @@ class Client:
             """
 
     def executeNAquery(
-        self, res, language="en", uri=None, queryID=None, progressive=True, threshold=5
+        self, task, language="en", uri=None, queryID=None, progressive=True, threshold='auto', temp = False
     ):
         """Execute an NA query.
 
         # Arguments
-            res (dict): Neuroarch query.
+            task (dict): Neuroarch query task.
             language (str): Language to use.
             uri (str): A custom FFBO query URI if desired.
             queryID (str): Query ID to be used. Generated automatically.
@@ -1314,35 +1360,36 @@ class Client:
             bool: Whether the process has been successful.
         """
 
+        # not used explicitly
         def on_progress(x, res):
             x = convert_from_bytes(x)
             res.append(x)
 
-        if isinstance(res, str):
-            res = json.loads(res)
+        if isinstance(task, str):
+            task = json.loads(task)
         if uri == None:
             uri = "ffbo.na.query.{}".format(self.naServerID)
-            if "uri" in res.keys():
-                uri = "{}.{}".format(res["uri"], self.naServerID)
+            if "uri" in task.keys():
+                uri = "{}.{}".format(task["uri"], self.naServerID)
         if queryID == None:
             queryID = guidGenerator()
         # del self.data # Reset the data in the backend
         # self.data = []
 
         """
-        if 'verb' in res:
-            if res['verb'] == 'remove':
-                self.data.append(res)
-                if 'query' in res:
+        if 'verb' in task:
+            if task['verb'] == 'remove':
+                self.data.append(task)
+                if 'query' in task:
                     try:
-                        rids = res['query'][0]['action']['method']['query']['rid']
+                        rids = task['query'][0]['action']['method']['query']['rid']
                         for i in rids:
                             if i in self.active_data:
                                 self.active_data.remove(i)
                     except Exception as e:
                         pass
                     try:
-                        unames = res['query'][0]['action']['method']['query']['uname']
+                        unames = task['query'][0]['action']['method']['query']['uname']
                         for i in unames:
                             if i in self.uname_to_rid:
                                 rid = self.uname_to_rid[i]
@@ -1352,70 +1399,116 @@ class Client:
                         pass
         """
 
-        res["queryID"] = queryID
-        res["threshold"] = threshold
-        res["data_callback_uri"] = "ffbo.ui.receive_data"
+        while queryID in self.active_na_queries:
+            queryID = guidGenerator()
+
+        task.pop('NLPquery', 'None')
+        task["queryID"] = queryID
+        task["threshold"] = threshold
+        task["data_callback_uri"] = "ffbo.ui.receive_data"
+        if temp:
+            task['temp'] = True
+        self.active_na_queries[queryID] = fblgraph.NAqueryResult(
+            task, x_scale = self.x_scale, y_scale = self.y_scale,
+            z_scale = self.z_scale, r_scale = self.r_scale,
+            x_shift = self.x_shift, y_shift = self.y_shift,
+            z_shift = self.z_shift, r_shift = self.r_shift)
         res_list = []
-        if self.legacy == False and progressive == True:
-            try:
-                res = self.client.session.call(
+        try:
+            if progressive:
+                res = self.rpc(
                     uri,
-                    res,
+                    task,
                     options=CallOptions(
-                        on_progress=partial(on_progress, res=res_list), timeout=300000
+                        on_progress=partial(on_progress, res=res_list), # will never enter progressive call results but needed to signal the threshold.
+                        timeout=300000
                     ),
                 )
-            except Exception as e:
-                #TODO: this reconnect also affects runtime error in the backend, should only reconnect
-                #      when seeing an error from autobahn, like autobahn.wamp.exception.TransportLost
-                self.raise_error(e,'A connection error occured during a progressive NLP call. Check client.errors for more details. Attempting to reconnect.')
-                print(e)
-                try:
-                    self.reconnect()
-                    self.raise_message('Successfully reconnected to server. Note that previous workspace state will be lost in the backend (for add or remove queries).')
-                except Exception as e:
-                    self.raise_error(e, 'There was an error during the reconnection attempt. Check the server.')
-                    print(e)
-        else:
+            else:
+                res = self.rpc(uri, task)
+        except TransportLost as e:
+            self.NLP_result.clear_cmd()
+            self.active_na_queries.pop(queryID, None)
             try:
-                res = self.client.session.call(uri, res)
+                self.reconnect()
+                error_msg = 'A connection error occured during an NLP call. Successfully reconnected to server. Note that previous workspace state will be lost in the backend (for add or remove queries).'
+                self.raise_error(FlyBrainLabNAserverException(error_msg), error_msg)
             except Exception as e:
-                self.raise_error(e,'A connection error occured during a NeuroArch call. Check client.errors for more details.')
-                print(e)
+                self.raise_error(e, 'A connection error occured during an NLP call. Reconnect also failed. Check the server.')
+                # print(e)
+        except ApplicationError as e:
+            self.NLP_result.clear_cmd()
+            self.active_na_queries.pop(queryID, None)
+            # TODO: check what exceptions may cause backend to reconnect
+            # https://autobahn.readthedocs.io/en/latest/_modules/autobahn/wamp/exception.html
+            if e.error in [e.TIMEOUT, e.CANCELED]:
                 try:
                     self.reconnect()
-                    self.raise_message('Successfully reconnected to server. Note that previous workspace state will be lost in the backend (for add or remove queries).')
+                    error_msg = 'A connection error occured during an NLP call. Successfully reconnected to server. Note that previous workspace state will be lost in the backend (for add or remove queries).'
+                    self.raise_error(FlyBrainLabNAserverException(error_msg), error_msg)
                 except Exception as e:
-                    self.raise_error(e, 'There was an error during the reconnection attempt. Check the server.')
-                    print(e)
-        res = convert_from_bytes(res)
-        
-        try:
-            if 'data' in res:
-                self.neuron_data.update(res['data'])
-                for i in res['data'].keys():
-                    if 'MorphologyData' in res['data'][i]:
-                        res['data'][i].update(res['data'][i]['MorphologyData'])
+                    self.raise_error(e, 'A connection error occured during an NLP call. Reconnect also failed. Check the server.')
+            else:
+                self.raise_error(e, 'An error occured during query')
         except Exception as e:
-            self.raise_error(e, 'A potential error was detected during data parsing.')
-            print(e)
+            self.NLP_result.clear_cmd()
+            self.active_na_queries.pop(queryID, None)
+            #TODO: this reconnect also affects runtime error in the backend, should only reconnect
+            #      when seeing an error from autobahn, like autobahn.wamp.exception.TransportLost
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            tb = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+            self.raise_error(e, "An error occured during query:\n" + tb)
+
+        res = convert_from_bytes(res)
+        if 'data' in res:
+            self.log['Client'].debug("Received data.")
+            query_result = self.active_na_queries[queryID]
+            query_result.receive_data(res['data'])
+            #query_result.send_morphology(self.tryComms)
 
         a = {}
-        a["data"] = res
+        a["data"] = {"info": res["info"]}
         a["messageType"] = "Data"
         a["widget"] = "NLP"
+        self.tryComms(a)
 
-        if "retrieve_tag" in uri:
-            a["messageType"] = "TagData"
-            self.tryComms(a)
-            self.executeNAquery({"command": {"retrieve": {"state": 0}}})
-        if progressive == True:
-            self.tryComms(a)
-            self.data.append(a)
-            return self.data
-        else:
-            self.tryComms(a)
-            return a
+        if 'success' in res['info']:
+            self.log['NA'].debug(res['info']['success'])
+            self.active_na_queries[queryID].finalize()
+            # self.active_na_queries[queryID].send_morphology(self.tryComms)
+            self.NLP_result.process_commands(self.tryComms)
+            self.NLP_result.process_data(self.active_na_queries[queryID], self.tryComms)
+        elif 'error' in res['info']:
+            self.active_na_queries.pop(queryID)
+            self.NLP_result.clear_cmd()
+            raise FlyBrainLabNAserverException(res['info']['error'])
+
+        return self.active_na_queries.pop(queryID)
+
+        # try:
+        #     if 'data' in res:
+        #         self.neuron_data.update(res['data'])
+        #         for i in res['data'].keys():
+        #             if 'MorphologyData' in res['data'][i]:
+        #                 res['data'][i].update(res['data'][i]['MorphologyData'])
+        # except Exception as e:
+        #     self.raise_error(e, 'A potential error was detected during data parsing.')
+        #     print(e)
+        #
+        # a = {}
+        # a["data"] = res
+        # a["messageType"] = "Data"
+        # a["widget"] = "NLP"
+        #
+        # if progressive == True:
+        #     self.tryComms(a)
+        #     #self.data.append(a)
+        #     self.active_na_queries.pop(queryID)
+        #     return self.data
+        # else:
+        #     self.tryComms(a)
+        #     self.active_na_queries.pop(queryID)
+        #     return a
 
     def createTag(self, tagName):
         """Creates a tag.
@@ -1430,9 +1523,15 @@ class Client:
             "camera": {"position": {}, "up": {}},
             "target": {},
         }
-        res = self.executeNAquery(
-            {"tag": tagName, "metadata": metadata, "uri": "ffbo.na.create_tag"}
-        )
+        # res = self.executeNAquery(
+        #     {"tag": tagName, "metadata": metadata, "uri": "ffbo.na.create_tag"}
+        # )
+        task = {"tag": tagName, "metadata": metadata}
+        res = self.rpc('ffbo.na.create_tag.{}'.format(self.naServerID), task)
+        if 'success' in res['info']:
+            self.log['Client'].info(res['info']['success'])
+        elif 'error' in res['info']:
+            raise FlyBrainLabNAserverException(res['info']['error'])
         return res
 
     def loadTag(self, tagName):
@@ -1441,8 +1540,22 @@ class Client:
         # Returns
             bool: True.
         """
-        self.executeNAquery({"tag": tagName, "uri": "ffbo.na.retrieve_tag"})
-        return True
+        # self.executeNAquery({"tag": tagName, "uri": "ffbo.na.retrieve_tag"})
+        task = {"tag": tagName}
+        res = self.rpc('ffbo.na.retrieve_tag.{}'.format(self.naServerID), task)
+        if 'success' in res['info']:
+            self.log['Client'].info(res['info']['success'])
+        elif 'error' in res['info']:
+            raise FlyBrainLabNAserverException(res['info']['error'])
+        a = {}
+        a["data"] = res
+        a["messageType"] = "TagData"
+        a["widget"] = "NLP"
+
+        self.tryComms(a)
+        res = self.executeNAquery({"command": {"retrieve": {"state": 0}},
+                                   "loadtag": tagName})
+        return res
 
     def addByUname(self, uname, verb="add"):
         """Adds some neurons by the uname.
@@ -1504,7 +1617,7 @@ class Client:
             'messageType': 'Message',
             'widget': 'NLP'})
 
-    def raise_error(self, e, error):
+    def raise_error(self, e, error, no_raise = False):
         """Raises an error in the frontend.
 
         # Arguments
@@ -1515,6 +1628,8 @@ class Client:
         self.tryComms({'data': {'info': {'error': error}},
             'messageType': 'Message',
             'widget': 'NLP'})
+        if not no_raise:
+            raise e
 
     def getStats(self, neuron_name):
         """Print various statistics for a given neuron.
@@ -1522,22 +1637,11 @@ class Client:
         # Arguments
             neuron_name (str): Name of the neuron to print the data for. The neuron must have been queried beforehand.
         """
-        displayDict = {
-            "totalLength": "Total Length (µm)",
-            "totalSurfaceArea": "Total Surface Area (µm^2)",
-            "totalVolume": "Total Volume (µm^3)",
-            "maximumEuclideanDistance": "Maximum Euclidean Distance (µm)",
-            "width": "Width (µm)",
-            "height": "Height (µm)",
-            "depth": "Depth (µm)",
-            "maxPathDistance": "Max Path Distance (µm)",
-            "averageDiameter": "Average Diameter (µm)",
-        }
         if neuron_name in self.neuronStats.keys():
             print("Statistics for " + neuron_name + ":")
             print("-----------")
-            for i in displayDict.keys():
-                print(displayDict[i] + ":", self.neuronStats[neuron_name][i])
+            for i in morphometric_displayDict.keys():
+                print(morphometric_displayDict[i] + ":", self.neuronStats[neuron_name][i])
         else:
             print("No statistics found for " + str(neuron_name) + ".")
         return None
@@ -1560,19 +1664,20 @@ class Client:
             }
         )
         res = self.executeNAquery(res)
-        neuropils = []
-        for i in res:
-            try:
-                if "data" in i.keys():
-                    if "data" in i["data"].keys():
-                        if "nodes" in i["data"]["data"].keys():
-                            a = i["data"]["data"]["nodes"]
-                            for j in a.keys():
-                                name = a[j]["name"]
-                                neuropils.append(name)
-            except:
-                pass
-        neuropils = list(set(neuropils))
+        # neuropils = []
+        # for i in res:
+        #     try:
+        #         if "data" in i.keys():
+        #             if "data" in i["data"].keys():
+        #                 if "nodes" in i["data"]["data"].keys():
+        #                     a = i["data"]["data"]["nodes"]
+        #                     for j in a.keys():
+        #                         name = a[j]["name"]
+        #                         neuropils.append(name)
+        #     except:
+        #         pass
+        # neuropils = list(set(neuropils))
+        neuropils = list(res.get('Neuropil').values())
         return neuropils
 
     def sendNeuropils(self):
@@ -1583,8 +1688,7 @@ class Client:
         """
         a = {}
         a["data"] = self.getNeuropils()
-        if self.log_level>1:
-            print('Available Neuropils:', a["data"])
+        self.log['Client'].debug('Available Neuropils: {}'.format(a["data"]))
         a["messageType"] = "updateActiveNeuropils"
         a["widget"] = "GFX"
         self.tryComms(a)
@@ -1633,13 +1737,10 @@ class Client:
         # Returns
             dict: NA information regarding the node.
         """
-        res = {"uri": "ffbo.na.get_data.", "id": dbid}
-        queryID = guidGenerator()
-        res = self.executeNAquery(
-            res, uri= "{}{}".format(res["uri"], self.naServerID), queryID=queryID, progressive=False
-        )
+        task = {"id": dbid, 'queryID': guidGenerator()}
+        res = self.rpc('ffbo.na.get_data.{}'.format(self.naServerID), task)
         a = {}
-        a["data"] = res
+        a["data"] = {"data": res, "messageType": "Data", "widget": "NLP"} # the extra message type seems to be needed to update info panel, why?
         a["messageType"] = "Data"
         a["widget"] = "INFO"
         self.tryComms(a)
@@ -1648,7 +1749,7 @@ class Client:
         if self.compiled == True:
             try:
                 a = {}
-                name = res["data"]["data"]["summary"]["name"]
+                name = res["data"]["summary"]["uname"]
                 if name in self.node_keys.keys():
                     data = self.C.G.node["uid" + str(self.node_keys[name])]
                     data["uid"] = str(self.node_keys[name])
@@ -1658,7 +1759,6 @@ class Client:
                     self.tryComms(a)
             except:
                 pass
-
         return res
 
     def GFXcall(self, args):
@@ -1671,9 +1771,9 @@ class Client:
             dict OR string: The call result.
         """
         if isinstance(args, str):
-            res = self.client.session.call(args)
+            res = self.rpc(args)
         else:
-            res = self.client.session.call(args[0], args[1:])
+            res = self.rpc(args[0], args[1:])
         if type(res) == dict:
             a = res
             a["widget"] = "GFX"
@@ -1701,7 +1801,7 @@ class Client:
         a["messageType"] = "PlotResults"
         a["widget"] = "Master"
         self.data.append(a)
-        print(printHeader("FBL Client Master") + "Sending simulation data.")
+        self.log['Master'].info("Sending simulation data.")
         self.tryComms(a)
         json_str = json.dumps(h5data)
         with open(filename.split(".")[0] + ".json", "w") as f:
@@ -1724,18 +1824,30 @@ class Client:
         print(data)
         return True
 
-    def getConnectivity(self):
+    def getConnectivity(self, query_result = None, synapse_threshold = 0):
         """Obtain the connectivity matrix of the current circuit in NetworkX format.
 
         # Returns
             dict: The connectivity dictionary.
         """
-        res = json.loads(
-            """
-        {"format":"nx","query":[{"action":{"method":{"add_connecting_synapses":{}}},"object":{"state":0}}],"temp":true}
-        """
-        )
-        res = self.executeNAquery(res)
+        if query_result is None:
+            task = {"format": "nx",
+                    "query":[
+                             {"action":{"method":{"add_connecting_synapses":{"N": synapse_threshold}}},
+                              "object":{"state": 0}}],
+                    }
+        else:
+            task = {"format": "nx",
+                    "query":[
+                             {"action":{"method": {'query': {} }},
+                              "object":{"rid": list(query_result.neurons.keys())}
+                             },
+                             {"action":{"method": {"add_connecting_synapses":{"N": synapse_threshold}}},
+                              "object":{"memory": 0}
+                             },
+                            ]
+                    }
+        res = self.executeNAquery(task, temp = True)
         return res
 
     def sendExecuteReceiveResults(
@@ -1750,23 +1862,17 @@ class Client:
         # Returns
             bool: Whether the call was successful.
         """
-        print(
-            printHeader("FBL Client GFX")
-            + "Initiating remote execution for the current circuit."
-        )
+        self.log['GFX'].info("Initiating remote execution for the current circuit.")
         if self.compiled == False:
             compile = True
         if compile == True:
-            print(printHeader("FBL Client GFX") + "Compiling the current circuit.")
+            self.log['GFX'].info("Compiling the current circuit.")
             self.prepareCircuit()
-        print(
-            printHeader("FBL Client GFX")
-            + "Circuit prepared. Sending to FFBO servers."
-        )
+        self.log['GFX'].info("Circuit prepared. Sending to FFBO servers.")
         self.sendCircuitPrimitive(self.C, args={"name": circuitName})
-        print(printHeader("FBL Client GFX") + "Circuit sent. Queuing execution.")
+        self.log['GFX'].info("Circuit sent. Queuing execution.")
         if len(inputProcessors) > 0:
-            res = self.client.session.call(
+            res = self.rpc(
                 "ffbo.gfx.startExecution",
                 {
                     "name": circuitName,
@@ -1776,7 +1882,7 @@ class Client:
                 },
             )
         else:
-            res = self.client.session.call(
+            res = self.rpc(
                 "ffbo.gfx.startExecution", {"name": circuitName, "dt": dt, "tmax": tmax}
             )
         return True
@@ -1791,15 +1897,7 @@ class Client:
         """Prepares the current circuit for the Neuroballad format.
         """
         res = self.getConnectivity()
-
-        for data in self.data:
-            if data["messageType"] == "Data":
-                if "data" in data:
-                    if "data" in data["data"]:
-                        connectivity = data["data"]["data"]
-                        break
-
-        connectivity = res[-2]["data"]["data"]
+        connectivity = {'nodes': dict(res.graph.nodes(data=True)), 'edges': list(res.graph.edges(data=True))}
         # print(connectivity)
         out_nodes, out_edges, out_edges_unique = self.processConnectivity(connectivity)
         self.out_nodes = out_nodes
@@ -1810,6 +1908,7 @@ class Client:
         self.node_keys = node_keys
         self.compiled = True
 
+    # TODO: need check
     def getSlowConnectivity(self):
         """Obtain the connectivity matrix of the current circuit in a custom dictionary format. Necessary for large circuits.
 
@@ -1820,26 +1919,30 @@ class Client:
         names = []
         synapses = []
 
-        for data in self.data:
-            if data["messageType"] == "Data":
-                if "data" in data:
-                    if "data" in data["data"]:
-                        keys = list(data["data"]["data"].keys())
-                        for key in keys:
-                            if isinstance(data["data"]["data"][key], dict):
-                                if "uname" in data["data"]["data"][key].keys():
-                                    hashids.append(key)
-                                    names.append(data["data"]["data"][key]["uname"])
+        # for data in self.data:
+        #     if data["messageType"] == "Data":
+        #         if "data" in data:
+        #             if "data" in data["data"]:
+        #                 keys = list(data["data"]["data"].keys())
+        #                 for key in keys:
+        #                     if isinstance(data["data"]["data"][key], dict):
+        #                         if "uname" in data["data"]["data"][key].keys():
+        #                             hashids.append(key)
+        #                             names.append(data["data"]["data"][key]["uname"])
+        neurons = self.NLP_result.neurons
+        for k, v in neurons:
+            hasids.append(k)
+            names.append(v['uname'])
 
         for i in range(len(hashids)):
             res = self.getInfo(hashids[i])
-            if "connectivity" in res["data"]["data"].keys():
-                presyn = res["data"]["data"]["connectivity"]["pre"]["details"]
+            if "connectivity" in res["data"].keys():
+                presyn = res["data"]["connectivity"]["pre"]["details"]
 
                 for syn in presyn:
                     synapses.append([syn["uname"], names[i], syn["number"]])
 
-                postsyn = res["data"]["data"]["connectivity"]["post"]["details"]
+                postsyn = res["data"]["connectivity"]["post"]["details"]
                 for syn in postsyn:
                     synapses.append([names[i], syn["uname"], syn["number"]])
                 clear_output()
@@ -1857,19 +1960,13 @@ class Client:
     def autoLayout(self):
         """Layout raw data from NeuroArch and save results as G_auto.*.
         """
-        import json
-        res = json.loads(
-                    """
-                {"format":"nx","query":[{"action":{"method":{"add_connecting_synapses":{}}},"object":{"state":0}}],"temp":true}
-                """
-                )
-        res = self.executeNAquery(res)
-        nodes = res[-2]["data"]["data"]['nodes']
-        edges = res[-2]["data"]["data"]['edges']
-        import networkx as nx
+        res = self.getConnectivity()
+        nodes = dict(res.graph.nodes(data=True))
+        edges = list(res.graph.edges(data=True))
+
         G = nx.DiGraph()
         for e_pre in nodes:
-            G.add_node(e_pre, **{'uname': nodes[e_pre]['uname']})
+            G.add_node(e_pre, uname = nodes[e_pre]['uname'])
         for edge in edges:
             G.add_edge(edge[0],edge[1])
         from graphviz import Digraph
@@ -1926,7 +2023,8 @@ class Client:
             g.render('G_auto', format = 'png', view=False)
         except Exception as e:
             self.raise_error(e, 'There was an error during diagram generation. Please execute "conda install -c anaconda graphviz" in your terminal in your conda environment, or try to install GraphViz globally from https://graphviz.org/download/.')
-            print(e)
+            # print(e)
+
     def processConnectivity(self, connectivity):
         """Processes a Neuroarch connectivity dictionary.
 
@@ -2152,9 +2250,9 @@ class Client:
         a["name"] = args["name"]
         a["experiment"] = self.experimentInputs
         a["graph"] = binascii.hexlify(data).decode()
-        res = self.client.session.call("ffbo.gfx.sendCircuit", a)
-        res = self.client.session.call("ffbo.gfx.sendExperiment", a)
-        # print(_FBLClient.client.session.call('ffbo.gfx.sendCircuit', a))
+        res = self.rpc("ffbo.gfx.sendCircuit", a)
+        res = self.rpc("ffbo.gfx.sendExperiment", a)
+        # print(_FBLClient.rpc('ffbo.gfx.sendCircuit', a))
 
     def alter(self, X):
         """Alters a set of models with specified Neuroballad models.
@@ -2210,7 +2308,7 @@ class Client:
         """Deprecated function that locally saves a circuit file via the backend.
            Deprecated because of connectivity issues with large files.
         """
-        X = self.client.session.call(u"ffbo.gfx.getCircuit", X)
+        X = self.rpc(u"ffbo.gfx.getCircuit", X)
         X["data"] = binascii.unhexlify(X["data"].encode())
         if local == False:
             with open(
@@ -2226,7 +2324,7 @@ class Client:
         """Deprecated function that locally saves an experiment file via the backend.
            Deprecated because of connectivity issues with large files.
         """
-        X = self.client.session.call(u"ffbo.gfx.getExperiment", X)
+        X = self.rpc(u"ffbo.gfx.getExperiment", X)
         X["data"] = json.dumps(X["data"])
         if local == False:
             with open(os.path.join(_FBLDataPath, X["name"] + ".json"), "w") as file:
@@ -2250,7 +2348,7 @@ class Client:
         """Deprecated function that locally saves an SVG via the backend.
            Deprecated because of connectivity issues with large files.
         """
-        X = self.client.session.call(u"ffbo.gfx.getSVG", X)
+        X = self.rpc(u"ffbo.gfx.getSVG", X)
         X["data"] = binascii.unhexlify(X["data"].encode())
         # X['data'] = json.dumps(X['data'])
         if local == False:
@@ -2285,7 +2383,7 @@ class Client:
         with open(file, "r") as ifile:
             data = ifile.read()
         data = json.dumps({"name": name, "svg": data})
-        self.client.session.call("ffbo.gfx.sendSVG", data)
+        self.rpc("ffbo.gfx.sendSVG", data)
 
     def loadSVG(self, name):
         """Loads an SVG in the FBL fileserver.
@@ -2320,7 +2418,7 @@ class Client:
             idx = self.C.add_cluster(1, model)[0]
             self.addInput(nb.InIStep(idx, float(stepAmplitude), 0.0, 1.0))
         self.sendCircuitPrimitive(self.C, args={"name": circuitName})
-        print(printHeader("FBL Client GFX") + "Circuit sent. Queuing execution.")
+        self.log['GFX'].debug("Circuit sent. Queuing execution.")
         # while self.executionSuccessful == False:
         #    sleep(1)
         # self.experimentInputs = []
@@ -2333,8 +2431,8 @@ class Client:
         self.executionSuccessful = False
         a = self.experimentQueue.pop(0)
         # self.parseSimResults()
-        res = self.client.session.call("ffbo.gfx.sendExperiment", a)
-        res = self.client.session.call("ffbo.gfx.startExecution", {"name": circuitName})
+        res = self.rpc("ffbo.gfx.sendExperiment", a)
+        res = self.rpc("ffbo.gfx.startExecution", {"name": circuitName})
 
         return True
 
@@ -2382,7 +2480,7 @@ class Client:
             bs.append(b)
 
         B = np.array(bs)
-        print("Shape of Results:", B.shape)
+        #print("Shape of Results:", B.shape)
         return B, keys
 
     def plotSimResults(self, B, keys):
@@ -2787,12 +2885,12 @@ class Client:
                 "server": self.naServerID,
             },
         ]
-        res = self.client.session.call(
+        res = self.rpc(
             "ffbo.processor.neuroarch_query", list_of_queries[0]
         )
         print("Pruning ", removed_neurons)
         print("Pruning ", removed_labels)
-        res = self.client.session.call(
+        res = self.rpc(
             "ffbo.processor.neuroarch_query",
             list_of_queries[1],
             options=CallOptions(timeout=30000000000),
@@ -3001,7 +3099,7 @@ class Client:
             "server": self.naServerID,
         }
 
-        res = self.client.session.call("ffbo.processor.neuroarch_query", inp)
+        res = self.rpc("ffbo.processor.neuroarch_query", inp)
 
         inp = {
             "query": [{"action": {"method": {"has": {}}}, "object": {"state": 0}}],
@@ -3010,13 +3108,13 @@ class Client:
             "server": self.naServerID,
         }
 
-        res = self.client.session.call("ffbo.processor.neuroarch_query", inp)
+        res = self.rpc("ffbo.processor.neuroarch_query", inp)
         #print(res)
         """
-        res_info = self.client.session.call(u'ffbo.processor.server_information')
+        res_info = self.rpc(u'ffbo.processor.server_information')
         msg = {"user": self.client._async_session._session_id,
             "servers": {'na': self.naServerID, 'nk': list(res_info['nk'].keys())[0]}}
-        res = self.client.session.call(u'ffbo.na.query.' + msg['servers']['na'], {'user': msg['user'],
+        res = self.rpc(u'ffbo.na.query.' + msg['servers']['na'], {'user': msg['user'],
                                         'command': {"retrieve":{"state":0}},
                                         'format': "nk"}, options=CallOptions(
                                         timeout = 30000000000
@@ -3046,10 +3144,10 @@ class Client:
             retrieval_format=retrieval_format,
         )
         """
-        res_info = self.client.session.call(u'ffbo.processor.server_information')
+        res_info = self.rpc(u'ffbo.processor.server_information')
         msg = {"user": self.client._async_session._session_id,
             "servers": {'na': self.naServerID, 'nk': list(res_info['nk'].keys())[0]}}
-        res = self.client.session.call(u'ffbo.na.query.' + msg['servers']['na'], {'user': msg['user'],
+        res = self.rpc(u'ffbo.na.query.' + msg['servers']['na'], {'user': msg['user'],
                                 'command': {"retrieve":{"state":0}},
                                 'format': "nk"})
         """
@@ -3057,6 +3155,7 @@ class Client:
         print("Retina and lamina circuits have been successfully loaded.")
         return res
 
+    # TODO: need fix
     def get_current_neurons(self, res):
         labels = []
         for j in res["data"]["nodes"]:
@@ -3066,6 +3165,7 @@ class Client:
                     labels.append(label)
         return labels
 
+    # TODO: need fix
     def ablate_by_match(self, res, neuron_list):
         neurons = self.get_current_neurons(res)
         removed_neurons = []
@@ -3092,9 +3192,10 @@ class Client:
         #             if 'port' not in label and 'synapse' not in label:
         #                 labels.append(label)
 
-        res = self.client.session.call(u'ffbo.processor.server_information')
+        res = self.rpc(u'ffbo.processor.server_information')
         if len(res['nk']) == 0:
-            raise RuntimeError('Neurokernel Server not found. If it halts, please restart it.')
+            error_msg = 'Neurokernel Server not found. If it halts, please restart it.'
+            self.raise_error(FlyBrainLabNKserverException(error_msg), error_msg)
         # TODO: randomly choose from the nk servers that are not busy. If all are busy, randomly choose one.
         msg = {#'neuron_list': labels,
                 "user": self.client._async_session._session_id,
@@ -3110,25 +3211,26 @@ class Client:
         if steps is not None:
             msg["steps"] = steps
 
-        print(res)
+        self.log['NK'].debug('server_info: {}'.format(res))
         res = []
 
         def on_progress(x, res):
             res.append(x)
 
         res_list = []
-        res = self.client.session.call(
+        res = self.rpc(
             "ffbo.processor.nk_execute",
             msg,
             options=CallOptions(
                 on_progress=partial(on_progress, res=res_list), timeout=30000000000
             ),
         )
-        print("Execution request sent. Please wait.")
+        self.log['NK'].info("Execution request sent. Please wait.")
         if 'success' in res:
-            print(res['success'])
+            self.log['NK'].info(res['success'])
         else:
-            raise RuntimeError('Job not received for unknown reason.')
+            error_msg = 'Job not received for unknown reason.'
+            self.raise_error(FlyBrainLabNKserverException(error_msg), error_msg)
 
     def updateSimResultLabel(self, result_name, label_dict):
         result = self.exec_result[result_name]
@@ -3280,5 +3382,78 @@ class Client:
                                 ] = updated_node_data[state]
         return res
 
+    def get_neuron_graph(self, query_result = None, synapse_threshold = 0):
+        """
+        Get the graph between Neurons in a query,
+        where Synapses between neurons are edges with weight equals to number of synapses.
+
+        # Arguments
+            query_result (graph.NeuroNLPResult):
+                If None, currently active Neurons in the NeuroNLP window will be used (default).
+                If supplied, the neurons in the query_result will be used.
+        # Returns
+            graph.NeuronGraph: A graph representing the connectivity of the neurons.
+
+        """
+        conn_result = self.getConnectivity(query_result = query_result,
+                                           synapse_threshold = synapse_threshold)
+        return fblgraph.NeuronGraph(conn_result)
+
+    def get_neuron_adjacency_matrix(self, query_result = None, uname_order = None, rid_order = None):
+        """
+        Get adjacency matrix between Neurons.
+
+        # Arguments
+            query_result (graph.NeuroNLPResult):
+                If None, currently active Neurons in the NeuroNLP window will be used (default).
+                If supplied, the neurons in the query_result will be used.
+            uname_order (list):
+                A list of the uname of neurons to order the rows and columns of the adjacency matrix.
+                If None, use rid_order. If rid_order is None, will sort uname for order.
+            rid_order (list):
+                A list of the rids of neurons to order the rows and columns of the adjacency matrix.
+                If None, use uname_order. if uname_order is None, will sort uname for order.
+        # Returns
+            networkx.MultiDiGraph: A graph representing the connectivity of the neurons.
+
+        """
+        g = self.get_neuron_graph(query_result = query_result,
+                                  synapse_threshold = synapse_threshold)
+        return g.adjacency_matrix(uname_order = uname_order, rid_order = rid_order)
+
+    def select_DataSource(self, name, version):
+        uri = "ffbo.na.datasource.{}".format(self.naServerID)
+        res = self.rpc(
+                uri,
+                name, version,
+                options=CallOptions(timeout=10000) )
+        if 'error' in res:
+            raise Error(res['error']['message'] + res['error']['exception'])
+        elif 'success' in res:
+            self.log['NA'].info(res['success']['message'])
+
+    def add_neuron(self, uname,
+                   name,
+                   referenceId = None,
+                   locality = None,
+                   synonyms = None,
+                   info = None,
+                   morphology = None,
+                   arborization = None,
+                   neurotransmitters = None):
+        uri = "ffbo.na.add_neuron.{}".format(self.naServerID)
+        res = self.rpc(
+                uri,
+                uname, name, referenceId = referenceId, locality = locality,
+                synonyms = None,
+                info = None,
+                morphology = None,
+                arborization = None,
+                neurotransmitters = None,
+                options=CallOptions(timeout=10000) )
+        if 'error' in res:
+            raise Error(res['error']['message'] + res['error']['exception'])
+        elif 'success' in res:
+            return res['success']['data']
 
 FBLClient = Client
