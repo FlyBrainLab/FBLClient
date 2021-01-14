@@ -1,26 +1,50 @@
 from ipykernel.comm import Comm
 from collections import OrderedDict
-import dataclasses
+from dataclasses import dataclass, field
 
+@dataclass
+class WidgetModel:
+    """Model of Base FBL Widget as defined in Front-end"""
+    data: dict = field(default_factory=dict, repr=False)
+    metadata: dict = field(default_factory=dict, repr=False)
+    states: dict = field(default_factory=dict, repr=False)
 
-@dataclasses.dataclass
+@dataclass
 class Widget:
     """Widget class that keeps track of all the information regarding a widget.
+
+    # Attributes:
+        widget_type: type of the widget, neu3d, neugfx, etc.
+        widget_id: id of the widget in the front-end
+        clinet_id: id of the client instance associated with the widget
+        model: the model of the widget
+        comm: IPython's Comm object that communicates with the front-end
+        msg_data: data received by the comm from front-end
+        isDisposed: if the widget is disposed
+        commOpen: if the comm is open
     """
 
-    widget_type: str  # neu3d, neugfx, etc.
+    widget_type: str
     widget_id: str
     client_id: str
-    model: "typing.Any"
+    model: "typing.Any" = field(repr=False)
     comm: Comm
-    msg_data: "typing.Any"
+    msg_data: "typing.Any" = field(repr=False)
     isDisposed: bool = False
     commOpen: bool = True
     
 
     def send_data(self, data):
+        """Send data to front-end via comm"""
         if self.comm:
             self.comm.send(data)
+
+    def parse_data(self, comm_data):
+        """Parse Data received from comm"""
+        messageType = comm_data['messageType'] if 'messageType' in comm_data else None
+        if messageType == 'model':
+            model = comm_data['data']
+            self.model = WidgetModel(**model)
 
 class CallbackManager:
     """Callback manager class that stores a number of callbacks that try to access messages sent from frontend to the Python kernel.
@@ -100,12 +124,14 @@ class WidgetManager(object):
     # Attributes:
         widgets (dict): a dictionary of instances of Widget.
         _comms (dict): all comm objects opend for this client.
+        last_active (Widget): last active widget based on comm
     """
 
     def __init__(self):
         self._comms = OrderedDict()
         self.widgets = OrderedDict()
         self.callback_manager = CallbackManager()
+        self.last_active = None
 
     def add_widget(self, widget_id, client_id, widget_type, comm_target):
         """Add a widget to manager.
@@ -124,8 +150,9 @@ class WidgetManager(object):
                 data = msg["content"]["data"]
                 nonlocal self
                 widget = self.find_widget_by_comm_id(comm_id)
-
+                self.last_active = widget
                 widget.msg_data = data
+                widget.parse_data(data)
                 if data == "dispose":
                     widget.isDisposed = True
                 self.callback_manager.run(comm_id, data)
@@ -147,6 +174,7 @@ class WidgetManager(object):
                 isDisposed=False,
                 msg_data=None,
             )
+        self.last_active = self.widgets[widget_id]
 
         # make sure that comm is open
         comm.open()
