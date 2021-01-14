@@ -3382,22 +3382,65 @@ class Client:
                                 ] = updated_node_data[state]
         return res
 
-    def get_neuron_graph(self, query_result = None, synapse_threshold = 0):
+    def get_neuron_graph(self, query_result = None, synapse_threshold = 5, complete_synapses = True):
         """
         Get the graph between Neurons in a query,
         where Synapses between neurons are edges with weight equals to number of synapses.
 
         # Arguments
-            query_result (graph.NeuroNLPResult):
+            query_result (graph.NAqueryResult):
                 If None, currently active Neurons in the NeuroNLP window will be used (default).
                 If supplied, the neurons in the query_result will be used.
+            synapse_threshold (int):
+                The connections between neurons that are larger than synapse_threshold will added (default 5).
+            complete_synapses (bool):
+                Whether or not to include all synapses between pairs of neurons in the query_result.
+                If True, all synapses will be considered even they are not in the query_result.
+                If False, only the synapses in the query_result will be used to construct the graph.
+                (default True).
         # Returns
             graph.NeuronGraph: A graph representing the connectivity of the neurons.
 
         """
-        conn_result = self.getConnectivity(query_result = query_result,
-                                           synapse_threshold = synapse_threshold)
-        return fblgraph.NeuronGraph(conn_result)
+        if complete_synapses:
+            conn_result = self.getConnectivity(query_result = query_result,
+                                               synapse_threshold = synapse_threshold)
+            return fblgraph.NeuronGraph(conn_result)
+        else:
+            if query_result is None:
+                query_result = self.NLP_result
+            nodes = list(query_result.neurons.keys()) + \
+                   [k for v in query_result.synapses.items() if v['N']>=synapse_threshold]
+            return fblgraph.NeuronGraph(query_result.graph.subgraph(nodes))
+
+    def get_circuit_graph(self, query_result = None, synapse_threshold = 5, complete_synapses = True):
+        """
+        Get the circuit graph invovling both neurons and synapses as nodes.
+
+        # Arguments
+            query_result (graph.NAqueryResult):
+                If None, currently active Neurons in the NeuroNLP window will be used (default).
+                If supplied, the neurons and synapses in the query_result will be used.
+            synapse_threshold (int):
+                The connections between neurons that are larger than synapse_threshold will added (default 5).
+            complete_synapses (bool):
+                Whether or not to include all synapses between pairs of neurons in the query_result.
+                If True, all synapses will be considered even they are not in the query_result.
+                If False, only the synapses in the query_result will be used to construct the graph.
+                (default True).
+        # Returns
+            graph.CircuitGraph: A graph representing the connectivity of the circuit elements.
+        """
+        if complete_synapses:
+            conn_result = self.getConnectivity(query_result = query_result,
+                                               synapse_threshold = synapse_threshold)
+            return fblgraph.CircuitGraph(conn_result)
+        else:
+            if query_result is None:
+                query_result = self.NLP_result
+            nodes = list(query_result.neurons.keys()) + \
+                   [k for v in query_result.synapses.items() if v['N']>=synapse_threshold]
+            return fblgraph.CircuitGraph(query_result.graph.subgraph(nodes))
 
     def get_neuron_adjacency_matrix(self, query_result = None, uname_order = None, rid_order = None):
         """
@@ -3421,39 +3464,5 @@ class Client:
                                   synapse_threshold = synapse_threshold)
         return g.adjacency_matrix(uname_order = uname_order, rid_order = rid_order)
 
-    def select_DataSource(self, name, version):
-        uri = "ffbo.na.datasource.{}".format(self.naServerID)
-        res = self.rpc(
-                uri,
-                name, version,
-                options=CallOptions(timeout=10000) )
-        if 'error' in res:
-            raise Error(res['error']['message'] + res['error']['exception'])
-        elif 'success' in res:
-            self.log['NA'].info(res['success']['message'])
-
-    def add_neuron(self, uname,
-                   name,
-                   referenceId = None,
-                   locality = None,
-                   synonyms = None,
-                   info = None,
-                   morphology = None,
-                   arborization = None,
-                   neurotransmitters = None):
-        uri = "ffbo.na.add_neuron.{}".format(self.naServerID)
-        res = self.rpc(
-                uri,
-                uname, name, referenceId = referenceId, locality = locality,
-                synonyms = None,
-                info = None,
-                morphology = None,
-                arborization = None,
-                neurotransmitters = None,
-                options=CallOptions(timeout=10000) )
-        if 'error' in res:
-            raise Error(res['error']['message'] + res['error']['exception'])
-        elif 'success' in res:
-            return res['success']['data']
 
 FBLClient = Client

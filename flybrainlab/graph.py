@@ -331,15 +331,19 @@ class NeuronGraph(nx.DiGraph):
     the number of synapses between the two connected neurons.
 
     # Arguments
-        connectivity_query_result (NeuroNLPResult):
+        connectivity_query_result (NeuroNLPResult or networkx.(Multi)DiGraph):
             query result from Client.getConnectivity() or equivalent query
     """
     def __init__(self, connectivity_query_result):
         super(NeuronGraph, self).__init__()
 
-        if connectivity_query_result.graph is None:
-            raise AttributeError('query result does not have a graph')
-        graph = connectivity_query_result.graph
+        if isinstance(connectivity_query_result, NAqueryResult):
+            if connectivity_query_result.graph is None:
+                raise AttributeError('query result does not have a graph')
+            else:
+                graph = connectivity_query_result.graph
+        elif isinstance(connectivity_query_result, nx.Graph):
+            graph = connectivity_query_result
         neurons = {n: v for n, v in graph.nodes(data = True) \
                     if v['class'] in ['Neuron']}
         synapses = {n: v for n, v in graph.nodes(data = True) \
@@ -360,9 +364,6 @@ class NeuronGraph(nx.DiGraph):
         Get adjacency matrix between Neurons.
 
         # Arguments
-            query_result (graph.NeuroNLPResult):
-                If None, currently active Neurons in the NeuroNLP window will be used (default).
-                If supplied, the neurons in the query_result will be used.
             uname_order (list):
                 A list of the uname of neurons to order the rows and columns of the adjacency matrix.
                 If None, use rid_order. If rid_order is None, will sort uname for order.
@@ -370,7 +371,7 @@ class NeuronGraph(nx.DiGraph):
                 A list of the rids of neurons to order the rows and columns of the adjacency matrix.
                 If None, use uname_order. if uname_order is None, will sort uname for order.
         # Returns
-            M (networkx.MultiDiGraph):
+            M (numpy.ndarray):
                 A graph representing the connectivity of the neurons.
             uname_oder (list):
                 A list of unames by which the rows and columns of M are ordered.
@@ -388,3 +389,21 @@ class NeuronGraph(nx.DiGraph):
             rid_order = [order_dict[uname] for uname in uname_order]
         M = nx.adj_matrix(self, nodelist = rid_order).todense()
         return M, uname_order
+
+
+class CircuitGraph(nx.MultiDiGraph):
+    def __init__(self, connectivity_query_result):
+        super(CircuitGraph, self).__init__()
+        if isinstance(connectivity_query_result, NAqueryResult):
+            if connectivity_query_result.graph is None:
+                raise AttributeError('query result does not have a graph')
+            else:
+                graph = connectivity_query_result.graph
+        elif isinstance(connectivity_query_result, nx.Graph):
+            graph = connectivity_query_result
+        self.add_nodes_from(list(graph.nodes(data = True)))
+        self.add_edges_from(graph.edges(data = True))
+
+    def copy(self):
+        return self.__class__(self)
+
