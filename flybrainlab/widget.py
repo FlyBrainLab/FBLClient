@@ -203,5 +203,6 @@ class WidgetManager(object):
     def send_data(self, widget_id, data):
         if widget_id in self.widgets:
             self.widgets[widget_id].send_data(data)
+            self.last_active = self.widgets[widget_id]
 
 
