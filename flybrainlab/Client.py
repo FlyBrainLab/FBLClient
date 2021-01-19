@@ -3442,7 +3442,8 @@ class Client:
                    [k for v in query_result.synapses.items() if v['N']>=synapse_threshold]
             return fblgraph.CircuitGraph(query_result.graph.subgraph(nodes))
 
-    def get_neuron_adjacency_matrix(self, query_result = None, uname_order = None, rid_order = None):
+    def get_neuron_adjacency_matrix(self, query_result = None, synapse_threshold = 5,
+                                    uname_order = None, rid_order = None):
         """
         Get adjacency matrix between Neurons.
 
