@@ -1395,6 +1395,7 @@ class Client:
             queryID (str): Query ID to be used. Generated automatically.
             progressive (bool): Whether the loading should be progressive. Needs to be true most of the time for the connection to be stable.
             threshold (int): Data chunk size. Low threshold is required for the connection to be stable.
+            temp (bool): Whether the NA query is temporary. If True, result will not stored as the last state in NeuroArch server.
 
         # Returns
             bool: Whether the process has been successful.
@@ -2689,18 +2690,12 @@ class Client:
         """Executes a multilpu circuit. Requires a result dictionary.
 
         # Arguments
-            res (dict): The result dictionary to use for execution.
-
-        # Returns
-            bool: A success indicator.
+            name (str): The name assigned to the experiment.
+            inputProcessors (dict): A dict specifying the InputProcessors for each LPU in JSON format.
+            outputProcessors (dict): A dict specifying the OutputProcessors for each LPU in JSON format.
+            steps (int): Number of steps to be simulated.
+            dt (float): time step
         """
-        # labels = []
-        # for i in res['data']['LPU']:
-        #     for j in res['data']['LPU'][i]['nodes']:
-        #         if 'label' in res['data']['LPU'][i]['nodes'][j]:
-        #             label = res['data']['LPU'][i]['nodes'][j]['label']
-        #             if 'port' not in label and 'synapse' not in label:
-        #                 labels.append(label)
 
         res = self.rpc(u'ffbo.processor.server_information')
         if len(res['nk']) == 0:
@@ -2743,6 +2738,18 @@ class Client:
             self.raise_error(FlyBrainLabNKserverException(error_msg), error_msg)
 
     def updateSimResultLabel(self, result_name, label_dict):
+        """
+        Update the execution result for experiment with name result_name as assigned
+        during `execute_multilpu` call with new labels label_dict.
+        This is to replace labels returned by neurokernel using record id of NeuroArch database
+        with the uname of the neurons/synapses so they can be readable.
+
+        # Arguments
+            result_name (str): The name assigned to the experiment in `execute_multilpu` call.
+            label_dict (dict): A dict specifying the mapping of label, with keys rid of the
+                               component and value the designed new label, typically the uname
+                               of the neurons.
+        """
         result = self.exec_result[result_name]
         input_keys = list(result['input'].keys())
         for k in input_keys:
@@ -2754,6 +2761,14 @@ class Client:
                 result['output'][label_dict[k]] = result['output'].pop(k)
 
     def plotExecResult(self, result_name, inputs = None, outputs = None):
+        """
+        Plotting the execution result.
+
+        # Arguments
+            result_name (str): The name assigned to the experiment in `execute_multilpu` call.
+            inputs (list): A list of inputs to plot
+            outputs (list): A list of outputs to plot
+        """
         # inputs
         res_input = self.exec_result[result_name]['input']
         if inputs is None:
