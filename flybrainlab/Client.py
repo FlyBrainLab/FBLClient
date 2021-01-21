@@ -300,24 +300,6 @@ class Client:
         compiled (bool): Circuits need to be compiled into networkx graphs before being sent for simulation. This is necessary as circuit compilation is a slow process.
         sendDataToGFX (bool): Whether the data received from the backend should be sent to the frontend. Useful for code-only projects.
     """
-
-    def tryComms(self, a):
-        """Communication function to communicate with a JupyterLab frontend if one exists.
-
-        # Arguments
-            a (obj): Arbitrarily formatted data to be sent via communication.
-        """
-        try:
-            for i in fbl.widget_manager.widgets:
-                if fbl.widget_manager.widgets[i].widget_id not in fbl.client_manager.clients[fbl.widget_manager.widgets[i].client_id]['widgets']:
-                    fbl.client_manager.clients[fbl.widget_manager.widgets[i].client_id]['widgets'].append(fbl.widget_manager.widgets[i].widget_id)
-        except:
-            pass
-        try:
-            self.FBLcomm.send(data=a)
-        except:
-            pass
-
     def __init__(
         self,
         ssl=False,
@@ -594,10 +576,12 @@ class Client:
 
     @property
     def neuron_data(self):
+        # Seems to be used only in receiveData_Old which is deprecated.
         return self.NLP_result.graph
 
     @property
     def active_data(self):
+        # Not actively used, some old code was commented out
         return self.NLP_result.rids
 
     def set_log_level(self, level, logger_names = None):
@@ -618,6 +602,59 @@ class Client:
                 Warning('log {} does not exist - level not set'.format(log))
                 pass
 
+    #######################  Communication with Widgets #######################
+
+    def tryComms(self, a):
+        """Communication function to communicate with a JupyterLab frontend if one exists.
+
+        # Arguments
+            a (obj): Arbitrarily formatted data to be sent via communication.
+        """
+        try:
+            for i in fbl.widget_manager.widgets:
+                if fbl.widget_manager.widgets[i].widget_id not in fbl.client_manager.clients[fbl.widget_manager.widgets[i].client_id]['widgets']:
+                    fbl.client_manager.clients[fbl.widget_manager.widgets[i].client_id]['widgets'].append(fbl.widget_manager.widgets[i].widget_id)
+        except:
+            pass
+        try:
+            self.FBLcomm.send(data=a)
+        except:
+            pass
+
+    def raise_message(self, message):
+        """Raises an message in the frontend.
+
+        # Arguments
+            message (str): String message to raise.
+        """
+        self.tryComms({'data': {'info': {'success': message}},
+            'messageType': 'Message',
+            'widget': 'NLP'})
+
+    def raise_error(self, e, error, no_raise = False):
+        """Raises an error in the frontend.
+
+        # Arguments
+            e (str): The error string to add to self.errors.
+            error (str): String error to raise.
+        """
+        self.errors.append(e)
+        self.tryComms({'data': {'info': {'error': error}},
+            'messageType': 'Message',
+            'widget': 'NLP'})
+        if not no_raise:
+            raise e
+
+    def JSCall(self, messageType="getExperimentConfig", data={}):
+        a = {}
+        a["data"] = data
+        a["messageType"] = messageType
+        a["widget"] = "GFX"
+        self.tryComms(a)
+
+    ###########################################################################
+
+    ##############  Client registration, subscriptions and connections ########
     def reconnect(self):
         try:
             self.init_client( self.ssl,  self.user,  self.secret,  self.custom_salt,  self.url,  self.ssl_con,  self.legacy)
@@ -1242,6 +1279,9 @@ class Client:
                 res[client['client'].name] = client_data
             return res
 
+    #######################################################################################
+
+    #####################  Queries ####################################################
     def executeNLPquery(
         self, query=None, language="en", uri=None, queryID=None, returnNAOutput=False
     ):
@@ -1592,6 +1632,10 @@ class Client:
         """
         return self.addByUname(uname, verb="remove")
 
+    #######################################################################
+
+    ############################ Diagraming ###############################
+
     def runLayouting(self, type="auto", model="auto"):
         """Sends a request for the running of the layouting algorithm.
 
@@ -1607,29 +1651,7 @@ class Client:
         self.tryComms(a)
         return True
 
-    def raise_message(self, message):
-        """Raises an message in the frontend.
 
-        # Arguments
-            message (str): String message to raise.
-        """
-        self.tryComms({'data': {'info': {'success': message}},
-            'messageType': 'Message',
-            'widget': 'NLP'})
-
-    def raise_error(self, e, error, no_raise = False):
-        """Raises an error in the frontend.
-
-        # Arguments
-            e (str): The error string to add to self.errors.
-            error (str): String error to raise.
-        """
-        self.errors.append(e)
-        self.tryComms({'data': {'info': {'error': error}},
-            'messageType': 'Message',
-            'widget': 'NLP'})
-        if not no_raise:
-            raise e
 
     def getStats(self, neuron_name):
         """Print various statistics for a given neuron.
@@ -2334,13 +2356,6 @@ class Client:
                 file.write(X["data"])
         return True
 
-    def JSCall(self, messageType="getExperimentConfig", data={}):
-        a = {}
-        a["data"] = data
-        a["messageType"] = messageType
-        a["widget"] = "GFX"
-        self.tryComms(a)
-
     def getExperimentConfig(self):
         self.JSCall()
 
@@ -2573,6 +2588,102 @@ class Client:
         removed_neurons = list(set(removed_neurons))
         return removed_neurons
 
+
+        def export_diagram_config(self, res):
+            """Exports a diagram configuration from Neuroarch data to GFX.
+
+            # Arguments
+                res (dict): The result dictionary to use for export.
+
+            # Returns
+                dict: The configuration to export.
+            """
+            newConfig = {"cx": {"disabled": []}}
+            param_names = [
+                "reset_potential",
+                "capacitance",
+                "resting_potential",
+                "resistance",
+            ]
+            param_names_js = [
+                "reset_potential",
+                "capacitance",
+                "resting_potential",
+                "resistance",
+            ]
+            state_names = ["initV"]
+            state_names_js = ["initV"]
+            for lpu in res["data"]["LPU"].keys():
+                for node in res["data"]["LPU"][lpu]["nodes"]:
+                    if "name" in res["data"]["LPU"][lpu]["nodes"][node]:
+                        node_data = res["data"]["LPU"][lpu]["nodes"][node]
+                        new_node_data = {"params": {}, "states": {}}
+                        for param_idx, param in enumerate(param_names):
+                            if param in node_data:
+                                new_node_data["params"][
+                                    param_names_js[param_idx]
+                                ] = node_data[param]
+                                new_node_data["name"] = "LeakyIAF"
+                        for state_idx, state in enumerate(state_names):
+                            if state in node_data:
+                                new_node_data["states"][
+                                    state_names_js[state_idx]
+                                ] = node_data[state]
+                        newConfig["cx"][
+                            res["data"]["LPU"][lpu]["nodes"][node]["name"]
+                        ] = new_node_data
+            newConfig_tosend = json.dumps(newConfig)
+            self.JSCall(messageType="setExperimentConfig", data=newConfig_tosend)
+            return newConfig
+
+        def import_diagram_config(self, res, newConfig):
+            """Imports a diagram configuration from Neuroarch data.
+
+            # Arguments
+                res (dict): The result dictionary to update.
+                newConfig (dict): The imported configuration from a diagram.
+
+            # Returns
+                dict: The updated Neuroarch result dictionary.
+            """
+            param_names = [
+                "reset_potential",
+                "capacitance",
+                "resting_potential",
+                "resistance",
+            ]
+            param_names_js = [
+                "reset_potential",
+                "capacitance",
+                "resting_potential",
+                "resistance",
+            ]
+            state_names = ["initV"]
+            state_names_js = ["initV"]
+            for lpu in res["data"]["LPU"].keys():
+                for node in res["data"]["LPU"][lpu]["nodes"]:
+                    if "name" in res["data"]["LPU"][lpu]["nodes"][node]:
+                        if (
+                            res["data"]["LPU"][lpu]["nodes"][node]["name"]
+                            in newConfig["cx"].keys()
+                        ):
+                            updated_node_data = newConfig["cx"][
+                                res["data"]["LPU"][lpu]["nodes"][node]["name"]
+                            ]
+                            for param_idx, param in enumerate(param_names_js):
+                                if param in updated_node_data:
+                                    res["data"]["LPU"][lpu]["nodes"][node][
+                                        param_names[param_idx]
+                                    ] = updated_node_data[param]
+                            for state_idx, state in enumerate(state_names_js):
+                                if state in updated_node_data:
+                                    res["data"]["LPU"][lpu]["nodes"][node][
+                                        state_names[state_idx]
+                                    ] = updated_node_data[state]
+            return res
+
+    ##########################   Execution on Neurokernel Server ###############
+
     def execute_multilpu(self, name, inputProcessors = {}, outputProcessors = {},
                          steps= None, dt = None):
         """Executes a multilpu circuit. Requires a result dictionary.
@@ -2687,99 +2798,7 @@ class Client:
                 ax[var].set_xlabel('time (s)')
             plt.show()
 
-
-    def export_diagram_config(self, res):
-        """Exports a diagram configuration from Neuroarch data to GFX.
-
-        # Arguments
-            res (dict): The result dictionary to use for export.
-
-        # Returns
-            dict: The configuration to export.
-        """
-        newConfig = {"cx": {"disabled": []}}
-        param_names = [
-            "reset_potential",
-            "capacitance",
-            "resting_potential",
-            "resistance",
-        ]
-        param_names_js = [
-            "reset_potential",
-            "capacitance",
-            "resting_potential",
-            "resistance",
-        ]
-        state_names = ["initV"]
-        state_names_js = ["initV"]
-        for lpu in res["data"]["LPU"].keys():
-            for node in res["data"]["LPU"][lpu]["nodes"]:
-                if "name" in res["data"]["LPU"][lpu]["nodes"][node]:
-                    node_data = res["data"]["LPU"][lpu]["nodes"][node]
-                    new_node_data = {"params": {}, "states": {}}
-                    for param_idx, param in enumerate(param_names):
-                        if param in node_data:
-                            new_node_data["params"][
-                                param_names_js[param_idx]
-                            ] = node_data[param]
-                            new_node_data["name"] = "LeakyIAF"
-                    for state_idx, state in enumerate(state_names):
-                        if state in node_data:
-                            new_node_data["states"][
-                                state_names_js[state_idx]
-                            ] = node_data[state]
-                    newConfig["cx"][
-                        res["data"]["LPU"][lpu]["nodes"][node]["name"]
-                    ] = new_node_data
-        newConfig_tosend = json.dumps(newConfig)
-        self.JSCall(messageType="setExperimentConfig", data=newConfig_tosend)
-        return newConfig
-
-    def import_diagram_config(self, res, newConfig):
-        """Imports a diagram configuration from Neuroarch data.
-
-        # Arguments
-            res (dict): The result dictionary to update.
-            newConfig (dict): The imported configuration from a diagram.
-
-        # Returns
-            dict: The updated Neuroarch result dictionary.
-        """
-        param_names = [
-            "reset_potential",
-            "capacitance",
-            "resting_potential",
-            "resistance",
-        ]
-        param_names_js = [
-            "reset_potential",
-            "capacitance",
-            "resting_potential",
-            "resistance",
-        ]
-        state_names = ["initV"]
-        state_names_js = ["initV"]
-        for lpu in res["data"]["LPU"].keys():
-            for node in res["data"]["LPU"][lpu]["nodes"]:
-                if "name" in res["data"]["LPU"][lpu]["nodes"][node]:
-                    if (
-                        res["data"]["LPU"][lpu]["nodes"][node]["name"]
-                        in newConfig["cx"].keys()
-                    ):
-                        updated_node_data = newConfig["cx"][
-                            res["data"]["LPU"][lpu]["nodes"][node]["name"]
-                        ]
-                        for param_idx, param in enumerate(param_names_js):
-                            if param in updated_node_data:
-                                res["data"]["LPU"][lpu]["nodes"][node][
-                                    param_names[param_idx]
-                                ] = updated_node_data[param]
-                        for state_idx, state in enumerate(state_names_js):
-                            if state in updated_node_data:
-                                res["data"]["LPU"][lpu]["nodes"][node][
-                                    state_names[state_idx]
-                                ] = updated_node_data[state]
-        return res
+    ####################### Processing on Query Results ########################
 
     def get_neuron_graph(self, query_result = None, synapse_threshold = 5, complete_synapses = True):
         """
