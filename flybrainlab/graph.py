@@ -98,6 +98,7 @@ class NAqueryResult(object):
             if node is not None:
                 morphology_data.update(self.graph.nodes[node])
             data[rid] = morphology_data
+            data[rid]['orid'] = node
 
         if threshold is None:
             threshold = self.task.get('threshold', 5)
