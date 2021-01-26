@@ -1570,7 +1570,7 @@ class Client:
             for i in self.NLPInterpreters:
                 default_run = i(self, uname, verb)
         if default_run == True or len(self.NLPInterpreters) == 0:
-            self.executeNAquery(
+            res = self.executeNAquery(
                 {
                     "verb": verb,
                     "query": [
@@ -1581,7 +1581,7 @@ class Client:
                     ],
                 }
             )
-            return True
+            return res
         return True
 
     def removeByUname(self, uname):
