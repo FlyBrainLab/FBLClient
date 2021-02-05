@@ -4,7 +4,7 @@ import subprocess
 import logging
 import importlib.util
 import traceback
-
+from packaging import version
 # Install all necessary packages
 ## We attempt to resolve package installation errors during the import.
 
@@ -45,6 +45,7 @@ import txaio
 import h5py
 import pandas as pd
 import networkx as nx
+import flybrainlab
 import autobahn
 from autobahn.twisted.util import sleep
 from autobahn.twisted.wamp import ApplicationSession, ApplicationRunner
@@ -90,6 +91,13 @@ _FBLConfigPath = os.path.join(home, ".ffbo", "config", "ffbo.flybrainlab.ini")
 
 logging.basicConfig(format = '[%(name)s %(asctime)s] %(message)s',
                     stream = sys.stdout)
+
+_out = subprocess.run(['jupyter', 'labextension', 'list'], capture_output = True)
+_NeuroMynerva_version = [n for n in _out.stderr.decode().split('\n') \
+                         if 'neuromynerva' in n][0].split(
+                             '@flybrainlab/neuromynerva v')[1].split(' ')[0]
+_min_NeuroMynerva_version_supported = '0.2.9'
+_max_NeuroMynerva_version_supported = '0.3.0'
 
 def convert_from_bytes(data):
     """Attempt to decode data from bytes; useful for certain data types retrieved from servers.
@@ -547,6 +555,16 @@ class Client:
         self.z_shift = 0.0
         self.r_shift = 0.0
         self.errors = [] # Buffer that stores errors
+
+        if version.parse(_NeuroMynerva_version) < version.parse(_min_NeuroMynerva_version_supported):
+            error_msg = "Update Required! Please update NeuroMynerva to {}".format(_min_NeuroMynerva_version_supported)
+            self.raise_error(FlyBrainLabClientException(error_msg), error_msg)
+
+        if version.parse(_NeuroMynerva_version) > version.parse(_max_NeuroMynerva_version_supported):
+            error_msg = "Update Required! Please update FBLClient."
+            self.raise_error(FlyBrainLabClientException(error_msg), error_msg)
+        
+
         st_cert = open(ca_cert_file, "rt").read()
         c = OpenSSL.crypto
         ca_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
@@ -1141,7 +1159,7 @@ class Client:
         res = self.rpc(u"ffbo.processor.server_information")
         res = convert_from_bytes(res)
 
-        if not res["processor"]["autobahn"].split('.')[0] == autobahn.__version__.split('.')[0]:
+        if not version.parse(res["processor"]["autobahn"]).major == version.parse(autobahn.__version__).major:
             error_msg = "Autobahn major version mismatch between your environment {} and the backend servers {}.\nPlease update your autobahn version to match with the processor version by running ``pip install --upgrade autobahn`` in your terminal.".format(autobahn.__version__, res["processor"]["autobahn"])
             self.raise_error(FlyBrainLabBackendException(error_msg), error_msg, no_raise = True)
 
@@ -1223,6 +1241,14 @@ class Client:
                         + " Prior query states may not be accessible."
                     )
                     self.naServerID = server_dict['na'][0]
+            if 'min_fbl_version' in res["na"][self.naServerID]:
+                if version.parse(res["na"][self.naServerID]['min_fbl_version']) > version.parse(flybrainlab.__version__):
+                    error_msg = "Update Required! Please update FBLClient and NeuroMynerva Packages to the latest."
+                    self.raise_error(FlyBrainLabClientException(error_msg), error_msg)
+            if 'max_fbl_version' in res["na"][self.naServerID]:
+                if version.parse(res["na"][self.naServerID]['max_fbl_version']) < version.parse(flybrainlab.__version__):
+                    error_msg = "Backend only supports FBLClient up to version {}".format(res["na"][self.naServerID]['max_fbl_version'])
+                    self.raise_error(FlyBrainLabClientException(error_msg), error_msg)
         else:
             raise FlyBrainLabNAserverException("NeuroArch Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following:\n{}\n\nIf you are running the NeuroArch server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, '\n- '.join(valid_datasets)))
             # print(
