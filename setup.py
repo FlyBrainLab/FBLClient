@@ -17,11 +17,11 @@ install_requires = [
 
 setup(
     name="FlyBrainLab",
-    version="0.1.0",
+    version="1.0",
     description="Main Client of the FlyBrainLab Project",
     author="Mehmet Kerem Turkcan",
     author_email="mkt2126@columbia.edu",
-    url="",
+    url="https://flybrainlab.fruitflybrain.org",
     install_requires=install_requires,
     download_url="",
     license="BSD-3-Clause",
