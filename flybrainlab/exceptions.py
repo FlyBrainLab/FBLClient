@@ -4,6 +4,8 @@
 class FlyBrainLabClientException(Exception):
     pass
 
+class FlyBrainLabVersionMismatchException(Exception):
+    pass
 
 class FlyBrainLabBackendException(Exception):
     pass

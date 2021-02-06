@@ -45,7 +45,7 @@ import txaio
 import h5py
 import pandas as pd
 import networkx as nx
-import flybrainlab
+import flybrainlab as fbl
 import autobahn
 from autobahn.twisted.util import sleep
 from autobahn.twisted.wamp import ApplicationSession, ApplicationRunner
@@ -93,11 +93,18 @@ logging.basicConfig(format = '[%(name)s %(asctime)s] %(message)s',
                     stream = sys.stdout)
 
 _out = subprocess.run(['jupyter', 'labextension', 'list'], capture_output = True)
-_NeuroMynerva_version = [n for n in _out.stderr.decode().split('\n') \
-                         if 'neuromynerva' in n][0].split(
-                             '@flybrainlab/neuromynerva v')[1].split(' ')[0]
-_min_NeuroMynerva_version_supported = '0.2.9'
-_max_NeuroMynerva_version_supported = '0.3.0'
+
+def get_NeuroMynerva_version():
+    extension_list = [n for n in _out.stderr.decode().split('\n') \
+                         if 'neuromynerva' in n]
+    if len(extension_list):
+        nm_version = extension_list[0].split(
+                                    '@flybrainlab/neuromynerva v')[1].split(' ')[0]
+    else:
+        nm_version = None
+    return nm_version
+
+_NeuroMynerva_version = get_NeuroMynerva_version()
 
 def convert_from_bytes(data):
     """Attempt to decode data from bytes; useful for certain data types retrieved from servers.
@@ -554,16 +561,8 @@ class Client:
         self.y_shift = 0.0
         self.z_shift = 0.0
         self.r_shift = 0.0
+        self._min_version_supported_by_NeuroMynerva = None
         self.errors = [] # Buffer that stores errors
-
-        if version.parse(_NeuroMynerva_version) < version.parse(_min_NeuroMynerva_version_supported):
-            error_msg = "Update Required! Please update NeuroMynerva to {}".format(_min_NeuroMynerva_version_supported)
-            self.raise_error(FlyBrainLabClientException(error_msg), error_msg)
-
-        if version.parse(_NeuroMynerva_version) > version.parse(_max_NeuroMynerva_version_supported):
-            error_msg = "Update Required! Please update FBLClient."
-            self.raise_error(FlyBrainLabClientException(error_msg), error_msg)
-        
 
         st_cert = open(ca_cert_file, "rt").read()
         c = OpenSSL.crypto
@@ -601,6 +600,19 @@ class Client:
     def active_data(self):
         # Not actively used, some old code was commented out
         return self.NLP_result.rids
+
+    def _set_NeuroMynerva_support(self, version):
+            self._min_version_supported_by_NeuroMynerva = version
+
+    def check_NeuroMynerva_version(self):
+        if version.parse(_NeuroMynerva_version) < version.parse(fbl.__min_NeuroMynerva_version_supported__):
+            error_msg = "Update Required! Please update NeuroMynerva to {}".format(fbl.__min_NeuroMynerva_version_supported__)
+            self.raise_error(FlyBrainLabVersionMismatchException(error_msg), error_msg)
+
+        if self._min_version_supported_by_NeuroMynerva is not None:
+            if version.parse(fbl.__version__) < version.parse(self._min_version_supported_by_NeuroMynerva):
+                error_msg = "Update Required! Please update FBLClient."
+                self.raise_error(FlyBrainLabVersionMismatchException(error_msg), error_msg)
 
     def set_log_level(self, level, logger_names = None):
         """
@@ -1229,26 +1241,57 @@ class Client:
                 server_dict['nlp'].append(server_id)
                 break
         if len(server_dict['na']):
-            if self.naServerID is None:
-                self.log['Client'].debug("Found working NeuroArch Server for dataset {}: ".format(dataset)
-                    + res["na"][server_dict['na'][0]]['name'])
-                self.naServerID = server_dict['na'][0]
+            if self.naServerID is not None and self.naServerID in server_dict['na']:
+                pass
             else:
-                if self.naServerID not in server_dict['na']:
-                    self.log['Client'].warning(
-                        "Previous NeuroArch Server not found, switching NeuroArch Servre to: "
-                        + res["na"][server_dict['na'][0]]['name']
-                        + " Prior query states may not be accessible."
-                    )
-                    self.naServerID = server_dict['na'][0]
-            if 'min_fbl_version' in res["na"][self.naServerID]:
-                if version.parse(res["na"][self.naServerID]['min_fbl_version']) > version.parse(flybrainlab.__version__):
-                    error_msg = "Update Required! Please update FBLClient and NeuroMynerva Packages to the latest."
-                    self.raise_error(FlyBrainLabClientException(error_msg), error_msg)
-            if 'max_fbl_version' in res["na"][self.naServerID]:
-                if version.parse(res["na"][self.naServerID]['max_fbl_version']) < version.parse(flybrainlab.__version__):
-                    error_msg = "Backend only supports FBLClient up to version {}".format(res["na"][self.naServerID]['max_fbl_version'])
-                    self.raise_error(FlyBrainLabClientException(error_msg), error_msg)
+                # Find the server whose min_fbl_version and max_fbl_version meets this FBL version.
+                # If not found, first ask to upgrade FBL if some min_fbl_version is larger than this version.
+                upgrade_required = None
+                backend_version_too_low = None
+                na_id = None
+                for i, server_id in enumerate(server_dict['na']):
+                    if "min_fbl_version" in res["na"][server_id]:
+                        if version.parse(fbl.__version__) < version.parse(res["na"][server_id]['min_fbl_version']):
+                            min_fbl = res["na"][server_id]['min_fbl_version']
+                            if upgrade_required is None:
+                                upgrade_required = min_fbl
+                            else:
+                                if version.parse(min_fbl) > version.parse(upgrade_required):
+                                    upgrade_required = min_fbl
+                            continue
+                    if "version" in res["na"][server_id]:
+                        if version.parse(res["na"][server_id]['version']) < version.parse(fbl.__min_NeuroArch_version_supported__):
+                            max_fbl = res["na"][server_id].get('max_fbl_version')
+                            if backend_version_too_low is None:
+                                backend_version_too_low = max_fbl
+                            else:
+                                if version.parse(max_fbl) > version.parse(backend_version_too_low):
+                                    backend_version_too_low = max_fbl
+                            continue
+                    self.log['Client'].debug("Found working NeuroArch Server for dataset {}: ".format(dataset)
+                        + res["na"][server_id]['name'])
+                    na_id = server_id
+                    if self.naServerID is not None:
+                        self.log['Client'].warning(
+                            "Previous NeuroArch Server not found, switching NeuroArch Servre to: "
+                            + res["na"][server_id]['name']
+                            + " Prior query states may not be accessible."
+                        )
+                    self.naServerID = server_id
+                    break
+                if na_id is None:
+                    if upgrade_required is not None:
+                        error_msg = "Update Required! One or more NeuroArch Servers detected but they do not support this version of FlyBrainLab.\n\
+                                     Please update FBLClient to {} and NeuroMynerva accordingly.\n\
+                                     Current FBLClient version is {}".format(
+                                         upgrade_required, fbl.__version__)
+                        self.raise_error(FlyBrainLabVersionMismatchException(error_msg), error_msg)
+                    elif backend_version_too_low is not None:
+                        error_msg = "NeuroArch server version too low and not supported by this FBLClient.\n\
+                                     The maximum version it supports is {}.\n\
+                                     Current FBLClient version is {}".format(
+                                         backend_version_too_low, fbl.__version__)
+                        self.raise_error(FlyBrainLabVersionMismatchException(error_msg), error_msg)
         else:
             raise FlyBrainLabNAserverException("NeuroArch Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following:\n{}\n\nIf you are running the NeuroArch server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, '\n- '.join(valid_datasets)))
             # print(
