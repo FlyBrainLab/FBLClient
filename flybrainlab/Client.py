@@ -92,7 +92,14 @@ _FBLConfigPath = os.path.join(home, ".ffbo", "config", "ffbo.flybrainlab.ini")
 logging.basicConfig(format = '[%(name)s %(asctime)s] %(message)s',
                     stream = sys.stdout)
 
-_out = subprocess.run(['jupyter', 'labextension', 'list'], capture_output = True)
+if sys.version_info[1] < 7:
+    _out = subprocess.run(
+        ['jupyter', 'labextension', 'list'],
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE
+    )
+else:
+    _out = subprocess.run(['jupyter', 'labextension', 'list'], capture_output = True)
 
 def get_NeuroMynerva_version():
     extension_list = [n for n in _out.stderr.decode().split('\n') \
