@@ -8,22 +8,22 @@ from packaging import version
 # Install all necessary packages
 ## We attempt to resolve package installation errors during the import.
 
-def install(package):
-    if package == 'neuroballad':
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'git+https://github.com/FlyBrainLab/Neuroballad.git'])
-    else:
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
+# def install(package):
+#     if package == 'neuroballad':
+#         subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'git+https://github.com/FlyBrainLab/Neuroballad.git'])
+#     else:
+#         subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
 
-def check_then_import(package):
-    spec = importlib.util.find_spec(package.replace('pypiwin32','win32').replace('-','_'))
-    if spec is None:
-        install(package)
+# def check_then_import(package):
+#     spec = importlib.util.find_spec(package.replace('pypiwin32','win32').replace('-','_'))
+#     if spec is None:
+#         install(package)
 
-package_list = ['txaio','twisted','autobahn','crochet','service_identity','autobahn-sync','matplotlib','h5py','seaborn','fastcluster','networkx','msgpack','pandas','scipy','sympy','nose','neuroballad','jupyter','jupyterlab']
-if os.name == 'nt':
-    package_list.append('pypiwin32')
-for i in package_list:
-    check_then_import(i)
+# package_list = ['txaio','twisted','autobahn','crochet','service_identity','autobahn-sync','matplotlib','h5py','seaborn','fastcluster','networkx','msgpack','pandas','scipy','sympy','nose','neuroballad','jupyter','jupyterlab']
+# if os.name == 'nt':
+#     package_list.append('pypiwin32')
+# for i in package_list:
+#     check_then_import(i)
 
 # Go ahead with imports
 
@@ -45,7 +45,6 @@ import txaio
 import h5py
 import pandas as pd
 import networkx as nx
-import flybrainlab as fbl
 import autobahn
 from autobahn.twisted.util import sleep
 from autobahn.twisted.wamp import ApplicationSession, ApplicationRunner
@@ -67,6 +66,7 @@ import msgpack_numpy
 msgpack_numpy.patch()
 
 import neuroballad as nb
+import flybrainlab as fbl
 from .utils import setProtocolOptions
 from .exceptions import *
 from . import graph as fblgraph
@@ -1181,6 +1181,11 @@ class Client:
         if not version.parse(res["processor"]["autobahn"]).major == version.parse(autobahn.__version__).major:
             error_msg = "Autobahn major version mismatch between your environment {} and the backend servers {}.\nPlease update your autobahn version to match with the processor version by running ``pip install --upgrade autobahn`` in your terminal.".format(autobahn.__version__, res["processor"]["autobahn"])
             self.raise_error(FlyBrainLabBackendException(error_msg), error_msg, no_raise = True)
+
+        announcement = res["processor"].get("announcement", "")
+        if len(announcement):
+            self.log['NA'].info(announcement)
+            self.raise_message("Server has the following announcement: {}".format(announcement))
 
         default_mode = False
 
