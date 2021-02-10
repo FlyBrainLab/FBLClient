@@ -143,7 +143,7 @@ class NAqueryResult(object):
                 morphology_data["r"] = [r*self.r_scale+self.r_shift for r in morphology_data["r"]]
             if "vertices" in morphology_data:
                 vertices = morphology_data["vertices"]
-                for j in range(len(vertices))/3:
+                for j in range(len(vertices)//3):
                     vertices[j*3] = vertices[j*3]*self.x_scale + self.x_shift
                     vertices[j*3+1] = vertices[j*3+1]*self.y_scale + self.y_shift
                     vertices[j*3+2] = vertices[j*3+2]*self.z_scale + self.z_shift
