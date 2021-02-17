@@ -207,6 +207,7 @@ class NeuroNLPResult(NAqueryResult):
     """
     def __init__(self, enableResets = True):
         self.commands = []
+        self.processed_commands = []
         self.enableResets = enableResets
         self.graph = nx.MultiDiGraph()
         self.uname_to_rid = {}
@@ -221,6 +222,7 @@ class NeuroNLPResult(NAqueryResult):
     def process_commands(self, Comm):
         while len(self.commands):
             command =self.commands.pop(0)
+            self.processed_commands.append(command)
             if 'reset' in command and self.enableResets == False:
                 continue
             a = {"data": {'commands': command},
@@ -234,6 +236,9 @@ class NeuroNLPResult(NAqueryResult):
                 self._refresh_data_map()
             if 'reset' in command:
                 self.reset()
+                
+    def clear_history(self):
+        self.processed_commands = []
 
     def reset(self):
         self.graph.clear()

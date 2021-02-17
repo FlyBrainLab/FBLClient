@@ -2978,6 +2978,89 @@ class Client:
         g = self.get_neuron_graph(query_result = query_result,
                                   synapse_threshold = synapse_threshold)
         return g.adjacency_matrix(uname_order = uname_order, rid_order = rid_order)
+    
+    def draw_adjacency_with_colors(self, query_result, synapse_threshold = 5):
+        """
+        Get adjacency matrix between Neurons. Will sort uname for order.
+
+        # Arguments
+            query_result (graph.NeuroNLPResult):
+                The neurons in the specified query_result will be used.
+            synapse_threshold (int):
+                Synapse threshold to use. Defaults to 5.
+        """
+    
+        G = self.get_neuron_graph(query_result = query_result,
+                                  synapse_threshold = synapse_threshold,
+                                  complete_synapses = True)
+        color_map = {}
+        G_nodes_to_res_nodes = {}
+        for node, vals in G.nodes(data=True):
+            for node2, vals2 in query_result.graph.nodes(data=True):
+                if vals['uname'] == vals2['uname'] and vals2['class'] == 'MorphologyData':
+                    G_nodes_to_res_nodes[node] = node2
+        for command in self.NLP_result.processed_commands:
+            if 'setcolor' in command:
+                for i in command['setcolor'][0]:
+                    color_map[i] = command['setcolor'][1]
+        M, uname_order = G.adjacency_matrix()
+        colors = ['k' for i in range(len(uname_order))]
+        for node, vals in G.nodes(data=True):
+            # print(node)
+            if node in G_nodes_to_res_nodes.keys():
+                node = G_nodes_to_res_nodes[node]
+                if node in color_map.keys():
+                    node_color = color_map[node]
+                    colors[uname_order.index(vals['uname'])] = node_color
+
+        plt.figure(figsize = (12, 10))
+        ax =  sns.heatmap(M, xticklabels = uname_order, yticklabels = uname_order)
+        for xtick, color in zip(ax.get_xticklabels(), colors):
+            xtick.set_color(color)
+        for ytick, color in zip(ax.get_yticklabels(), colors):
+            ytick.set_color(color)
+        return None
+    
+    def draw_adjacency_by_name(self, query_result, synapse_threshold = 5):
+        """
+        Get adjacency matrix between Neurons using their names as group names. Will sort uname for order.
+
+        # Arguments
+            query_result (graph.NeuroNLPResult):
+                The neurons in the specified query_result will be used.
+            synapse_threshold (int):
+                Synapse threshold to use. Defaults to 5.
+        """
+    
+        G = self.get_neuron_graph(query_result = query_result,
+                                  synapse_threshold = synapse_threshold,
+                                  complete_synapses = True)
+        G_nodes_to_res_nodes = {}
+        for node, vals in G.nodes(data=True):
+            for node2, vals2 in query_result.graph.nodes(data=True):
+                if vals['uname'] == vals2['uname'] and vals2['class'] == 'MorphologyData':
+                    G_nodes_to_res_nodes[node] = node2
+        M, uname_order = G.adjacency_matrix()
+
+        types = []
+        for i, vals in query_result.graph.nodes(data=True):
+            if vals['name'] not in types:
+                types.append(vals['name'])
+        palette = sns.color_palette(None, len(types))
+        colors = ['k' for i in range(len(uname_order))]
+        for i, vals in G.nodes(data=True):
+            idx = types.index(query_result.graph.nodes(data=True)[i]['name'])
+            colors[uname_order.index(vals['uname'])] = palette[idx]
+
+        plt.figure(figsize = (12, 10))
+        # M, uname_order = G.adjacency_matrix()
+        ax =  sns.heatmap(M, xticklabels = uname_order, yticklabels = uname_order)
+        # colors = ['k' in range(len(uname_order))]
+        for xtick, color in zip(ax.get_xticklabels(), colors):
+            xtick.set_color(color)
+        for ytick, color in zip(ax.get_yticklabels(), colors):
+            ytick.set_color(color)
+        return None
 
 
 FBLClient = Client
