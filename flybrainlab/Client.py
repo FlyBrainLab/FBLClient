@@ -3035,7 +3035,7 @@ class Client:
         #plt.figure(figsize = (12, 10))
         if scale.lower() == 'linear':
             ax =  sns.heatmap(M, xticklabels = uname_order, yticklabels = uname_order)
-        elif scale.lower() == 'log'
+        elif scale.lower() == 'log':
             ax =  sns.heatmap(np.log10(M+1), xticklabels = uname_order, yticklabels = uname_order)
         else:
             raise ValueError('Scale is either log or linear.')
