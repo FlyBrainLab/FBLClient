@@ -111,7 +111,25 @@ def get_NeuroMynerva_version():
         nm_version = None
     return nm_version
 
-_NeuroMynerva_version = get_NeuroMynerva_version()
+
+def check_NeuroMynerva_version():
+    NeuroMynerva_version = get_NeuroMynerva_version()
+    if version.parse(NeuroMynerva_version) < version.parse(fbl.__min_NeuroMynerva_version_supported__):
+        error_msg = "Update Required! Please update NeuroMynerva to {} or up.".format(fbl.__min_NeuroMynerva_version_supported__)
+        raise FlyBrainLabVersionMismatchException(error_msg)
+    return True
+
+def check_FBLClient_version(min_version_supported_by_NeuroMynerva):
+    if version.parse(fbl.__version__) < version.parse(min_version_supported_by_NeuroMynerva):
+        error_msg = "Update Required! Please update FBLClient to {} or up.".format(min_version_supported_by_NeuroMynerva)
+        raise FlyBrainLabVersionMismatchException(error_msg)
+    return True
+
+def check_version(min_version_supported_by_NeuroMynerva):
+    check_NeuroMynerva_version()
+    check_FBLClient_version(min_version_supported_by_NeuroMynerva)
+    return True
+
 
 def convert_from_bytes(data):
     """Attempt to decode data from bytes; useful for certain data types retrieved from servers.
@@ -608,18 +626,18 @@ class Client:
         # Not actively used, some old code was commented out
         return self.NLP_result.rids
 
-    def _set_NeuroMynerva_support(self, version):
-            self._min_version_supported_by_NeuroMynerva = version
+    # def _set_NeuroMynerva_support(self, version):
+    #         self._min_version_supported_by_NeuroMynerva = version
 
-    def check_NeuroMynerva_version(self):
-        if version.parse(_NeuroMynerva_version) < version.parse(fbl.__min_NeuroMynerva_version_supported__):
-            error_msg = "Update Required! Please update NeuroMynerva to {}".format(fbl.__min_NeuroMynerva_version_supported__)
-            self.raise_error(FlyBrainLabVersionMismatchException(error_msg), error_msg)
+    # def check_NeuroMynerva_version(self):
+    #     if version.parse(_NeuroMynerva_version) < version.parse(fbl.__min_NeuroMynerva_version_supported__):
+    #         error_msg = "Update Required! Please update NeuroMynerva to {}".format(fbl.__min_NeuroMynerva_version_supported__)
+    #         self.raise_error(FlyBrainLabVersionMismatchException(error_msg), error_msg)
 
-        if self._min_version_supported_by_NeuroMynerva is not None:
-            if version.parse(fbl.__version__) < version.parse(self._min_version_supported_by_NeuroMynerva):
-                error_msg = "Update Required! Please update FBLClient."
-                self.raise_error(FlyBrainLabVersionMismatchException(error_msg), error_msg)
+    #     if self._min_version_supported_by_NeuroMynerva is not None:
+    #         if version.parse(fbl.__version__) < version.parse(self._min_version_supported_by_NeuroMynerva):
+    #             error_msg = "Update Required! Please update FBLClient."
+    #             self.raise_error(FlyBrainLabVersionMismatchException(error_msg), error_msg)
 
     def set_log_level(self, level, logger_names = None):
         """
