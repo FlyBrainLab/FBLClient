@@ -113,7 +113,7 @@ def get_NeuroMynerva_version():
 
 
 def check_NeuroMynerva_version(NeuroMynerva_version = None):
-    if NeuroMynerva_version is None
+    if NeuroMynerva_version is None:
         NeuroMynerva_version = get_NeuroMynerva_version()
     if version.parse(NeuroMynerva_version) < version.parse(fbl.__min_NeuroMynerva_version_supported__):
         error_msg = "Update Required! Please update NeuroMynerva to {} or up.".format(fbl.__min_NeuroMynerva_version_supported__)
