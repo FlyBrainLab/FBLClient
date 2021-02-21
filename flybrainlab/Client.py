@@ -2998,7 +2998,7 @@ class Client:
                                   synapse_threshold = synapse_threshold)
         return g.adjacency_matrix(uname_order = uname_order, rid_order = rid_order)
     
-    def draw_adjacency_with_colors(self, query_result, synapse_threshold = 5):
+    def draw_adjacency_with_colors(self, query_result, synapse_threshold = 5, scale = 'linear'):
         """
         Get adjacency matrix between Neurons. Will sort uname for order.
 
@@ -3032,15 +3032,20 @@ class Client:
                     node_color = color_map[node]
                     colors[uname_order.index(vals['uname'])] = node_color
 
-        plt.figure(figsize = (12, 10))
-        ax =  sns.heatmap(M, xticklabels = uname_order, yticklabels = uname_order)
+        #plt.figure(figsize = (12, 10))
+        if scale.lower() == 'linear':
+            ax =  sns.heatmap(M, xticklabels = uname_order, yticklabels = uname_order)
+        elif scale.lower() == 'log'
+            ax =  sns.heatmap(np.log10(M+1), xticklabels = uname_order, yticklabels = uname_order)
+        else:
+            raise ValueError('Scale is either log or linear.')
         for xtick, color in zip(ax.get_xticklabels(), colors):
             xtick.set_color(color)
         for ytick, color in zip(ax.get_yticklabels(), colors):
             ytick.set_color(color)
         return None
     
-    def draw_adjacency_by_name(self, query_result, synapse_threshold = 5):
+    def draw_adjacency_by_name(self, query_result, synapse_threshold = 5, scale = 'linear'):
         """
         Get adjacency matrix between Neurons using their names as group names. Will sort uname for order.
 
@@ -3071,9 +3076,14 @@ class Client:
             idx = types.index(query_result.graph.nodes(data=True)[i]['name'])
             colors[uname_order.index(vals['uname'])] = palette[idx]
 
-        plt.figure(figsize = (12, 10))
+        # plt.figure(figsize = (12, 10))
         # M, uname_order = G.adjacency_matrix()
-        ax =  sns.heatmap(M, xticklabels = uname_order, yticklabels = uname_order)
+        if scale.lower() == 'linear':
+            ax = sns.heatmap(M, xticklabels = uname_order, yticklabels = uname_order)
+        elif scale.lower() == 'log':
+            ax = sns.heatmap(np.log10(M+1), xticklabels = uname_order, yticklabels = uname_order)
+        else:
+            raise ValueError('Scale is either log or linear.')
         # colors = ['k' in range(len(uname_order))]
         for xtick, color in zip(ax.get_xticklabels(), colors):
             xtick.set_color(color)
