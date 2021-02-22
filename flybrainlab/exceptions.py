@@ -10,6 +10,9 @@ class FlyBrainLabVersionMismatchException(Exception):
 class FlyBrainLabBackendException(Exception):
     pass
 
+class FlyBrainLabVersionUpgradeException(Exception):
+    """Indicates that a newer version is available"""
+    pass
 
 class FlyBrainLabNAserverException(FlyBrainLabBackendException):
     pass

@@ -138,7 +138,7 @@ def check_for_update_pip():
     latest_version = latest_version[:latest_version.find(')')]
     latest_version = latest_version.replace(' ','').split(',')[-1]
 
-    current_version = fbl.__version__ 
+    current_version = fbl.__version__
 
     if latest_version == current_version:
         return 'FBLClient is up to date.'
@@ -147,14 +147,14 @@ def check_for_update_pip():
 
 def check_for_update():
     response = requests.get("https://api.github.com/repos/flybrainlab/FBLClient/releases/latest")
-    latest_version = response.json()["name"]
-
-    current_version = fbl.__version__
-    if latest_version == current_version:
-        return 'FBLClient is up to date.'
-    else:
-        return 'Update {} is available for FBLClient.'.format(latest_version)
-
+    latest_version = version.parse(response.json()["name"])
+    current_version = version.parse(fbl.__version__)
+    if latest_version > current_version:
+        raise FlyBrainLabVersionUpgradeException(
+            f'Update {latest_version} is available for FBLClient, '
+            f'you are currently using {current_version}.  '
+            'To upgrade: pip install FBLClient --upgrade'
+        )
 
 def convert_from_bytes(data):
     """Attempt to decode data from bytes; useful for certain data types retrieved from servers.
@@ -3021,7 +3021,7 @@ class Client:
         g = self.get_neuron_graph(query_result = query_result,
                                   synapse_threshold = synapse_threshold)
         return g.adjacency_matrix(uname_order = uname_order, rid_order = rid_order)
-    
+
     def draw_adjacency_with_colors(self, query_result, synapse_threshold = 5, scale = 'linear'):
         """
         Get adjacency matrix between Neurons. Will sort uname for order.
@@ -3032,7 +3032,7 @@ class Client:
             synapse_threshold (int):
                 Synapse threshold to use. Defaults to 5.
         """
-    
+
         G = self.get_neuron_graph(query_result = query_result,
                                   synapse_threshold = synapse_threshold,
                                   complete_synapses = True)
@@ -3068,7 +3068,7 @@ class Client:
         for ytick, color in zip(ax.get_yticklabels(), colors):
             ytick.set_color(color)
         return None
-    
+
     def draw_adjacency_by_name(self, query_result, synapse_threshold = 5, scale = 'linear'):
         """
         Get adjacency matrix between Neurons using their names as group names. Will sort uname for order.
@@ -3079,7 +3079,7 @@ class Client:
             synapse_threshold (int):
                 Synapse threshold to use. Defaults to 5.
         """
-    
+
         G = self.get_neuron_graph(query_result = query_result,
                                   synapse_threshold = synapse_threshold,
                                   complete_synapses = True)
