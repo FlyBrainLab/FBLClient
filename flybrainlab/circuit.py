@@ -82,13 +82,18 @@ class ExecutableCircuit(object):
                     print('Initializing a new executable circuit')
             if self.current_model is None:
                 self.graph = self.circuit.copy()
+                if model_name is None or model_version is None:
+                    raise ValueError("model_name and model_version must both be specified to initialize a new exeuctable circuit.")
+                else:
+                    self.current_model_name = model_name
+                    self.current_model_version = model_version
             else:
                 print(self.current_model)
                 tmp = existing_models[self.current_model]
-                self.graph = self._get_graph_from_circuit_and_model(self.circuit, self.current_model)
-                self._get_diagram(self.current_model)
                 self.current_model_name = tmp['name']
                 self.current_model_version = tmp['version']
+                self.graph = self._get_graph_from_circuit_and_model(self.circuit, self.current_model)
+                self._get_diagram(self.current_model)
         else:
             if model_name is None:
                 raise ValueError('Executable Circuit must be speicified by a circuit or model name.')
@@ -381,7 +386,7 @@ class ExecutableCircuit(object):
 
         try:
             circuit_node = self.graph.nodes[self.uname_to_rid[n]]
-            v = deepcopy(x['cartridge'][n])
+            v = deepcopy(x[self.current_model_name][n])
             if not v.get('params', {}).get('name', 'Default') == 'Default':
                 self.update_model(n, v['params'], v['states'], no_send = True)
         except Exception as e:
@@ -402,10 +407,10 @@ class ExecutableCircuit(object):
 
     def send_to_GFX(self):
         print('sending circuit configuration to GFX')
-        config = {'cartridge': {k: v for items in self.config['active'].values()\
+        config = {self.current_model_name: {k: v for items in self.config['active'].values()\
                             for k, v in items.items()}}
-        config['cartridge']['disabled'] = self.all_inactive()
-        config['cartridge']['updated'] = []
+        config[self.current_model_name]['disabled'] = self.all_inactive()
+        config[self.current_model_name]['updated'] = []
 
         config_tosend = json.dumps(config)
         self.client.JSCall(messageType = 'setExperimentConfig',
@@ -598,7 +603,7 @@ class ExecutableCircuit(object):
                               no_send = True)
         self.send_to_GFX()
 
-    def flush_model(self, model_name, model_version):
+    def flush_model(self, model_name = None, model_version = None):
         not_modeled_nodes = [v['uname'] for n, v in self.graph.nodes(data=True) \
                           if v['class'] in ['Neuron', 'Synapse', 'InferredSynapse'] \
                           and not self._exists_model(n)]
@@ -609,7 +614,8 @@ class ExecutableCircuit(object):
         graph = self._reform_graph()
         res = self.client.rpc('ffbo.na.NeuroArch.write.{}'.format(self.client.naServerID),
                         'create_model_from_circuit',
-                        model_name, model_version,
+                        model_name if model_name is not None else self.current_model_name,
+                        model_version if model_version is not None else self.current_model_version,
                         {'nodes': list(graph.nodes(data=True)),
                          'edges': list(graph.edges(data=True))},
                         circuit_diagram = self._diagram, js = '\n'.join(self._js))
@@ -618,8 +624,10 @@ class ExecutableCircuit(object):
         else:
             raise FlyBrainLabNAserverException(res['error']['message']+'\n'+res['error']['exception'])
         self._update_node_rids(rid_map)
-        self.current_model_name = model_name
-        self.current_model_version = model_version
+        if model_name is not None:
+            self.current_model_name = model_name
+        if model_version is not None:
+            self.current_model_version = model_version
 
     def _reform_graph(self):
         graph = self.graph.copy()
