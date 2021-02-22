@@ -116,13 +116,13 @@ def check_NeuroMynerva_version(NeuroMynerva_version = None):
     if NeuroMynerva_version is None:
         NeuroMynerva_version = get_NeuroMynerva_version()
     if version.parse(NeuroMynerva_version) < version.parse(fbl.__min_NeuroMynerva_version_supported__):
-        error_msg = "Update Required! Please update NeuroMynerva to {} or up.".format(fbl.__min_NeuroMynerva_version_supported__)
+        error_msg = "Update Required! Please update NeuroMynerva to {} or up.\To upgrade:\njupyter labextension update @flybrainlab/neuromynerva.".format(fbl.__min_NeuroMynerva_version_supported__)
         raise FlyBrainLabVersionMismatchException(error_msg)
     return True
 
 def check_FBLClient_version(min_version_supported_by_NeuroMynerva):
     if version.parse(fbl.__version__) < version.parse(min_version_supported_by_NeuroMynerva):
-        error_msg = "Update Required! Please update FBLClient to {} or up.".format(min_version_supported_by_NeuroMynerva)
+        error_msg = "Update Required! Please update FBLClient to {} or up.\nTo upgrade:\npip install FBLClient --upgrade".format(min_version_supported_by_NeuroMynerva)
         raise FlyBrainLabVersionMismatchException(error_msg)
     return True
 
@@ -130,6 +130,22 @@ def check_version(min_version_supported_by_NeuroMynerva):
     check_NeuroMynerva_version()
     check_FBLClient_version(min_version_supported_by_NeuroMynerva)
     return True
+
+def check_for_update():
+    name = 'FBLClient'
+    latest_version = str(subprocess.run([sys.executable, '-m', 'pip', 'install', '--use-deprecated=legacy-resolver', '{}=='.format(name)], capture_output=True, text=True))
+    latest_version = latest_version[latest_version.find('(from versions:')+15:]
+    latest_version = latest_version[:latest_version.find(')')]
+    latest_version = latest_version.replace(' ','').split(',')[-1]
+
+    current_version = str(subprocess.run([sys.executable, '-m', 'pip', 'show', '{}'.format(name)], capture_output=True, text=True))
+    current_version = current_version[current_version.find('Version:')+8:]
+    current_version = current_version[:current_version.find('\\n')].replace(' ','') 
+
+    if latest_version == current_version:
+        return 'FBLClient is up to date.'
+    else:
+        return 'Update {} is available for FBLClient.'.format(latest_version)
 
 
 def convert_from_bytes(data):
