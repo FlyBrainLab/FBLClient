@@ -30,7 +30,7 @@ install_requires = [
 
 setup(
     name="FlyBrainLab",
-    version="1.1",
+    version="1.1.0",
     description="Main Client of the FlyBrainLab Project",
     author="Mehmet Kerem Turkcan",
     author_email="mkt2126@columbia.edu",
