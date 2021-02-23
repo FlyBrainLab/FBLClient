@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 import pkg_resources
-__version__ = pkg_resources.require('FlyBrainLab')[0].version
+__version__ = pkg_resources.require('flybrainlab')[0].version
 __min_NeuroMynerva_version_supported__ = '0.2.10'
 __min_NeuroArch_version_supported__ = '0.3.0'
 from .Client import *
