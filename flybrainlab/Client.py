@@ -122,7 +122,7 @@ def check_NeuroMynerva_version(NeuroMynerva_version = None):
 
 def check_FBLClient_version(min_version_supported_by_NeuroMynerva):
     if version.parse(fbl.__version__) < version.parse(min_version_supported_by_NeuroMynerva):
-        error_msg = "Update Required! Please update FBLClient to {} or up.\nTo upgrade:\npip install FBLClient --upgrade".format(min_version_supported_by_NeuroMynerva)
+        error_msg = "Update Required! Please update FBLClient to {} or up.\nTo upgrade:\npip install FlyBrainLab --upgrade".format(min_version_supported_by_NeuroMynerva)
         raise FlyBrainLabVersionMismatchException(error_msg)
     return True
 
@@ -153,7 +153,7 @@ def check_for_update():
         raise FlyBrainLabVersionUpgradeException(
             f'Update {latest_version} is available for FBLClient, '
             f'you are currently using {current_version}.  '
-            'To upgrade: pip install FBLClient --upgrade'
+            'To upgrade: pip install FlyBrainLab --upgrade'
         )
 
 def convert_from_bytes(data):
