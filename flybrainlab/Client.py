@@ -149,7 +149,7 @@ def check_for_update():
     response = requests.get("https://api.github.com/repos/flybrainlab/FBLClient/releases/latest")
     latest_version = version.parse(response.json()["name"])
     current_version = version.parse(fbl.__version__)
-    if latest_version > current_version:
+    if version.parse(latest_version) > version.parse(current_version):
         raise FlyBrainLabVersionUpgradeException(
             f'Update {latest_version} is available for FBLClient, '
             f'you are currently using {current_version}.  '
