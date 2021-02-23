@@ -4,26 +4,26 @@ import subprocess
 import logging
 import importlib.util
 import traceback
-
+from packaging import version
 # Install all necessary packages
 ## We attempt to resolve package installation errors during the import.
 
-def install(package):
-    if package == 'neuroballad':
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'git+https://github.com/FlyBrainLab/Neuroballad.git'])
-    else:
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
+# def install(package):
+#     if package == 'neuroballad':
+#         subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'git+https://github.com/FlyBrainLab/Neuroballad.git'])
+#     else:
+#         subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
 
-def check_then_import(package):
-    spec = importlib.util.find_spec(package.replace('pypiwin32','win32').replace('-','_'))
-    if spec is None:
-        install(package)
+# def check_then_import(package):
+#     spec = importlib.util.find_spec(package.replace('pypiwin32','win32').replace('-','_'))
+#     if spec is None:
+#         install(package)
 
-package_list = ['txaio','twisted','autobahn','crochet','service_identity','autobahn-sync','matplotlib','h5py','seaborn','fastcluster','networkx','msgpack','pandas','scipy','sympy','nose','neuroballad','jupyter','jupyterlab']
-if os.name == 'nt':
-    package_list.append('pypiwin32')
-for i in package_list:
-    check_then_import(i)
+# package_list = ['txaio','twisted','autobahn','crochet','service_identity','autobahn-sync','matplotlib','h5py','seaborn','fastcluster','networkx','msgpack','pandas','scipy','sympy','nose','neuroballad','jupyter','jupyterlab']
+# if os.name == 'nt':
+#     package_list.append('pypiwin32')
+# for i in package_list:
+#     check_then_import(i)
 
 # Go ahead with imports
 
@@ -66,6 +66,7 @@ import msgpack_numpy
 msgpack_numpy.patch()
 
 import neuroballad as nb
+import flybrainlab as fbl
 from .utils import setProtocolOptions
 from .exceptions import *
 from . import graph as fblgraph
@@ -90,6 +91,70 @@ _FBLConfigPath = os.path.join(home, ".ffbo", "config", "ffbo.flybrainlab.ini")
 
 logging.basicConfig(format = '[%(name)s %(asctime)s] %(message)s',
                     stream = sys.stdout)
+
+if sys.version_info[1] < 7:
+    _out = subprocess.run(
+        ['jupyter', 'labextension', 'list'],
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE
+    )
+else:
+    _out = subprocess.run(['jupyter', 'labextension', 'list'], capture_output = True)
+
+def get_NeuroMynerva_version():
+    extension_list = [n for n in _out.stderr.decode().split('\n') \
+                         if 'neuromynerva' in n]
+    if len(extension_list):
+        nm_version = extension_list[0].split(
+                                    '@flybrainlab/neuromynerva v')[1].split(' ')[0]
+    else:
+        nm_version = None
+    return nm_version
+
+
+def check_NeuroMynerva_version(NeuroMynerva_version = None):
+    if NeuroMynerva_version is None:
+        NeuroMynerva_version = get_NeuroMynerva_version()
+    if version.parse(NeuroMynerva_version) < version.parse(fbl.__min_NeuroMynerva_version_supported__):
+        error_msg = "Update Required! Please update NeuroMynerva to {} or up.\To upgrade:\njupyter labextension update @flybrainlab/neuromynerva.".format(fbl.__min_NeuroMynerva_version_supported__)
+        raise FlyBrainLabVersionMismatchException(error_msg)
+    return True
+
+def check_FBLClient_version(min_version_supported_by_NeuroMynerva):
+    if version.parse(fbl.__version__) < version.parse(min_version_supported_by_NeuroMynerva):
+        error_msg = "Update Required! Please update FBLClient to {} or up.\nTo upgrade:\npip install FBLClient --upgrade".format(min_version_supported_by_NeuroMynerva)
+        raise FlyBrainLabVersionMismatchException(error_msg)
+    return True
+
+def check_version(min_version_supported_by_NeuroMynerva):
+    check_NeuroMynerva_version()
+    check_FBLClient_version(min_version_supported_by_NeuroMynerva)
+    return True
+
+def check_for_update_pip():
+    name = 'FBLClient'
+    latest_version = str(subprocess.run([sys.executable, '-m', 'pip', 'install', '--use-deprecated=legacy-resolver', '{}=='.format(name)], capture_output=True, text=True))
+    latest_version = latest_version[latest_version.find('(from versions:')+15:]
+    latest_version = latest_version[:latest_version.find(')')]
+    latest_version = latest_version.replace(' ','').split(',')[-1]
+
+    current_version = fbl.__version__
+
+    if latest_version == current_version:
+        return 'FBLClient is up to date.'
+    else:
+        return 'Update {} is available for FBLClient.'.format(latest_version)
+
+def check_for_update():
+    response = requests.get("https://api.github.com/repos/flybrainlab/FBLClient/releases/latest")
+    latest_version = version.parse(response.json()["name"])
+    current_version = version.parse(fbl.__version__)
+    if latest_version > current_version:
+        raise FlyBrainLabVersionUpgradeException(
+            f'Update {latest_version} is available for FBLClient, '
+            f'you are currently using {current_version}.  '
+            'To upgrade: pip install FBLClient --upgrade'
+        )
 
 def convert_from_bytes(data):
     """Attempt to decode data from bytes; useful for certain data types retrieved from servers.
@@ -300,24 +365,6 @@ class Client:
         compiled (bool): Circuits need to be compiled into networkx graphs before being sent for simulation. This is necessary as circuit compilation is a slow process.
         sendDataToGFX (bool): Whether the data received from the backend should be sent to the frontend. Useful for code-only projects.
     """
-
-    def tryComms(self, a):
-        """Communication function to communicate with a JupyterLab frontend if one exists.
-
-        # Arguments
-            a (obj): Arbitrarily formatted data to be sent via communication.
-        """
-        try:
-            for i in fbl.widget_manager.widgets:
-                if fbl.widget_manager.widgets[i].widget_id not in fbl.client_manager.clients[fbl.widget_manager.widgets[i].client_id]['widgets']:
-                    fbl.client_manager.clients[fbl.widget_manager.widgets[i].client_id]['widgets'].append(fbl.widget_manager.widgets[i].widget_id)
-        except:
-            pass
-        try:
-            self.FBLcomm.send(data=a)
-        except:
-            pass
-
     def __init__(
         self,
         ssl=False,
@@ -564,7 +611,9 @@ class Client:
         self.y_shift = 0.0
         self.z_shift = 0.0
         self.r_shift = 0.0
+        self._min_version_supported_by_NeuroMynerva = None
         self.errors = [] # Buffer that stores errors
+
         st_cert = open(ca_cert_file, "rt").read()
         c = OpenSSL.crypto
         ca_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
@@ -594,11 +643,26 @@ class Client:
 
     @property
     def neuron_data(self):
+        # Seems to be used only in receiveData_Old which is deprecated.
         return self.NLP_result.graph
 
     @property
     def active_data(self):
+        # Not actively used, some old code was commented out
         return self.NLP_result.rids
+
+    # def _set_NeuroMynerva_support(self, version):
+    #         self._min_version_supported_by_NeuroMynerva = version
+
+    # def check_NeuroMynerva_version(self):
+    #     if version.parse(_NeuroMynerva_version) < version.parse(fbl.__min_NeuroMynerva_version_supported__):
+    #         error_msg = "Update Required! Please update NeuroMynerva to {}".format(fbl.__min_NeuroMynerva_version_supported__)
+    #         self.raise_error(FlyBrainLabVersionMismatchException(error_msg), error_msg)
+
+    #     if self._min_version_supported_by_NeuroMynerva is not None:
+    #         if version.parse(fbl.__version__) < version.parse(self._min_version_supported_by_NeuroMynerva):
+    #             error_msg = "Update Required! Please update FBLClient."
+    #             self.raise_error(FlyBrainLabVersionMismatchException(error_msg), error_msg)
 
     def set_log_level(self, level, logger_names = None):
         """
@@ -618,6 +682,59 @@ class Client:
                 Warning('log {} does not exist - level not set'.format(log))
                 pass
 
+    #######################  Communication with Widgets #######################
+
+    def tryComms(self, a):
+        """Communication function to communicate with a JupyterLab frontend if one exists.
+
+        # Arguments
+            a (obj): Arbitrarily formatted data to be sent via communication.
+        """
+        try:
+            for i in fbl.widget_manager.widgets:
+                if fbl.widget_manager.widgets[i].widget_id not in fbl.client_manager.clients[fbl.widget_manager.widgets[i].client_id]['widgets']:
+                    fbl.client_manager.clients[fbl.widget_manager.widgets[i].client_id]['widgets'].append(fbl.widget_manager.widgets[i].widget_id)
+        except:
+            pass
+        try:
+            self.FBLcomm.send(data=a)
+        except:
+            pass
+
+    def raise_message(self, message):
+        """Raises an message in the frontend.
+
+        # Arguments
+            message (str): String message to raise.
+        """
+        self.tryComms({'data': {'info': {'success': message}},
+            'messageType': 'Message',
+            'widget': 'NLP'})
+
+    def raise_error(self, e, error, no_raise = False):
+        """Raises an error in the frontend.
+
+        # Arguments
+            e (str): The error string to add to self.errors.
+            error (str): String error to raise.
+        """
+        self.errors.append(e)
+        self.tryComms({'data': {'info': {'error': error}},
+            'messageType': 'Message',
+            'widget': 'NLP'})
+        if not no_raise:
+            raise e
+
+    def JSCall(self, messageType="getExperimentConfig", data={}):
+        a = {}
+        a["data"] = data
+        a["messageType"] = messageType
+        a["widget"] = "GFX"
+        self.tryComms(a)
+
+    ###########################################################################
+
+    ##############  Client registration, subscriptions and connections ########
     def reconnect(self):
         try:
             self.init_client( self.ssl,  self.user,  self.secret,  self.custom_salt,  self.url,  self.ssl_con,  self.legacy)
@@ -1104,9 +1221,14 @@ class Client:
         res = self.rpc(u"ffbo.processor.server_information")
         res = convert_from_bytes(res)
 
-        if not res["processor"]["autobahn"].split('.')[0] == autobahn.__version__.split('.')[0]:
+        if not version.parse(res["processor"]["autobahn"]).major == version.parse(autobahn.__version__).major:
             error_msg = "Autobahn major version mismatch between your environment {} and the backend servers {}.\nPlease update your autobahn version to match with the processor version by running ``pip install --upgrade autobahn`` in your terminal.".format(autobahn.__version__, res["processor"]["autobahn"])
             self.raise_error(FlyBrainLabBackendException(error_msg), error_msg, no_raise = True)
+
+        announcement = res["processor"].get("announcement", "")
+        if len(announcement):
+            self.log['NA'].info(announcement)
+            self.raise_message("Server has the following announcement: {}".format(announcement))
 
         default_mode = False
 
@@ -1174,18 +1296,57 @@ class Client:
                 server_dict['nlp'].append(server_id)
                 break
         if len(server_dict['na']):
-            if self.naServerID is None:
-                self.log['Client'].debug("Found working NeuroArch Server for dataset {}: ".format(dataset)
-                    + res["na"][server_dict['na'][0]]['name'])
-                self.naServerID = server_dict['na'][0]
+            if self.naServerID is not None and self.naServerID in server_dict['na']:
+                pass
             else:
-                if self.naServerID not in server_dict['na']:
-                    self.log['Client'].warning(
-                        "Previous NeuroArch Server not found, switching NeuroArch Servre to: "
-                        + res["na"][server_dict['na'][0]]['name']
-                        + " Prior query states may not be accessible."
-                    )
-                    self.naServerID = server_dict['na'][0]
+                # Find the server whose min_fbl_version and max_fbl_version meets this FBL version.
+                # If not found, first ask to upgrade FBL if some min_fbl_version is larger than this version.
+                upgrade_required = None
+                backend_version_too_low = None
+                na_id = None
+                for i, server_id in enumerate(server_dict['na']):
+                    if "min_fbl_version" in res["na"][server_id]:
+                        if version.parse(fbl.__version__) < version.parse(res["na"][server_id]['min_fbl_version']):
+                            min_fbl = res["na"][server_id]['min_fbl_version']
+                            if upgrade_required is None:
+                                upgrade_required = min_fbl
+                            else:
+                                if version.parse(min_fbl) > version.parse(upgrade_required):
+                                    upgrade_required = min_fbl
+                            continue
+                    if "version" in res["na"][server_id]:
+                        if version.parse(res["na"][server_id]['version']) < version.parse(fbl.__min_NeuroArch_version_supported__):
+                            max_fbl = res["na"][server_id].get('max_fbl_version')
+                            if backend_version_too_low is None:
+                                backend_version_too_low = max_fbl
+                            else:
+                                if version.parse(max_fbl) > version.parse(backend_version_too_low):
+                                    backend_version_too_low = max_fbl
+                            continue
+                    self.log['Client'].debug("Found working NeuroArch Server for dataset {}: ".format(dataset)
+                        + res["na"][server_id]['name'])
+                    na_id = server_id
+                    if self.naServerID is not None:
+                        self.log['Client'].warning(
+                            "Previous NeuroArch Server not found, switching NeuroArch Servre to: "
+                            + res["na"][server_id]['name']
+                            + " Prior query states may not be accessible."
+                        )
+                    self.naServerID = server_id
+                    break
+                if na_id is None:
+                    if upgrade_required is not None:
+                        error_msg = "Update Required! One or more NeuroArch Servers detected but they do not support this version of FlyBrainLab.\n\
+                                     Please update FBLClient to {} and NeuroMynerva accordingly.\n\
+                                     Current FBLClient version is {}".format(
+                                         upgrade_required, fbl.__version__)
+                        self.raise_error(FlyBrainLabVersionMismatchException(error_msg), error_msg)
+                    elif backend_version_too_low is not None:
+                        error_msg = "NeuroArch server version too low and not supported by this FBLClient.\n\
+                                     The maximum version it supports is {}.\n\
+                                     Current FBLClient version is {}".format(
+                                         backend_version_too_low, fbl.__version__)
+                        self.raise_error(FlyBrainLabVersionMismatchException(error_msg), error_msg)
         else:
             raise FlyBrainLabNAserverException("NeuroArch Server with {} dataset cannot be found. Available dataset on the FFBO processor is the following:\n{}\n\nIf you are running the NeuroArch server locally, please check if the server is on and connected. If you are connecting to a public server, please contact server admin.".format(dataset, '\n- '.join(valid_datasets)))
             # print(
@@ -1242,6 +1403,9 @@ class Client:
                 res[client['client'].name] = client_data
             return res
 
+    #######################################################################################
+
+    #####################  Queries ####################################################
     def executeNLPquery(
         self, query=None, language="en", uri=None, queryID=None, returnNAOutput=False
     ):
@@ -1355,6 +1519,7 @@ class Client:
             queryID (str): Query ID to be used. Generated automatically.
             progressive (bool): Whether the loading should be progressive. Needs to be true most of the time for the connection to be stable.
             threshold (int): Data chunk size. Low threshold is required for the connection to be stable.
+            temp (bool): Whether the NA query is temporary. If True, result will not stored as the last state in NeuroArch server.
 
         # Returns
             bool: Whether the process has been successful.
@@ -1592,6 +1757,10 @@ class Client:
         """
         return self.addByUname(uname, verb="remove")
 
+    #######################################################################
+
+    ############################ Diagraming ###############################
+
     def runLayouting(self, type="auto", model="auto"):
         """Sends a request for the running of the layouting algorithm.
 
@@ -1607,29 +1776,7 @@ class Client:
         self.tryComms(a)
         return True
 
-    def raise_message(self, message):
-        """Raises an message in the frontend.
 
-        # Arguments
-            message (str): String message to raise.
-        """
-        self.tryComms({'data': {'info': {'success': message}},
-            'messageType': 'Message',
-            'widget': 'NLP'})
-
-    def raise_error(self, e, error, no_raise = False):
-        """Raises an error in the frontend.
-
-        # Arguments
-            e (str): The error string to add to self.errors.
-            error (str): String error to raise.
-        """
-        self.errors.append(e)
-        self.tryComms({'data': {'info': {'error': error}},
-            'messageType': 'Message',
-            'widget': 'NLP'})
-        if not no_raise:
-            raise e
 
     def getStats(self, neuron_name):
         """Print various statistics for a given neuron.
@@ -2334,13 +2481,6 @@ class Client:
                 file.write(X["data"])
         return True
 
-    def JSCall(self, messageType="getExperimentConfig", data={}):
-        a = {}
-        a["data"] = data
-        a["messageType"] = messageType
-        a["widget"] = "GFX"
-        self.tryComms(a)
-
     def getExperimentConfig(self):
         self.JSCall()
 
@@ -2520,231 +2660,6 @@ class Client:
         plt.ylabel("Spike Rate (Spikes/Second)")
         plt.title("F-I Curve for the Queried Model")
 
-    def loadCartridge(self, cartridgeIndex=100):
-        """Sample library function for loading cartridges, showing how one can build libraries that work with flybrainlab.
-        """
-        self.executeNAquery(
-            {
-                "query": [
-                    {
-                        "action": {"method": {"query": {"name": ["lamina"]}}},
-                        "object": {"class": "LPU"},
-                    },
-                    {
-                        "action": {
-                            "method": {
-                                "traverse_owns": {
-                                    "cls": "CartridgeModel",
-                                    "name": "cartridge_" + str(cartridgeIndex),
-                                }
-                            }
-                        },
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {
-                            "method": {"traverse_owns": {"instanceof": "MembraneModel"}}
-                        },
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {
-                            "method": {"traverse_owns": {"instanceof": "DendriteModel"}}
-                        },
-                        "object": {"memory": 1},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 0}}},
-                        "object": {"memory": 1},
-                    },
-                    {
-                        "action": {"method": {"traverse_owns": {"cls": "Port"}}},
-                        "object": {"memory": 3},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 0}}},
-                        "object": {"memory": 1},
-                    },
-                    {
-                        "action": {
-                            "method": {
-                                "gen_traversal_in": {
-                                    "min_depth": 2,
-                                    "pass_through": [
-                                        ["SendsTo", "SynapseModel", "instanceof"],
-                                        ["SendsTo", "MembraneModel", "instanceof"],
-                                    ],
-                                }
-                            }
-                        },
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"method": {"has": {"name": "Amacrine"}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {
-                            "method": {
-                                "gen_traversal_in": {
-                                    "min_depth": 2,
-                                    "pass_through": [
-                                        ["SendsTo", "SynapseModel", "instanceof"],
-                                        ["SendsTo", "Aggregator", "instanceof"],
-                                    ],
-                                }
-                            }
-                        },
-                        "object": {"memory": 2},
-                    },
-                    {
-                        "action": {"method": {"has": {"name": "Amacrine"}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {
-                            "method": {
-                                "gen_traversal_out": {
-                                    "min_depth": 2,
-                                    "pass_through": [
-                                        ["SendsTo", "SynapseModel", "instanceof"],
-                                        ["SendsTo", "MembraneModel", "instanceof"],
-                                    ],
-                                }
-                            }
-                        },
-                        "object": {"memory": 4},
-                    },
-                    {
-                        "action": {"method": {"has": {"name": "Amacrine"}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {
-                            "method": {
-                                "gen_traversal_out": {
-                                    "min_depth": 2,
-                                    "pass_through": [
-                                        ["SendsTo", "SynapseModel", "instanceof"],
-                                        ["SendsTo", "Aggregator", "instanceof"],
-                                    ],
-                                }
-                            }
-                        },
-                        "object": {"memory": 6},
-                    },
-                    {
-                        "action": {"method": {"has": {"name": "Amacrine"}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 2}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 6}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 8}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 11}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"method": {"get_connecting_synapsemodels": {}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 1}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"method": {"get_connected_ports": {}}},
-                        "object": {"memory": 1},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 1}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"method": {"query": {"name": ["retina-lamina"]}}},
-                        "object": {"class": "Pattern"},
-                    },
-                    {
-                        "action": {"method": {"owns": {"cls": "Interface"}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 0}}},
-                        "object": {"memory": 1},
-                    },
-                    {
-                        "action": {
-                            "op": {"find_matching_ports_from_selector": {"memory": 20}}
-                        },
-                        "object": {"memory": 1},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 0}}},
-                        "object": {"memory": 1},
-                    },
-                    {
-                        "action": {"method": {"query": {"name": ["retina"]}}},
-                        "object": {"class": "LPU"},
-                    },
-                    {
-                        "action": {
-                            "op": {"find_matching_ports_from_selector": {"memory": 1}}
-                        },
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {
-                            "method": {
-                                "gen_traversal_in": {
-                                    "pass_through": [
-                                        "SendsTo",
-                                        "MembraneModel",
-                                        "instanceof",
-                                    ]
-                                }
-                            }
-                        },
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 10}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 4}}},
-                        "object": {"memory": 0},
-                    },
-                ],
-                "format": "no_result",
-            }
-        )
-
-        res = self.executeNAquery(
-            {
-                "query": [{"action": {"method": {"has": {}}}, "object": {"state": 0}}],
-                "format": "nx",
-            }
-        )
-
-        data = []
-        for i in res:
-            if "data" in i:
-                if "data" in i["data"]:
-                    if "nodes" in i["data"]["data"]:
-                        data.append(i["data"]["data"])
-        G = nx.Graph(data[0])
-        self.C.G = G
-        return True
-
     def loadExperimentConfig(self, x):
         """Updates the simExperimentConfig attribute using input from the diagram.
 
@@ -2779,382 +2694,6 @@ class Client:
                 print("No runner(s) were found for Diagram {}.".format(key))
         return True
 
-    def prune_retina_lamina(
-        self, removed_neurons=[], removed_labels=[], retrieval_format="nk"
-    ):
-        """Prunes the retina and lamina circuits.
-
-        # Arguments
-            cartridgeIndex (int): The cartridge to load. Optional.
-
-        # Returns
-            dict: A result dict to use with the execute_lamina_retina function.
-
-        # Example:
-            res = nm[0].load_retina_lamina()
-            nm[0].execute_multilpu(res)
-        """
-        list_of_queries = [
-            {
-                "command": {"swap": {"states": [0, 1]}},
-                "format": "nx",
-                "user": self.client._async_session._session_id,
-                "server": self.naServerID,
-            },
-            {
-                "query": [
-                    {
-                        "action": {"method": {"has": {"name": removed_neurons}}},
-                        "object": {"state": 0},
-                    },
-                    {
-                        "action": {"method": {"has": {"label": removed_labels}}},
-                        "object": {"state": 0},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 1}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"method": {"get_connected_ports": {}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"method": {"has": {"via": ["+removed_via+"]}}},
-                        "object": {"state": 0},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 1}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {
-                            "op": {"find_matching_ports_from_selector": {"memory": 0}}
-                        },
-                        "object": {"state": 0},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 1}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {
-                            "method": {
-                                "gen_traversal_in": {
-                                    "min_depth": 1,
-                                    "pass_through": [
-                                        "SendsTo",
-                                        "SynapseModel",
-                                        "instanceof",
-                                    ],
-                                }
-                            }
-                        },
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {
-                            "method": {
-                                "gen_traversal_out": {
-                                    "min_depth": 1,
-                                    "pass_through": [
-                                        "SendsTo",
-                                        "SynapseModel",
-                                        "instanceof",
-                                    ],
-                                }
-                            }
-                        },
-                        "object": {"memory": 1},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 1}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"op": {"__add__": {"memory": 3}}},
-                        "object": {"memory": 0},
-                    },
-                    {
-                        "action": {"op": {"__sub__": {"memory": 0}}},
-                        "object": {"state": 0},
-                    },
-                ],
-                "format": retrieval_format,
-                "user": self.client._async_session._session_id,
-                "server": self.naServerID,
-            },
-        ]
-        res = self.rpc(
-            "ffbo.processor.neuroarch_query", list_of_queries[0]
-        )
-        print("Pruning ", removed_neurons)
-        print("Pruning ", removed_labels)
-        res = self.rpc(
-            "ffbo.processor.neuroarch_query",
-            list_of_queries[1],
-            options=CallOptions(timeout=30000000000),
-        )
-        return res
-
-    def load_retina_lamina(
-        self,
-        cartridgeIndex=11,
-        removed_neurons=[],
-        removed_labels=[],
-        retrieval_format="nk",
-    ):
-        """Loads retina and lamina.
-
-        # Arguments
-            cartridgeIndex (int): The cartridge to load. Optional.
-
-        # Returns
-            dict: A result dict to use with the execute_lamina_retina function.
-
-        # Example:
-            nm[0].getExperimentConfig() # In a different cell
-            experiment_configuration = nm[0].load_retina_lamina(cartridgeIndex=126)
-            experiment_configuration = experiment_configuration['success']['result']
-            nm[0].execute_multilpu(experiment_configuration)
-        """
-
-        inp = {
-            "query": [
-                {
-                    "action": {"method": {"query": {"name": ["lamina"]}}},
-                    "object": {"class": "LPU"},
-                },
-                {
-                    "action": {
-                        "method": {
-                            "traverse_owns": {
-                                "cls": "CartridgeModel",
-                                "name": "cartridge_" + str(cartridgeIndex),
-                            }
-                        }
-                    },
-                    "object": {"memory": 0},
-                },
-                {
-                    "action": {
-                        "method": {"traverse_owns": {"instanceof": "MembraneModel"}}
-                    },
-                    "object": {"memory": 0},
-                },
-                {
-                    "action": {
-                        "method": {"traverse_owns": {"instanceof": "DendriteModel"}}
-                    },
-                    "object": {"memory": 1},
-                },
-                {"action": {"op": {"__add__": {"memory": 0}}}, "object": {"memory": 1}},
-                {
-                    "action": {"method": {"traverse_owns": {"cls": "Port"}}},
-                    "object": {"memory": 3},
-                },
-                {"action": {"op": {"__add__": {"memory": 0}}}, "object": {"memory": 1}},
-                {
-                    "action": {
-                        "method": {
-                            "gen_traversal_in": {
-                                "min_depth": 2,
-                                "pass_through": [
-                                    ["SendsTo", "SynapseModel", "instanceof"],
-                                    ["SendsTo", "MembraneModel", "instanceof"],
-                                ],
-                            }
-                        }
-                    },
-                    "object": {"memory": 0},
-                },
-                {
-                    "action": {"method": {"has": {"name": "Amacrine"}}},
-                    "object": {"memory": 0},
-                },
-                {
-                    "action": {
-                        "method": {
-                            "gen_traversal_in": {
-                                "min_depth": 2,
-                                "pass_through": [
-                                    ["SendsTo", "SynapseModel", "instanceof"],
-                                    ["SendsTo", "Aggregator", "instanceof"],
-                                ],
-                            }
-                        }
-                    },
-                    "object": {"memory": 2},
-                },
-                {
-                    "action": {"method": {"has": {"name": "Amacrine"}}},
-                    "object": {"memory": 0},
-                },
-                {
-                    "action": {
-                        "method": {
-                            "gen_traversal_out": {
-                                "min_depth": 2,
-                                "pass_through": [
-                                    ["SendsTo", "SynapseModel", "instanceof"],
-                                    ["SendsTo", "MembraneModel", "instanceof"],
-                                ],
-                            }
-                        }
-                    },
-                    "object": {"memory": 4},
-                },
-                {
-                    "action": {"method": {"has": {"name": "Amacrine"}}},
-                    "object": {"memory": 0},
-                },
-                {
-                    "action": {
-                        "method": {
-                            "gen_traversal_out": {
-                                "min_depth": 2,
-                                "pass_through": [
-                                    ["SendsTo", "SynapseModel", "instanceof"],
-                                    ["SendsTo", "Aggregator", "instanceof"],
-                                ],
-                            }
-                        }
-                    },
-                    "object": {"memory": 6},
-                },
-                {
-                    "action": {"method": {"has": {"name": "Amacrine"}}},
-                    "object": {"memory": 0},
-                },
-                {"action": {"op": {"__add__": {"memory": 2}}}, "object": {"memory": 0}},
-                {"action": {"op": {"__add__": {"memory": 6}}}, "object": {"memory": 0}},
-                {"action": {"op": {"__add__": {"memory": 8}}}, "object": {"memory": 0}},
-                {
-                    "action": {"op": {"__add__": {"memory": 11}}},
-                    "object": {"memory": 0},
-                },
-                {
-                    "action": {"method": {"get_connecting_synapsemodels": {}}},
-                    "object": {"memory": 0},
-                },
-                {"action": {"op": {"__add__": {"memory": 1}}}, "object": {"memory": 0}},
-                {
-                    "action": {"method": {"get_connected_ports": {}}},
-                    "object": {"memory": 1},
-                },
-                {"action": {"op": {"__add__": {"memory": 1}}}, "object": {"memory": 0}},
-                {
-                    "action": {"method": {"query": {"name": ["retina-lamina"]}}},
-                    "object": {"class": "Pattern"},
-                },
-                {
-                    "action": {"method": {"owns": {"cls": "Interface"}}},
-                    "object": {"memory": 0},
-                },
-                {"action": {"op": {"__add__": {"memory": 0}}}, "object": {"memory": 1}},
-                {
-                    "action": {
-                        "op": {"find_matching_ports_from_selector": {"memory": 20}}
-                    },
-                    "object": {"memory": 1},
-                },
-                {"action": {"op": {"__add__": {"memory": 0}}}, "object": {"memory": 1}},
-                {
-                    "action": {"method": {"get_connected_ports": {}}},
-                    "object": {"memory": 0},
-                },
-                {"action": {"op": {"__add__": {"memory": 0}}}, "object": {"memory": 1}},
-                {
-                    "action": {"method": {"query": {"name": ["retina"]}}},
-                    "object": {"class": "LPU"},
-                },
-                {
-                    "action": {
-                        "op": {"find_matching_ports_from_selector": {"memory": 1}}
-                    },
-                    "object": {"memory": 0},
-                },
-                {
-                    "action": {
-                        "method": {
-                            "gen_traversal_in": {
-                                "pass_through": [
-                                    "SendsTo",
-                                    "MembraneModel",
-                                    "instanceof",
-                                ]
-                            }
-                        }
-                    },
-                    "object": {"memory": 0},
-                },
-                {
-                    "action": {"op": {"__add__": {"memory": 10}}},
-                    "object": {"memory": 0},
-                },
-                {"action": {"op": {"__add__": {"memory": 4}}}, "object": {"memory": 0}},
-            ],
-            "format": "no_result",
-            "user": self.client._async_session._session_id,
-            "server": self.naServerID,
-        }
-
-        res = self.rpc("ffbo.processor.neuroarch_query", inp)
-
-        inp = {
-            "query": [{"action": {"method": {"has": {}}}, "object": {"state": 0}}],
-            "format": "nx",
-            "user": self.client._async_session._session_id,
-            "server": self.naServerID,
-        }
-
-        res = self.rpc("ffbo.processor.neuroarch_query", inp)
-        #print(res)
-        """
-        res_info = self.rpc(u'ffbo.processor.server_information')
-        msg = {"user": self.client._async_session._session_id,
-            "servers": {'na': self.naServerID, 'nk': list(res_info['nk'].keys())[0]}}
-        res = self.rpc(u'ffbo.na.query.' + msg['servers']['na'], {'user': msg['user'],
-                                        'command': {"retrieve":{"state":0}},
-                                        'format': "nk"}, options=CallOptions(
-                                        timeout = 30000000000
-                                        ))
-        """
-
-        neurons = self.get_current_neurons(res["success"]["result"])
-        if "cartridge_" + str(cartridgeIndex) in self.simExperimentConfig:
-            if (
-                "disabled"
-                in self.simExperimentConfig["cartridge_" + str(cartridgeIndex)]
-            ):
-                removed_neurons = (
-                    removed_neurons
-                    + self.simExperimentConfig["cartridge_" + str(cartridgeIndex)][
-                        "disabled"
-                    ]
-                )
-                print("Updated Disabled Neuron List: ", removed_neurons)
-        removed_neurons = self.ablate_by_match(
-            res["success"]["result"], removed_neurons
-        )
-
-        res = self.prune_retina_lamina(
-            removed_neurons=removed_neurons,
-            removed_labels=removed_labels,
-            retrieval_format=retrieval_format,
-        )
-        """
-        res_info = self.rpc(u'ffbo.processor.server_information')
-        msg = {"user": self.client._async_session._session_id,
-            "servers": {'na': self.naServerID, 'nk': list(res_info['nk'].keys())[0]}}
-        res = self.rpc(u'ffbo.na.query.' + msg['servers']['na'], {'user': msg['user'],
-                                'command': {"retrieve":{"state":0}},
-                                'format': "nk"})
-        """
-        # print(res['data']['LPU'].keys())
-        print("Retina and lamina circuits have been successfully loaded.")
-        return res
-
     # TODO: need fix
     def get_current_neurons(self, res):
         labels = []
@@ -3174,23 +2713,113 @@ class Client:
         removed_neurons = list(set(removed_neurons))
         return removed_neurons
 
+
+        def export_diagram_config(self, res):
+            """Exports a diagram configuration from Neuroarch data to GFX.
+
+            # Arguments
+                res (dict): The result dictionary to use for export.
+
+            # Returns
+                dict: The configuration to export.
+            """
+            newConfig = {"cx": {"disabled": []}}
+            param_names = [
+                "reset_potential",
+                "capacitance",
+                "resting_potential",
+                "resistance",
+            ]
+            param_names_js = [
+                "reset_potential",
+                "capacitance",
+                "resting_potential",
+                "resistance",
+            ]
+            state_names = ["initV"]
+            state_names_js = ["initV"]
+            for lpu in res["data"]["LPU"].keys():
+                for node in res["data"]["LPU"][lpu]["nodes"]:
+                    if "name" in res["data"]["LPU"][lpu]["nodes"][node]:
+                        node_data = res["data"]["LPU"][lpu]["nodes"][node]
+                        new_node_data = {"params": {}, "states": {}}
+                        for param_idx, param in enumerate(param_names):
+                            if param in node_data:
+                                new_node_data["params"][
+                                    param_names_js[param_idx]
+                                ] = node_data[param]
+                                new_node_data["name"] = "LeakyIAF"
+                        for state_idx, state in enumerate(state_names):
+                            if state in node_data:
+                                new_node_data["states"][
+                                    state_names_js[state_idx]
+                                ] = node_data[state]
+                        newConfig["cx"][
+                            res["data"]["LPU"][lpu]["nodes"][node]["name"]
+                        ] = new_node_data
+            newConfig_tosend = json.dumps(newConfig)
+            self.JSCall(messageType="setExperimentConfig", data=newConfig_tosend)
+            return newConfig
+
+        def import_diagram_config(self, res, newConfig):
+            """Imports a diagram configuration from Neuroarch data.
+
+            # Arguments
+                res (dict): The result dictionary to update.
+                newConfig (dict): The imported configuration from a diagram.
+
+            # Returns
+                dict: The updated Neuroarch result dictionary.
+            """
+            param_names = [
+                "reset_potential",
+                "capacitance",
+                "resting_potential",
+                "resistance",
+            ]
+            param_names_js = [
+                "reset_potential",
+                "capacitance",
+                "resting_potential",
+                "resistance",
+            ]
+            state_names = ["initV"]
+            state_names_js = ["initV"]
+            for lpu in res["data"]["LPU"].keys():
+                for node in res["data"]["LPU"][lpu]["nodes"]:
+                    if "name" in res["data"]["LPU"][lpu]["nodes"][node]:
+                        if (
+                            res["data"]["LPU"][lpu]["nodes"][node]["name"]
+                            in newConfig["cx"].keys()
+                        ):
+                            updated_node_data = newConfig["cx"][
+                                res["data"]["LPU"][lpu]["nodes"][node]["name"]
+                            ]
+                            for param_idx, param in enumerate(param_names_js):
+                                if param in updated_node_data:
+                                    res["data"]["LPU"][lpu]["nodes"][node][
+                                        param_names[param_idx]
+                                    ] = updated_node_data[param]
+                            for state_idx, state in enumerate(state_names_js):
+                                if state in updated_node_data:
+                                    res["data"]["LPU"][lpu]["nodes"][node][
+                                        state_names[state_idx]
+                                    ] = updated_node_data[state]
+            return res
+
+    ##########################   Execution on Neurokernel Server ###############
+
     def execute_multilpu(self, name, inputProcessors = {}, outputProcessors = {},
                          steps= None, dt = None):
         """Executes a multilpu circuit. Requires a result dictionary.
 
         # Arguments
-            res (dict): The result dictionary to use for execution.
-
-        # Returns
-            bool: A success indicator.
+            name (str): The name assigned to the experiment.
+            inputProcessors (dict): A dict specifying the InputProcessors for each LPU in JSON format.
+            outputProcessors (dict): A dict specifying the OutputProcessors for each LPU in JSON format.
+            steps (int): Number of steps to be simulated.
+            dt (float): time step
         """
-        # labels = []
-        # for i in res['data']['LPU']:
-        #     for j in res['data']['LPU'][i]['nodes']:
-        #         if 'label' in res['data']['LPU'][i]['nodes'][j]:
-        #             label = res['data']['LPU'][i]['nodes'][j]['label']
-        #             if 'port' not in label and 'synapse' not in label:
-        #                 labels.append(label)
 
         res = self.rpc(u'ffbo.processor.server_information')
         if len(res['nk']) == 0:
@@ -3233,6 +2862,18 @@ class Client:
             self.raise_error(FlyBrainLabNKserverException(error_msg), error_msg)
 
     def updateSimResultLabel(self, result_name, label_dict):
+        """
+        Update the execution result for experiment with name result_name as assigned
+        during `execute_multilpu` call with new labels label_dict.
+        This is to replace labels returned by neurokernel using record id of NeuroArch database
+        with the uname of the neurons/synapses so they can be readable.
+
+        # Arguments
+            result_name (str): The name assigned to the experiment in `execute_multilpu` call.
+            label_dict (dict): A dict specifying the mapping of label, with keys rid of the
+                               component and value the designed new label, typically the uname
+                               of the neurons.
+        """
         result = self.exec_result[result_name]
         input_keys = list(result['input'].keys())
         for k in input_keys:
@@ -3244,6 +2885,14 @@ class Client:
                 result['output'][label_dict[k]] = result['output'].pop(k)
 
     def plotExecResult(self, result_name, inputs = None, outputs = None):
+        """
+        Plotting the execution result.
+
+        # Arguments
+            result_name (str): The name assigned to the experiment in `execute_multilpu` call.
+            inputs (list): A list of inputs to plot
+            outputs (list): A list of outputs to plot
+        """
         # inputs
         res_input = self.exec_result[result_name]['input']
         if inputs is None:
@@ -3288,99 +2937,7 @@ class Client:
                 ax[var].set_xlabel('time (s)')
             plt.show()
 
-
-    def export_diagram_config(self, res):
-        """Exports a diagram configuration from Neuroarch data to GFX.
-
-        # Arguments
-            res (dict): The result dictionary to use for export.
-
-        # Returns
-            dict: The configuration to export.
-        """
-        newConfig = {"cx": {"disabled": []}}
-        param_names = [
-            "reset_potential",
-            "capacitance",
-            "resting_potential",
-            "resistance",
-        ]
-        param_names_js = [
-            "reset_potential",
-            "capacitance",
-            "resting_potential",
-            "resistance",
-        ]
-        state_names = ["initV"]
-        state_names_js = ["initV"]
-        for lpu in res["data"]["LPU"].keys():
-            for node in res["data"]["LPU"][lpu]["nodes"]:
-                if "name" in res["data"]["LPU"][lpu]["nodes"][node]:
-                    node_data = res["data"]["LPU"][lpu]["nodes"][node]
-                    new_node_data = {"params": {}, "states": {}}
-                    for param_idx, param in enumerate(param_names):
-                        if param in node_data:
-                            new_node_data["params"][
-                                param_names_js[param_idx]
-                            ] = node_data[param]
-                            new_node_data["name"] = "LeakyIAF"
-                    for state_idx, state in enumerate(state_names):
-                        if state in node_data:
-                            new_node_data["states"][
-                                state_names_js[state_idx]
-                            ] = node_data[state]
-                    newConfig["cx"][
-                        res["data"]["LPU"][lpu]["nodes"][node]["name"]
-                    ] = new_node_data
-        newConfig_tosend = json.dumps(newConfig)
-        self.JSCall(messageType="setExperimentConfig", data=newConfig_tosend)
-        return newConfig
-
-    def import_diagram_config(self, res, newConfig):
-        """Imports a diagram configuration from Neuroarch data.
-
-        # Arguments
-            res (dict): The result dictionary to update.
-            newConfig (dict): The imported configuration from a diagram.
-
-        # Returns
-            dict: The updated Neuroarch result dictionary.
-        """
-        param_names = [
-            "reset_potential",
-            "capacitance",
-            "resting_potential",
-            "resistance",
-        ]
-        param_names_js = [
-            "reset_potential",
-            "capacitance",
-            "resting_potential",
-            "resistance",
-        ]
-        state_names = ["initV"]
-        state_names_js = ["initV"]
-        for lpu in res["data"]["LPU"].keys():
-            for node in res["data"]["LPU"][lpu]["nodes"]:
-                if "name" in res["data"]["LPU"][lpu]["nodes"][node]:
-                    if (
-                        res["data"]["LPU"][lpu]["nodes"][node]["name"]
-                        in newConfig["cx"].keys()
-                    ):
-                        updated_node_data = newConfig["cx"][
-                            res["data"]["LPU"][lpu]["nodes"][node]["name"]
-                        ]
-                        for param_idx, param in enumerate(param_names_js):
-                            if param in updated_node_data:
-                                res["data"]["LPU"][lpu]["nodes"][node][
-                                    param_names[param_idx]
-                                ] = updated_node_data[param]
-                        for state_idx, state in enumerate(state_names_js):
-                            if state in updated_node_data:
-                                res["data"]["LPU"][lpu]["nodes"][node][
-                                    state_names[state_idx]
-                                ] = updated_node_data[state]
-        return res
+    ####################### Processing on Query Results ########################
 
     def get_neuron_graph(self, query_result = None, synapse_threshold = 5, complete_synapses = True):
         """
@@ -3442,7 +2999,8 @@ class Client:
                    [k for v in query_result.synapses.items() if v['N']>=synapse_threshold]
             return fblgraph.CircuitGraph(query_result.graph.subgraph(nodes))
 
-    def get_neuron_adjacency_matrix(self, query_result = None, uname_order = None, rid_order = None):
+    def get_neuron_adjacency_matrix(self, query_result = None, synapse_threshold = 5,
+                                    uname_order = None, rid_order = None):
         """
         Get adjacency matrix between Neurons.
 
@@ -3463,6 +3021,99 @@ class Client:
         g = self.get_neuron_graph(query_result = query_result,
                                   synapse_threshold = synapse_threshold)
         return g.adjacency_matrix(uname_order = uname_order, rid_order = rid_order)
+
+    def draw_adjacency_with_colors(self, query_result, synapse_threshold = 5, scale = 'linear'):
+        """
+        Get adjacency matrix between Neurons. Will sort uname for order.
+
+        # Arguments
+            query_result (graph.NeuroNLPResult):
+                The neurons in the specified query_result will be used.
+            synapse_threshold (int):
+                Synapse threshold to use. Defaults to 5.
+        """
+
+        G = self.get_neuron_graph(query_result = query_result,
+                                  synapse_threshold = synapse_threshold,
+                                  complete_synapses = True)
+        color_map = {}
+        G_nodes_to_res_nodes = {}
+        for node, vals in G.nodes(data=True):
+            for node2, vals2 in query_result.graph.nodes(data=True):
+                if vals['uname'] == vals2['uname'] and vals2['class'] == 'MorphologyData':
+                    G_nodes_to_res_nodes[node] = node2
+        for command in self.NLP_result.processed_commands:
+            if 'setcolor' in command:
+                for i in command['setcolor'][0]:
+                    color_map[i] = command['setcolor'][1]
+        M, uname_order = G.adjacency_matrix()
+        colors = ['k' for i in range(len(uname_order))]
+        for node, vals in G.nodes(data=True):
+            # print(node)
+            if node in G_nodes_to_res_nodes.keys():
+                node = G_nodes_to_res_nodes[node]
+                if node in color_map.keys():
+                    node_color = color_map[node]
+                    colors[uname_order.index(vals['uname'])] = node_color
+
+        #plt.figure(figsize = (12, 10))
+        if scale.lower() == 'linear':
+            ax =  sns.heatmap(M, xticklabels = uname_order, yticklabels = uname_order)
+        elif scale.lower() == 'log':
+            ax =  sns.heatmap(np.log10(M+1), xticklabels = uname_order, yticklabels = uname_order)
+        else:
+            raise ValueError('Scale is either log or linear.')
+        for xtick, color in zip(ax.get_xticklabels(), colors):
+            xtick.set_color(color)
+        for ytick, color in zip(ax.get_yticklabels(), colors):
+            ytick.set_color(color)
+        return None
+
+    def draw_adjacency_by_name(self, query_result, synapse_threshold = 5, scale = 'linear'):
+        """
+        Get adjacency matrix between Neurons using their names as group names. Will sort uname for order.
+
+        # Arguments
+            query_result (graph.NeuroNLPResult):
+                The neurons in the specified query_result will be used.
+            synapse_threshold (int):
+                Synapse threshold to use. Defaults to 5.
+        """
+
+        G = self.get_neuron_graph(query_result = query_result,
+                                  synapse_threshold = synapse_threshold,
+                                  complete_synapses = True)
+        G_nodes_to_res_nodes = {}
+        for node, vals in G.nodes(data=True):
+            for node2, vals2 in query_result.graph.nodes(data=True):
+                if vals['uname'] == vals2['uname'] and vals2['class'] == 'MorphologyData':
+                    G_nodes_to_res_nodes[node] = node2
+        M, uname_order = G.adjacency_matrix()
+
+        types = []
+        for i, vals in query_result.graph.nodes(data=True):
+            if vals['name'] not in types:
+                types.append(vals['name'])
+        palette = sns.color_palette(None, len(types))
+        colors = ['k' for i in range(len(uname_order))]
+        for i, vals in G.nodes(data=True):
+            idx = types.index(query_result.graph.nodes(data=True)[i]['name'])
+            colors[uname_order.index(vals['uname'])] = palette[idx]
+
+        # plt.figure(figsize = (12, 10))
+        # M, uname_order = G.adjacency_matrix()
+        if scale.lower() == 'linear':
+            ax = sns.heatmap(M, xticklabels = uname_order, yticklabels = uname_order)
+        elif scale.lower() == 'log':
+            ax = sns.heatmap(np.log10(M+1), xticklabels = uname_order, yticklabels = uname_order)
+        else:
+            raise ValueError('Scale is either log or linear.')
+        # colors = ['k' in range(len(uname_order))]
+        for xtick, color in zip(ax.get_xticklabels(), colors):
+            xtick.set_color(color)
+        for ytick, color in zip(ax.get_yticklabels(), colors):
+            ytick.set_color(color)
+        return None
 
 
 FBLClient = Client

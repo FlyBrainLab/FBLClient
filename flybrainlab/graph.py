@@ -69,9 +69,7 @@ class NAqueryResult(object):
             self.data = {}
             return
 
-        if self.format == 'morphology':
-            self._receive_data_from_morphology_query(data)
-        elif self.format == 'nx':
+        if self.format in ['morphology', 'nx']:
             self._receive_data_from_nx_query(data)
         elif self.format == 'df':
             self._get_result_from_df()
@@ -100,6 +98,7 @@ class NAqueryResult(object):
             if node is not None:
                 morphology_data.update(self.graph.nodes[node])
             data[rid] = morphology_data
+            data[rid]['orid'] = node
 
         if threshold is None:
             threshold = self.task.get('threshold', 5)
@@ -111,42 +110,6 @@ class NAqueryResult(object):
             a["widget"] = "NLP"
             a["data"] = {"data": c, "queryID": self.queryID}
             Comm(a)
-
-    def _receive_data_from_morphology_query(self, data):
-        # morphology graph will only return neurons/synapses and their morphology nodes as attribute.
-        # neurons = {rid: v for rid, v in data.items() if v['class'] == 'Neuron'}
-        # synapses = {rid: v for rid, v in data.items() if v['class'] == 'Synapse'}
-        # assert len(set(data.keys()) - set(neurons.keys()) - set(synapses.keys())) == 0
-        while self.locked:
-            time.sleep(1)
-
-        self.locked = True
-        try:
-            self.data['nodes'].update(data['nodes'])
-            self.data['edges'].extend(data['edges'])
-            self.locked = False
-        except:
-            self.locked = False
-            raise
-        # try:
-        #     for rid, v in data.items():
-        #         if 'MorphologyData' in v:
-        #             self.morphology_to_send.add(rid)
-        #             morphology_data = v['MorphologyData']
-        #             if "x" in morphology_data:
-        #                 morphology_data["x"] = [x*self.x_scale+self.x_shift for x in morphology_data["x"]]
-        #             if "y" in morphology_data:
-        #                 morphology_data["y"] = [y*self.y_scale+self.y_shift for y in morphology_data["y"]]
-        #             if "z" in morphology_data:
-        #                 morphology_data["z"] = [z*self.z_scale+self.z_shift for z in morphology_data["z"]]
-        #             if "r" in morphology_data:
-        #                 morphology_data["r"] = [r*self.r_scale+self.r_shift for r in morphology_data["r"]]
-        #
-        #     self.data.update(data)
-        #     self.locked = False
-        # except:
-        #     self.locked = False
-        #     raise
 
     def _receive_data_from_nx_query(self, data):
         while self.locked:
@@ -178,6 +141,12 @@ class NAqueryResult(object):
                 morphology_data["z"] = [z*self.z_scale+self.z_shift for z in morphology_data["z"]]
             if "r" in morphology_data:
                 morphology_data["r"] = [r*self.r_scale+self.r_shift for r in morphology_data["r"]]
+            if "vertices" in morphology_data:
+                vertices = morphology_data["vertices"]
+                for j in range(len(vertices)//3):
+                    vertices[j*3] = vertices[j*3]*self.x_scale + self.x_shift
+                    vertices[j*3+1] = vertices[j*3+1]*self.y_scale + self.y_shift
+                    vertices[j*3+2] = vertices[j*3+2]*self.z_scale + self.z_shift
 
 
     def _finalize_nx(self):
@@ -238,6 +207,7 @@ class NeuroNLPResult(NAqueryResult):
     """
     def __init__(self, enableResets = True):
         self.commands = []
+        self.processed_commands = []
         self.enableResets = enableResets
         self.graph = nx.MultiDiGraph()
         self.uname_to_rid = {}
@@ -252,6 +222,7 @@ class NeuroNLPResult(NAqueryResult):
     def process_commands(self, Comm):
         while len(self.commands):
             command =self.commands.pop(0)
+            self.processed_commands.append(command)
             if 'reset' in command and self.enableResets == False:
                 continue
             a = {"data": {'commands': command},
@@ -265,6 +236,9 @@ class NeuroNLPResult(NAqueryResult):
                 self._refresh_data_map()
             if 'reset' in command:
                 self.reset()
+                
+    def clear_history(self):
+        self.processed_commands = []
 
     def reset(self):
         self.graph.clear()
