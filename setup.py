@@ -11,7 +11,7 @@ install_requires = [
     "pyOpenSSL",
     "seaborn",
     "requests",
-    "dataclasses",
+    "dataclasses; python_version<'3.7'",
     'msgpack',
     'msgpack-numpy',
     'neuroballad @ git+https://github.com/flybrainlab/neuroballad',
