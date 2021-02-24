@@ -24,7 +24,7 @@ install_requires = [
     'scipy',
     'sympy',
     'nose',
-    'jupyterlab>=2.2.8,<3.0',
+    'jupyterlab>=2.2.8',
     'pywin32; platform_system=="Windows"'
 ]
 
