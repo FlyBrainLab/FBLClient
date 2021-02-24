@@ -38,5 +38,7 @@ setup(
     download_url="",
     license="BSD-3-Clause",
     install_requires=install_requires,
+    dependency_links=['https://github.com/flybrainlab/neuroballad/tarball/master#egg=neuroballad-0.1.0',
+                      'https://github.com/mkturkcan/autobahn-sync/tarball/master#egg=autobahn_sync-0.3.2'],
     packages=find_packages(),
 )
