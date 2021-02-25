@@ -21,10 +21,7 @@ conda packages for FlyBrainLab Client are available at https://anaconda.org/mehm
 To install FlyBrainLab Client, In a terminal, execute the following:
 
 ```python
-pip install txaio twisted autobahn crochet service_identity autobahn-sync matplotlib h5py seaborn fastcluster networkx msgpack
-git clone https://github.com/FlyBrainLab/FBLClient.git
-cd ./FBLClient
-python setup.py develop
+pip install git+https://github.com/mkturkcan/autobahn-sync.git git+https://github.com/FlyBrainLab/Neuroballad.git flybrainlab
 ```
 
 ## Tutorials
