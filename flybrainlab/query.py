@@ -255,6 +255,31 @@ class NeuroArch_Mirror(object):
         result = self._check_result(res)
         return result
 
+    def add_Circuit(self, name, circuit_type, neuropil = None, data_source =  None):
+        """
+        Create a Subregion record and link it to related node types.
+
+        Parameters
+        ----------
+        name : str
+            Name of the circuit
+        neuropil : str or neuroarch.models.Neuropil (optional)
+            Neuropil that owns the subregion. Can be specified either by its name
+            or the Neuropil object instance.
+        data_source : neuroarch.models.DataSource (optional)
+            The datasource. If not specified, default DataSource will be used.
+
+        Returns
+        -------
+        neuroarch.models.Circuit
+            Created Circuit object
+        """
+        res = self.NeuroArchWrite_rpc(
+                         'add_Circuit', name, circuit_type,
+                         neuropil = neuropil, data_source = data_source)
+        result = self._check_result(res)
+        return result
+
     def add_Neuron(self, uname,
                    name,
                    referenceId = None,
@@ -265,7 +290,8 @@ class NeuroArch_Mirror(object):
                    arborization = None,
                    neurotransmitters = None,
                    neurotransmitters_datasources = None,
-                   data_source = None):
+                   data_source = None,
+                   circuit = None):
         """
         Parameters
         ----------
@@ -307,6 +333,7 @@ class NeuroArch_Mirror(object):
             neurotransmitters, and have one to one corresponsdence in the same order.
         data_source : neuroarch.models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
+        circuit : 
 
         Returns
         -------
@@ -323,7 +350,8 @@ class NeuroArch_Mirror(object):
                          arborization = arborization,
                          neurotransmitters = neurotransmitters,
                          neurotransmitters_datasources = neurotransmitters_datasources,
-                         data_source = data_source)
+                         data_source = data_source,
+                         circuit = circuit)
         result = self._check_result(res)
         return result
 
