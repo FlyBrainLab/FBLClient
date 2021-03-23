@@ -122,7 +122,7 @@ def check_NeuroMynerva_version(NeuroMynerva_version = None):
 
 def check_FBLClient_version(min_version_supported_by_NeuroMynerva):
     if version.parse(fbl.__version__) < version.parse(min_version_supported_by_NeuroMynerva):
-        error_msg = "Update Required! Please update FBLClient to {} or up.\nTo upgrade:\npip install FlyBrainLab --upgrade".format(min_version_supported_by_NeuroMynerva)
+        error_msg = "Update Required! Please update FBLClient to {} or up.\nTo upgrade:\npython -m pip install flybrainlab[full] --upgrade".format(min_version_supported_by_NeuroMynerva)
         raise FlyBrainLabVersionMismatchException(error_msg)
     return True
 
@@ -153,7 +153,7 @@ def check_for_update():
         raise FlyBrainLabVersionUpgradeException(
             f'Update {latest_version} is available for FBLClient, '
             f'you are currently using {current_version}.  '
-            'To upgrade: pip install FlyBrainLab --upgrade'
+            'To upgrade: python -m pip install flybrainlab[full] --upgrade'
         )
 
 def convert_from_bytes(data):
@@ -1222,7 +1222,7 @@ class Client:
         res = convert_from_bytes(res)
 
         if not version.parse(res["processor"]["autobahn"]).major == version.parse(autobahn.__version__).major:
-            error_msg = "Autobahn major version mismatch between your environment {} and the backend servers {}.\nPlease update your autobahn version to match with the processor version by running ``pip install --upgrade autobahn`` in your terminal.".format(autobahn.__version__, res["processor"]["autobahn"])
+            error_msg = "Autobahn major version mismatch between your environment {} and the backend servers {}.\nPlease update your autobahn version to match with the processor version by running ``python -m pip install --upgrade autobahn`` in your terminal.".format(autobahn.__version__, res["processor"]["autobahn"])
             self.raise_error(FlyBrainLabBackendException(error_msg), error_msg, no_raise = True)
 
         announcement = res["processor"].get("announcement", "")
