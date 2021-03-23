@@ -2,7 +2,6 @@ import os
 from time import time
 import pickle
 import shutil
-from warnings import Warning
 
 import numpy as np
 import pandas as pd
@@ -35,7 +34,7 @@ try:
     from gem.embedding.node2vec import node2vec
     if shutil.which('node2vec') is None:
         N2VC_available = False
-        Warning('node2vec executable not found. Embedding using node2vec method are not available. Please compile and install from https://github.com/snap-stanford/snap/tree/master/examples/node2vec')
+        print('node2vec executable not found. Embedding using node2vec method are not available. Please compile and install from https://github.com/snap-stanford/snap/tree/master/examples/node2vec')
     else:
         N2VC_available = True
     from gem.embedding.sdne     import SDNE
