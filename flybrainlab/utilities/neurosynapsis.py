@@ -706,7 +706,7 @@ def elbow_kmeans_optimizer(X, k = None, kmin = 1, kmax = 5, visualize = True):
     kmeans_instance = kmeans(X, centers)
     kmeans_instance.process()
     clusters = kmeans_instance.get_clusters()
-    , centers = kmeans_instance.get_centers()
+    centers = kmeans_instance.get_centers()
     kmeans_visualizer.show_clusters(X, clusters, centers)
     return clusters, centers
 
