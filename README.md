@@ -14,7 +14,7 @@ Up-to-date installation instructions for the whole FlyBrainLab ecosystem are ava
 
 ### Manual Installation
 
-To install FlyBrainLab Client, In a terminal, execute the following:
+To install FlyBrainLab Client, in a terminal window, execute the following:
 
 ```python
 pip install git+https://github.com/mkturkcan/autobahn-sync.git git+https://github.com/FlyBrainLab/Neuroballad.git flybrainlab
@@ -24,6 +24,12 @@ To install FlyBrainLab with all optional dependencies for the utilities library,
 
 ```python
 pip install git+https://github.com/mkturkcan/autobahn-sync.git git+https://github.com/FlyBrainLab/Neuroballad.git git+https://github.com/palash1992/GEM.git git+https://github.com/mkturkcan/nxcontrol flybrainlab[full]
+```
+
+To install FlyBrainLab Client from a clone of this repository, execute:
+
+```python
+pip install -e .[full]
 ```
 
 ## Tutorials
