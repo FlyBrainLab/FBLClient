@@ -92,6 +92,14 @@ def generate_naquery_neuron_stats(res, node):
     return generate_neuron_stats(X)
 
 def morphometrics(res):
+    """ computes the morphometric measurements of neurons in NAqueryResult.
+
+    # Arguments:
+        res (flybrainlab.graph.NAqueryResult): query result from an NeuroArch query.
+
+    # Returns
+        pandas.DataFrame: a data frame with morphometric measurements in each row and neuron unames in each column
+    """
     metrics = {}
     for rid, attributes in res.neurons.items():
         morphology_data = [res.graph.nodes[n] for n in res.getData(rid) \

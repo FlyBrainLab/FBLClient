@@ -46,7 +46,7 @@ try:
 except:
     print('Tensorflow not installed. Please install Tensorflow to enable GPU-based embedding algorithms.')
 
-from ..graph import NeuronGraph
+from ..graph import NeuronGraph, NeuroNLPResult, NAqueryResult
 
 
 def construct_connectome_morphology_matrix(G,S):
@@ -544,7 +544,7 @@ class NEGraph:
         Construct an NEGraph using NAqueryResult
 
         # Arguments:
-            res (flybrainlab.graph.NAqueryResult): a NAqueryResult object
+            res (flybrainlab.graph.NAqueryResult or flybrianlab.graph.NeuroNLPResult): a NAqueryResult object
             client (flybrainlab.Client.Client): fbl client
             synapse_threshold (int): when retrieving the full connectiivty of neurons in `res`, the threshold of number of synapses to use for filtering out connections with small number of synapses.
             complete_synapses (bool): Whether to complete the synapses between neurons in `res` from NeuroArch database or to use only the synapses in `res`.
@@ -555,7 +555,8 @@ class NEGraph:
         graph = client.get_neuron_graph(query_result = res,
                                         synapse_threshold = synapse_threshold,
                                         complete_synapses = complete_synapses)
-        if res.format == 'morphology':
+        if (isinstance(res, NAqueryResult) and res.format == 'morphology') or \
+                isinstance(res, NeuroNLPResult):
             morpho = morphometrics(res)
         else:
             morpho = None
