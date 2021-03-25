@@ -3,6 +3,7 @@ import time
 import json
 from copy import deepcopy
 import traceback, sys
+import os
 
 import numpy as np
 import networkx as nx
@@ -45,7 +46,8 @@ class ExecutableCircuit(object):
         if callback:
             client.experimentWatcher = self
         self.number_generator = numberGenerator()
-        self._js = []
+        self._js = {}
+        self._diagram = {}
 
         # obtain self.circuit as a CircuitGraph
         # and self.model circuit as an empty graph or CircuitGraph
@@ -431,21 +433,27 @@ class ExecutableCircuit(object):
         res = self.client.executeNAquery(task, temp = True)
         circuit_diagrams = {rid: v for rid, v in res.graph.nodes(data = True) if v['class'] == 'CircuitDiagram'}
         tmp = circuit_diagrams.popitem()[1]
-        diagram = tmp['diagram']
-        js = tmp['js']
-        self._load_diagram_str(diagram)
-        self._load_js_str(js)
+        diagrams = tmp['diagram']
+        jses = tmp['js']
+        for name, diagram in diagrams.items():
+            self._load_diagram_str(diagram, name = name)
+        for name, js in jses.items():
+            self._load_js_str(js, name = name)
 
-    def load_diagram(self, filename):
+    def load_diagram(self, filename, name = None):
         with open(filename, 'r') as file:
             data = file.read()
-        self._load_diagram_str(data)
+        if name is None:
+            name = os.path.splitext(os.path.split(filename)[-1])[0]
+        self._load_diagram_str(data, name = name)
 
-    def _load_diagram_str(self, data):
-        self._diagram = data
+    def _load_diagram_str(self, data, name = None):
+        if name is None:
+            name = 'diagram{}'.format(len(self._diagram))
+        self._diagram[name] = data
         self.client.tryComms({'widget':'GFX',
                            'messageType': 'loadCircuitFromString',
-                           'data': {'string': data, 'name': 'diagram'}})
+                           'data': {'string': data, 'name': name}})
         time.sleep(1)
         self.initialize_diagram_config()
 
@@ -488,19 +496,24 @@ class ExecutableCircuit(object):
         self.config = config
         self.send_to_GFX()
 
-    def load_js(self, filename):
+    def load_js(self, filename, name = None):
         with open(filename, 'r') as file:
             data = file.read()
-        self._load_js_str(data)
+        if name is None:
+            name = os.path.splitext(os.path.split(filename)[-1])[0]
+        self._load_js_str(data, name = name)
 
-    def _load_js_str(self, data):
-        self._js.append(data)
+    def _load_js_str(self, data, name = None):
+        if name is None:
+            name = 'submodule{}'.format(len(self._js))
+        self._js[name] = data
         self.client.tryComms({'messageType': 'eval', 'widget':'GFX',
-                           'data': {'data': data}})
+                              'data': {'data': data},
+                              'name': name})
         time.sleep(1)
 
     def clear_js(self):
-        self._js = []
+        self._js = {}
 
     def create_executable_graph(self, model_name):
         not_modeled_nodes = [v['uname'] for n, v in self.graph.nodes(data=True) \
@@ -618,7 +631,7 @@ class ExecutableCircuit(object):
                         model_version if model_version is not None else self.current_model_version,
                         {'nodes': list(graph.nodes(data=True)),
                          'edges': list(graph.edges(data=True))},
-                        circuit_diagram = self._diagram, js = '\n'.join(self._js))
+                        circuit_diagram = self._diagram, js = self._js)
         if 'success' in res:
             rid_map = res['success']['data']
         else:
