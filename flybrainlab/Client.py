@@ -1842,6 +1842,7 @@ class Client:
         self.tryComms(a)
         return True
 
+    # TODO: already moved to utilities.neurowatch, to be deprecated.
     def loadSWC(self, file_name, scale_factor=1., uname=None):
         """Loads a neuron skeleton stored in the .swc format.
 
@@ -1851,6 +1852,7 @@ class Client:
             uname (str): Unique name to use in the frontend. Defaults to the file_name.
 
         """
+        self.log['Client'].info('loadSWC method in Client is deprecated and will be removed in future release. Please use flybrainlab.neurowatch.loadSWC instead.')
         neuron_pd = pd.read_csv(file_name,
                         names=['sample','identifier','x','y','z','r','parent'],
                         comment='#',
@@ -2056,7 +2058,7 @@ class Client:
         self.node_keys = node_keys
         self.compiled = True
 
-    # TODO: need check
+    # TODO: this can be deprecated.
     def getSlowConnectivity(self):
         """Obtain the connectivity matrix of the current circuit in a custom dictionary format. Necessary for large circuits.
 
