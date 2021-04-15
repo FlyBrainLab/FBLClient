@@ -591,6 +591,7 @@ class Client:
         self.active_na_queries = {}
         self.NLP_result = fblgraph.NeuroNLPResult(enableResets = self.enableResets)
         self.last_NLPquery_result = None
+        self.last_NAquery_result = None
         self.uname_to_rid = {}  # local map from unames to rid's
         self.legacy = legacy
         self.neuronStats = {}
@@ -1647,7 +1648,7 @@ class Client:
             self.active_na_queries.pop(queryID)
             self.NLP_result.clear_cmd()
             raise FlyBrainLabNAserverException(res['info']['error'])
-
+        self.last_NAquery_result = self.active_na_queries[queryID]
         return self.active_na_queries.pop(queryID)
 
         # try:
