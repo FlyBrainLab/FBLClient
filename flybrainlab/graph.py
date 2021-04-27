@@ -148,7 +148,6 @@ class NAqueryResult(object):
                     vertices[j*3+1] = vertices[j*3+1]*self.y_scale + self.y_shift
                     vertices[j*3+2] = vertices[j*3+2]*self.z_scale + self.z_shift
 
-
     def _finalize_nx(self):
         while self.locked:
             time.sleep(1)
@@ -261,7 +260,6 @@ class NeuroNLPResult(NAqueryResult):
     #TODO
     def getStats(self, rid = None, neuron_name = None):
         pass
-
 
     @property
     def rids(self):
