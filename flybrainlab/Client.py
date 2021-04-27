@@ -1465,8 +1465,9 @@ class Client:
                 res = self.executeNAquery(
                     resNA, queryID=queryID, threshold=self.query_threshold
                 )
-                if 'show ' in query or 'add ' in query or 'remove ' in query:
-                    self.sendNeuropils()
+                # Since they don't do much here, should be called instead in more specific methods that require neuropil information after the NLPquery call.
+                # if 'show ' in query or 'add ' in query or 'remove ' in query:
+                #     self.sendNeuropils()
                 """
                 a = {}
                 a['data'] = {'info': {'success': 'Finished fetching results from database'}}
