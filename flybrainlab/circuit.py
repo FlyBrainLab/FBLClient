@@ -46,8 +46,8 @@ class ExecutableCircuit(object):
         if callback:
             client.experimentWatcher = self
         self.number_generator = numberGenerator()
-        self._js = {}
-        self._diagram = {}
+        self._submodules = {}
+        self._diagrams = {}
 
         # obtain self.circuit as a CircuitGraph
         # and self.model circuit as an empty graph or CircuitGraph
@@ -58,7 +58,7 @@ class ExecutableCircuit(object):
                                 complete_synapses = complete_synapses)
             existing_models = self.query_for_models()
             if model_name is not None:
-                if model_name in existing_models:
+                if model_name in set(v['name'] for v in existing_models.values()):
                     if model_version is None:
                         self.current_model = self.prompt_to_choose_model(
                                     {rid: v for rid, v in existing_models.items() \
@@ -95,6 +95,7 @@ class ExecutableCircuit(object):
                 self.current_model_name = tmp['name']
                 self.current_model_version = tmp['version']
                 self.graph = self._get_graph_from_circuit_and_model(self.circuit, self.current_model)
+                self.initialize_diagram_config(no_send = True)
                 self._get_diagram(self.current_model)
         else:
             if model_name is None:
@@ -122,6 +123,7 @@ class ExecutableCircuit(object):
             self.current_model_version = tmp['version']
             self.ciruit = self._get_circuit_from_model(self.current_model)
             self.graph = self._get_graph_from_model(self.current_model)
+            self.initialize_diagram_config(no_send = True)
             self._get_diagram(self.current_model)
         self._updated = False
 
@@ -257,7 +259,7 @@ class ExecutableCircuit(object):
                 self.config['active']['neuron'].pop(neuron_name)
             self._disable_single_neuron(neuron_name)
 
-    def disable_neurons(self, neurons):
+    def disable_neurons(self, neurons, no_send = False):
         """
         Disable neurons that exist in the diagram.
 
@@ -267,7 +269,8 @@ class ExecutableCircuit(object):
         """
         for neuron in neurons:
             self._disable_neuron(neuron)
-        self.send_to_GFX()
+        if not no_send:
+            self.send_to_GFX()
 
     def _disable_synapse(self, synapse_name):
         """
@@ -284,7 +287,7 @@ class ExecutableCircuit(object):
                 self.config['active']['synapse'].pop(synapse_name)
 
 
-    def disable_synapses(self, synapses):
+    def disable_synapses(self, synapses, no_send = False):
         """
         Disable synapses that exist in the diagram.
 
@@ -294,9 +297,10 @@ class ExecutableCircuit(object):
         """
         for synapse in synapses:
             self._disable_synapse(synapse)
-        self.send_to_GFX()
+        if not no_send:
+            self.send_to_GFX()
 
-    def enable_neurons(self, neurons):
+    def enable_neurons(self, neurons, no_send = False):
         """
         Enable neurons that exist in the diagram.
 
@@ -306,7 +310,8 @@ class ExecutableCircuit(object):
         """
         for neuron in neurons:
             self._enable_neuron(neuron)
-        self.send_to_GFX()
+        if not no_send:
+            self.send_to_GFX()
 
     def _enable_neuron(self, neuron_name):
         """
@@ -337,7 +342,7 @@ class ExecutableCircuit(object):
                     if self.graph.nodes[post]['class'] == 'Synapse':
                         self._enable_synapse(self.graph.nodes[post]['uname'])
 
-    def enable_synapses(self, synapses):
+    def enable_synapses(self, synapses, no_send = False):
         """
         Enable synapses that exist in the diagram.
 
@@ -347,14 +352,15 @@ class ExecutableCircuit(object):
         """
         for synapse in synapses:
             self._enable_synapse(synapse)
-        self.send_to_GFX()
+        if not no_send:
+            self.send_to_GFX()
 
     def _enable_synapse(self, synapse_name):
         if synapse_name in self.config['inactive']['synapse']:
             self.config['active']['synapse'][synapse_name] = \
                 self.config['inactive']['synapse'].pop(synapse_name)
 
-    def loadExperimentConfig(self, x):
+    def loadExperimentConfig(self, x, no_send = False):
         try:
             lastObject = x['lastObject']
             lastLabel = x['lastLabel']
@@ -395,7 +401,8 @@ class ExecutableCircuit(object):
             exc_type, exc_value, exc_traceback = sys.exc_info()
             tb = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
             self.client.raise_error(e, "An error occured during model update:\n" + tb)
-        self.send_to_GFX()
+        if not no_send:
+            self.send_to_GFX()
 
     def find_model(self, rid):
         return {pre: self.graph.nodes[pre] for pre, post, v in self.graph.in_edges(rid, data = True) if v['class'] == 'Models'}
@@ -433,31 +440,84 @@ class ExecutableCircuit(object):
         res = self.client.executeNAquery(task, temp = True)
         circuit_diagrams = {rid: v for rid, v in res.graph.nodes(data = True) if v['class'] == 'CircuitDiagram'}
         tmp = circuit_diagrams.popitem()[1]
-        diagrams = tmp['diagram']
-        jses = tmp['js']
+        diagrams = tmp['diagrams']
+        submodules = tmp['submodules']
+        primary_diagram = diagrams.pop('primary')
+        primary_submodule = submodules.pop('primary')
         for name, diagram in diagrams.items():
-            self._load_diagram_str(diagram, name = name)
-        for name, js in jses.items():
-            self._load_js_str(js, name = name)
+            self._load_diagram_from_str(diagram, primary = (name == primary_diagram),
+                                   name = name, display = False)
+        for name, submodule in submodules.items():
+            self._load_submodule_from_str(submodule, primary = (name == primary_submodule),
+                                     name = name, exec = False)
+        self.display_diagram()
 
-    def load_diagram(self, filename, name = None):
+    def load_diagram(self, filename, primary = False, name = None, display = True):
         with open(filename, 'r') as file:
             data = file.read()
         if name is None:
             name = os.path.splitext(os.path.split(filename)[-1])[0]
-        self._load_diagram_str(data, name = name)
+        self._load_diagram_from_str(data, primary = primary, name = name, display = display)
 
-    def _load_diagram_str(self, data, name = None):
+    def _load_diagram_from_str(self, data, primary = False, name = None, display = True):
         if name is None:
-            name = 'diagram{}'.format(len(self._diagram))
-        self._diagram[name] = data
+            name = 'diagram{}'.format(
+                len(self._diagrams)-1 if 'primary' in self._diagrams else len(self._diagrams))
+            print('Automatically assigning diagram name as {}'.format(name))
+        self._diagrams[name] = data
+        if primary:
+            self._diagrams['primary'] = name
+        if len(self._diagrams) == 1:
+            self._diagrams['primary'] = name
+        code = """
+window._neuGFX.mods.FlyBrainLab.circuitContent['{name}'] = `{data}`;
+""".format(name = name, data = data.replace('`', '\`'))
         self.client.tryComms({'widget':'GFX',
-                           'messageType': 'loadCircuitFromString',
-                           'data': {'string': data, 'name': name}})
-        time.sleep(1)
-        self.initialize_diagram_config()
+                              'messageType': 'eval',
+                              'data': {'data': code}})
+        if display:
+            self.display_diagram(name)
+    
+    @property
+    def primary_diagram(self):
+        if 'primary' in self._diagrams:
+            return self._diagrams['primary']
+        else:
+            raise ValueError('primary diagram not loaded')
 
-    def initialize_diagram_config(self):
+    def display_diagram(self, name = None, submodule = None):
+        if name is None:
+            name = self.primary_diagram
+
+        if submodule is None:
+            try:
+                submodule = self.primary_submodule
+            except ValueError:
+                pass
+            
+        if submodule is None:
+            callback = ""
+        else:
+            callback = """
+eval(window.submodules['{module}']);
+console.log("Submodule {module} loaded.");
+""".format(module = submodule)
+
+        code = """
+window._neuGFX.mods.FlyBrainLab.gfx.loadSVGFromString(
+    window._neuGFX.mods.FlyBrainLab.circuitContent['{name}'],
+    function(){{ {callback} }});
+window._neuGFX.mods.FlyBrainLab.circuitName = '{name}';
+window._neuGFX.mods.FlyBrainLab.addCircuit('{name}');
+""".format(name = name, callback = callback)
+
+        self.client.tryComms({'widget':'GFX',
+                           'messageType': 'eval',
+                           'data': {'data': code}})
+        time.sleep(1)
+        self.send_to_GFX()
+
+    def initialize_diagram_config(self, no_send = False):
         config = {'inactive': {'neuron': {},
                                'synapse': {}},
                   'active': {'neuron': {},
@@ -494,22 +554,47 @@ class ExecutableCircuit(object):
                 config['active']['synapse'][v['uname']] = new_node_data
 
         self.config = config
-        self.send_to_GFX()
+        if not no_send:
+            self.send_to_GFX()
 
-    def load_js(self, filename, name = None):
+    def load_submodule(self, filename, primary = False, name = None, exec = True):
         with open(filename, 'r') as file:
             data = file.read()
         if name is None:
             name = os.path.splitext(os.path.split(filename)[-1])[0]
-        self._load_js_str(data, name = name)
+        self._load_submodule_from_str(data, primary = primary, name = name, exec = exec)
 
-    def _load_js_str(self, data, name = None):
+    def _load_submodule_from_str(self, data, primary = False, name = None, exec = True):
         if name is None:
-            name = 'submodule{}'.format(len(self._js))
-        self._js[name] = data
-        self.client.tryComms({'messageType': 'eval', 'widget':'GFX',
-                              'data': {'data': data},
-                              'name': name})
+            name = 'submodule{}'.format(
+                len(self._submodules)-1 if 'primary' in self._submodules else len(self._submodules))
+        self._submodules[name] = data
+        if primary:
+            self._submodules['primary'] = name
+        else:
+            if len(self._submodules) == 1:
+                self._submodules['primary'] = name
+        self.client.tryComms({'messageType': 'loadSubmodule',
+                              'widget':'GFX',
+                              'data': {'data': data,
+                                       'name': name}
+                            })
+        time.sleep(1)
+        if exec:
+            self.execute_submodule(name)
+        
+    @property
+    def primary_submodule(self):
+        if 'primary' in self._submodules:
+            return self._submodules['primary']
+        else:
+            raise ValueError('primary submodule not loaded')
+
+    def execute_submodule(self, name):
+        code = "window.submodules['{}']".format(name)
+        client.tryComms({'widget':'GFX', 
+                        'messageType': 'eval', 
+                        'data': {'data': code}})
         time.sleep(1)
 
     def clear_js(self):
@@ -593,7 +678,7 @@ class ExecutableCircuit(object):
         if not no_send:
             self.send_to_GFX()
 
-    def update_model_like(self, nodes, node_to_copy):
+    def update_model_like(self, nodes, node_to_copy, no_send = False):
         if not isinstance(nodes, list):
             nodes = [nodes]
         # circuit_node = self.graph.nodes[self.uname_to_rid[node_to_copy]]
@@ -608,13 +693,15 @@ class ExecutableCircuit(object):
         vv['params']['name'] = vv['class']
         for node in nodes:
             self.update_model(node, vv['params'], vv['states'], no_send = True)
-        self.send_to_GFX()
+        if not no_send:
+            self.send_to_GFX()
 
-    def update_models(self, node_params):
+    def update_models(self, node_params, no_send = False):
         for node, v in node_params.items():
             self.update_model(node, v['params'], states = v.get('states', None),
                               no_send = True)
-        self.send_to_GFX()
+        if not no_send:
+            self.send_to_GFX()
 
     def flush_model(self, model_name = None, model_version = None):
         not_modeled_nodes = [v['uname'] for n, v in self.graph.nodes(data=True) \
@@ -631,7 +718,7 @@ class ExecutableCircuit(object):
                         model_version if model_version is not None else self.current_model_version,
                         {'nodes': list(graph.nodes(data=True)),
                          'edges': list(graph.edges(data=True))},
-                        circuit_diagram = self._diagram, js = self._js)
+                        circuit_diagrams = self._diagrams, submodules = self._submodules)
         if 'success' in res:
             rid_map = res['success']['data']
         else:
