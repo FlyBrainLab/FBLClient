@@ -176,7 +176,7 @@ class NAqueryResult(object):
             raise ValueError('Data found to be owned by 2 nodes, should not possible.')
 
     def getData(self, rid):
-        data_rids = [data_rid for _, data_rid, v in self.graph.out_edges(data_rid, data=True) if v.get('class', None) == 'HasData']
+        data_rids = [data_rid for _, data_rid, v in self.graph.out_edges(rid, data=True) if v.get('class', None) == 'HasData']
         return data_rids
 
     def get(self, cls):
@@ -332,6 +332,8 @@ class NeuronGraph(nx.DiGraph):
 
         self.add_nodes_from(list(neurons.items()))
         self.add_weighted_edges_from(connections)
+    def names(self):
+        return sorted([self.nodes[n]['uname'] for n in self.nodes()])
 
     def adjacency_matrix(self, uname_order = None, rid_order = None):
         """
