@@ -57,7 +57,7 @@ setup(
     download_url="",
     license="BSD-3-Clause",
     long_description=long_description,
-    long_description_content_type='text/markdown'
+    long_description_content_type='text/markdown',
     install_requires=install_requires,
     extras_require = {
         "full": extras_require_full,
