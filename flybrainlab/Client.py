@@ -132,7 +132,7 @@ def check_version(min_version_supported_by_NeuroMynerva):
     return True
 
 def check_for_update_pip():
-    name = 'FBLClient'
+    name = 'flybrainlab'
     latest_version = str(subprocess.run([sys.executable, '-m', 'pip', 'install', '--use-deprecated=legacy-resolver', '{}=='.format(name)], capture_output=True, text=True))
     latest_version = latest_version[latest_version.find('(from versions:')+15:]
     latest_version = latest_version[:latest_version.find(')')]
@@ -140,16 +140,16 @@ def check_for_update_pip():
 
     current_version = fbl.__version__
 
-    if latest_version == current_version:
+    if version.parse(latest_version) == version.parse(current_version):
         return 'FBLClient is up to date.'
     else:
         return 'Update {} is available for FBLClient.'.format(latest_version)
 
 def check_for_update():
     response = requests.get("https://api.github.com/repos/flybrainlab/FBLClient/releases/latest")
-    latest_version = version.parse(response.json()["name"])
+    latest_version = version.parse(response.json()["tag_name"])
     current_version = version.parse(fbl.__version__)
-    if version.parse(latest_version) > version.parse(current_version):
+    if latest_version > current_version:
         raise FlyBrainLabVersionUpgradeException(
             f'Update {latest_version} is available for FBLClient, '
             f'you are currently using {current_version}.  '
