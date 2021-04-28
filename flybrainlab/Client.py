@@ -122,7 +122,7 @@ def check_NeuroMynerva_version(NeuroMynerva_version = None):
 
 def check_FBLClient_version(min_version_supported_by_NeuroMynerva):
     if version.parse(fbl.__version__) < version.parse(min_version_supported_by_NeuroMynerva):
-        error_msg = "Update Required! Please update FBLClient to {} or up.\nTo upgrade:\npip install FlyBrainLab --upgrade".format(min_version_supported_by_NeuroMynerva)
+        error_msg = "Update Required! Please update FBLClient to {} or up.\nTo upgrade:\npython -m pip install flybrainlab[full] --upgrade".format(min_version_supported_by_NeuroMynerva)
         raise FlyBrainLabVersionMismatchException(error_msg)
     return True
 
@@ -153,7 +153,7 @@ def check_for_update():
         raise FlyBrainLabVersionUpgradeException(
             f'Update {latest_version} is available for FBLClient, '
             f'you are currently using {current_version}.  '
-            'To upgrade: pip install FlyBrainLab --upgrade'
+            'To upgrade: python -m pip install flybrainlab[full] --upgrade'
         )
 
 def convert_from_bytes(data):
@@ -591,6 +591,7 @@ class Client:
         self.active_na_queries = {}
         self.NLP_result = fblgraph.NeuroNLPResult(enableResets = self.enableResets)
         self.last_NLPquery_result = None
+        self.last_NAquery_result = None
         self.uname_to_rid = {}  # local map from unames to rid's
         self.legacy = legacy
         self.neuronStats = {}
@@ -1222,7 +1223,7 @@ class Client:
         res = convert_from_bytes(res)
 
         if not version.parse(res["processor"]["autobahn"]).major == version.parse(autobahn.__version__).major:
-            error_msg = "Autobahn major version mismatch between your environment {} and the backend servers {}.\nPlease update your autobahn version to match with the processor version by running ``pip install --upgrade autobahn`` in your terminal.".format(autobahn.__version__, res["processor"]["autobahn"])
+            error_msg = "Autobahn major version mismatch between your environment {} and the backend servers {}.\nPlease update your autobahn version to match with the processor version by running ``python -m pip install --upgrade autobahn`` in your terminal.".format(autobahn.__version__, res["processor"]["autobahn"])
             self.raise_error(FlyBrainLabBackendException(error_msg), error_msg, no_raise = True)
 
         announcement = res["processor"].get("announcement", "")
@@ -1648,7 +1649,7 @@ class Client:
             self.active_na_queries.pop(queryID)
             self.NLP_result.clear_cmd()
             raise FlyBrainLabNAserverException(res['info']['error'])
-
+        self.last_NAquery_result = self.active_na_queries[queryID]
         return self.active_na_queries.pop(queryID)
 
         # try:
@@ -1842,6 +1843,7 @@ class Client:
         self.tryComms(a)
         return True
 
+    # TODO: already moved to utilities.neurowatch, to be deprecated.
     def loadSWC(self, file_name, scale_factor=1., uname=None):
         """Loads a neuron skeleton stored in the .swc format.
 
@@ -1851,6 +1853,7 @@ class Client:
             uname (str): Unique name to use in the frontend. Defaults to the file_name.
 
         """
+        self.log['Client'].info('loadSWC method in Client is deprecated and will be removed in future release. Please use flybrainlab.neurowatch.loadSWC instead.')
         neuron_pd = pd.read_csv(file_name,
                         names=['sample','identifier','x','y','z','r','parent'],
                         comment='#',
@@ -2056,7 +2059,7 @@ class Client:
         self.node_keys = node_keys
         self.compiled = True
 
-    # TODO: need check
+    # TODO: this can be deprecated.
     def getSlowConnectivity(self):
         """Obtain the connectivity matrix of the current circuit in a custom dictionary format. Necessary for large circuits.
 

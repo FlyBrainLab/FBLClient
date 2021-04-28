@@ -1,6 +1,7 @@
 import os
 from time import time
 import pickle
+import shutil
 
 import numpy as np
 import pandas as pd
@@ -31,6 +32,11 @@ try:
     from gem.embedding.lap      import LaplacianEigenmaps
     from gem.embedding.lle      import LocallyLinearEmbedding
     from gem.embedding.node2vec import node2vec
+    if shutil.which('node2vec') is None:
+        N2VC_available = False
+        print('node2vec executable not found. Embedding using node2vec method are not available. Please compile and install from https://github.com/snap-stanford/snap/tree/master/examples/node2vec')
+    else:
+        N2VC_available = True
     from gem.embedding.sdne     import SDNE
 except:
     print('GEM not installed. Please install GEM to enable embedding generation.')
@@ -181,7 +187,8 @@ def benchmark(x, cv=5):
     G=nx.from_numpy_matrix(X, create_using=nx.DiGraph)
     Gd=nx.from_numpy_matrix(X+1e-9, create_using=nx.DiGraph)
     models = {}
-    models['node2vec'] = node2vec(d=d, max_iter=10, walk_len=80, num_walks=10, con_size=10, ret_p=1, inout_p=1)
+    if N2VC_available:
+        models['node2vec'] = node2vec(d=d, max_iter=10, walk_len=80, num_walks=10, con_size=10, ret_p=1, inout_p=1)
     models['HOPE'] = HOPE(d=d, beta=0.01)
     models['Laplacian Eigenmaps'] = LaplacianEigenmaps(d=d)
     for model_name, embedding in models.items():
@@ -392,6 +399,8 @@ class N2VEmbedding(GEMEmbedding):
 
     """
     def __init__(self, d = 2, max_iter=10, walk_len=80, num_walks=10, con_size=10, ret_p=1, inout_p=1):
+        if not N2VC_available:
+            raise RuntimeError('node2vec binary not found on PATH. Please compile and install from https://github.com/snap-stanford/snap/tree/master/examples/node2vec')
         self.model = node2vec(d=d, max_iter=max_iter, walk_len=walk_len, num_walks=num_walks, con_size=con_size, ret_p=ret_p, inout_p=inout_p)
         
 class LEEmbedding(GEMEmbedding):
