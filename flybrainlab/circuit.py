@@ -40,7 +40,7 @@ class ExecutableCircuit(object):
                 If False, only the synapses in the query_result will be used to construct the graph.
                 (default True).
             model_name (str or None), model_version (str or None):
-                If specified, the model_name and model_version will be used to retrieve a executable circuit
+                If specified, the model_name and model_version will be used to retrieve an executable circuit
         """
         self.client = client
         if callback:
@@ -556,6 +556,10 @@ window._neuGFX.mods.FlyBrainLab.addCircuit('{name}');
         self.config = config
         if not no_send:
             self.send_to_GFX()
+
+    def load_js(self, filename):
+        DeprecationWarning("load_js method has been deprecated, use load_submodule instead")
+        self.load_submodule(filename)
 
     def load_submodule(self, filename, primary = False, name = None, exec = True):
         with open(filename, 'r') as file:
