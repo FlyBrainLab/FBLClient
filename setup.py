@@ -49,7 +49,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     
 setup(
     name="FlyBrainLab",
-    version="1.1.5",
+    version="1.1.6",
     description="Main Client of the FlyBrainLab Project",
     author="Mehmet Kerem Turkcan",
     author_email="mkt2126@columbia.edu",
