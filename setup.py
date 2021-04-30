@@ -3,12 +3,12 @@ from setuptools import find_packages
 from os import path
 
 install_requires = [
+    "numpy",
     "txaio",
     "h5py",
     "autobahn",
     "twisted[tls]",
     "autobahn_sync @ git+https://github.com/mkturkcan/autobahn-sync",
-    "jupyter",
     "pyOpenSSL",
     "seaborn",
     "requests",
@@ -16,22 +16,18 @@ install_requires = [
     "msgpack",
     "msgpack-numpy",
     "neuroballad @ git+https://github.com/flybrainlab/neuroballad",
-    "service_identity",
-    "crochet",
     "matplotlib",
-    "fastcluster",
     "networkx",
     "pandas",
-    "scipy",
-    "sympy",
-    "nose",
-    "jupyterlab>=2.2.8, <=3.0.10",
-    "pywin32; platform_system=='Windows'"
+    "ipython", # no longer need if remove get_slow_connectivity
+    "pywin32; platform_system=='Windows'",
 ]
+    # "jupyterlab>=2.2.8, <=3.0.10",
 
 extras_require_utilities = {
         "gem @ git+https://github.com/palash1992/GEM.git",
         "graspy<=0.1.1",
+        "scipy",
         "umap-learn",
         "tensorflow",
         "graphviz",
@@ -58,6 +54,7 @@ setup(
     license="BSD-3-Clause",
     long_description=long_description,
     long_description_content_type='text/markdown',
+    python_requires=">=3.6",
     install_requires=install_requires,
     extras_require = {
         "full": extras_require_full,
