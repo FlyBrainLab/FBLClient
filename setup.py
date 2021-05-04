@@ -21,6 +21,7 @@ install_requires = [
     "pandas",
     "ipython", # no longer need if remove get_slow_connectivity
     "pywin32; platform_system=='Windows'",
+    "graphviz",
 ]
     # "jupyterlab>=2.2.8, <=3.0.10",
 
@@ -30,7 +31,6 @@ extras_require_utilities = {
         "scipy",
         "umap-learn",
         "tensorflow",
-        "graphviz",
         "sklearn",
         "cdlib",
         "pyclustering",
