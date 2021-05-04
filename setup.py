@@ -22,9 +22,8 @@ install_requires = [
     "ipython", # no longer need if remove get_slow_connectivity
     "pywin32; platform_system=='Windows'",
     "graphviz",
-    "service_identity >= 18.0"
+    "jupyterlab >= 3.0",
 ]
-    # "jupyterlab>=2.2.8, <=3.0.10",
 
 extras_require_utilities = {
         "gem @ git+https://github.com/palash1992/GEM.git",
@@ -32,7 +31,7 @@ extras_require_utilities = {
         "scipy",
         "umap-learn",
         "tensorflow",
-        "sklearn < 0.24,>=0.21",
+        "scikit-learn",
         "cdlib",
         "pyclustering",
         "nxcontrol @ git+https://github.com/mkturkcan/nxcontrol"
