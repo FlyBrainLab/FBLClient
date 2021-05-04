@@ -13,7 +13,7 @@ install_requires = [
     "seaborn",
     "requests",
     "dataclasses; python_version<'3.7'",
-    "msgpack",
+    "msgpack > 1.0",
     "msgpack-numpy",
     "neuroballad @ git+https://github.com/flybrainlab/neuroballad",
     "matplotlib",
@@ -22,6 +22,7 @@ install_requires = [
     "ipython", # no longer need if remove get_slow_connectivity
     "pywin32; platform_system=='Windows'",
     "graphviz",
+    "service_identity >= 18.0"
 ]
     # "jupyterlab>=2.2.8, <=3.0.10",
 
@@ -31,7 +32,7 @@ extras_require_utilities = {
         "scipy",
         "umap-learn",
         "tensorflow",
-        "sklearn",
+        "sklearn < 0.24,>=0.21",
         "cdlib",
         "pyclustering",
         "nxcontrol @ git+https://github.com/mkturkcan/nxcontrol"
