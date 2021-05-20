@@ -29,7 +29,7 @@ pip install git+https://github.com/mkturkcan/autobahn-sync.git git+https://githu
 To install FlyBrainLab Client from a clone of this repository, execute:
 
 ```python
-pip install -e .[full]
+pip install .[full]
 ```
 
 ## Tutorials

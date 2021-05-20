@@ -132,7 +132,7 @@ def check_version(min_version_supported_by_NeuroMynerva):
     return True
 
 def check_for_update_pip():
-    name = 'FBLClient'
+    name = 'flybrainlab'
     latest_version = str(subprocess.run([sys.executable, '-m', 'pip', 'install', '--use-deprecated=legacy-resolver', '{}=='.format(name)], capture_output=True, text=True))
     latest_version = latest_version[latest_version.find('(from versions:')+15:]
     latest_version = latest_version[:latest_version.find(')')]
@@ -140,16 +140,16 @@ def check_for_update_pip():
 
     current_version = fbl.__version__
 
-    if latest_version == current_version:
+    if version.parse(latest_version) == version.parse(current_version):
         return 'FBLClient is up to date.'
     else:
         return 'Update {} is available for FBLClient.'.format(latest_version)
 
 def check_for_update():
     response = requests.get("https://api.github.com/repos/flybrainlab/FBLClient/releases/latest")
-    latest_version = version.parse(response.json()["name"])
+    latest_version = version.parse(response.json()["tag_name"])
     current_version = version.parse(fbl.__version__)
-    if version.parse(latest_version) > version.parse(current_version):
+    if latest_version > current_version:
         raise FlyBrainLabVersionUpgradeException(
             f'Update {latest_version} is available for FBLClient, '
             f'you are currently using {current_version}.  '
@@ -1261,7 +1261,7 @@ class Client:
                     raise FlyBrainLabBackendException("No valid datasets cannot be found.\nIf you are running the NeuroArch and NeuroNLP servers locally, please check if the servers are on and connected. If you are connecting to a public server, please contact server admin.")
             else:
                 if len(valid_datasets) == 1:
-                    dataset = valid_dataset[0]
+                    dataset = valid_datasets[0]
                 elif len(valid_datasets) > 1:
                     raise FlyBrainLabBackendException("Multiple valid datasets are available on the specified FFBO processor. However, you did not specify which dataset to connect to. Available datasets on the FFBO processor are the following:\n{}\n\n. Please choose one of the above datasets during Client connection by passing the dataset argument.".format('\n- '.join(valid_datasets)))
                 # print(
@@ -2971,7 +2971,7 @@ class Client:
             if query_result is None:
                 query_result = self.NLP_result
             nodes = list(query_result.neurons.keys()) + \
-                   [k for v in query_result.synapses.items() if v['N']>=synapse_threshold]
+                   [k for k, v in query_result.synapses.items() if v['N']>=synapse_threshold]
             return fblgraph.NeuronGraph(query_result.graph.subgraph(nodes))
 
     def get_circuit_graph(self, query_result = None, synapse_threshold = 5, complete_synapses = True):
@@ -3000,7 +3000,7 @@ class Client:
             if query_result is None:
                 query_result = self.NLP_result
             nodes = list(query_result.neurons.keys()) + \
-                   [k for v in query_result.synapses.items() if v['N']>=synapse_threshold]
+                   [k for k, v in query_result.synapses.items() if v['N']>=synapse_threshold]
             return fblgraph.CircuitGraph(query_result.graph.subgraph(nodes))
 
     def get_neuron_adjacency_matrix(self, query_result = None, synapse_threshold = 5,

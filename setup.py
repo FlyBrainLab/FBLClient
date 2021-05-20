@@ -3,39 +3,35 @@ from setuptools import find_packages
 from os import path
 
 install_requires = [
+    "numpy",
     "txaio",
     "h5py",
     "autobahn",
     "twisted[tls]",
     "autobahn_sync @ git+https://github.com/mkturkcan/autobahn-sync",
-    "jupyter",
     "pyOpenSSL",
     "seaborn",
     "requests",
     "dataclasses; python_version<'3.7'",
-    "msgpack",
+    "msgpack > 1.0",
     "msgpack-numpy",
     "neuroballad @ git+https://github.com/flybrainlab/neuroballad",
-    "service_identity",
-    "crochet",
     "matplotlib",
-    "fastcluster",
     "networkx",
     "pandas",
-    "scipy",
-    "sympy",
-    "nose",
-    "jupyterlab>=2.2.8, <=3.0.10",
-    "pywin32; platform_system=='Windows'"
+    "ipython", # no longer need if remove get_slow_connectivity
+    "pywin32; platform_system=='Windows'",
+    "graphviz",
+    "jupyterlab >= 3.0",
 ]
 
 extras_require_utilities = {
         "gem @ git+https://github.com/palash1992/GEM.git",
         "graspy<=0.1.1",
+        "scipy",
         "umap-learn",
         "tensorflow",
-        "graphviz",
-        "sklearn",
+        "scikit-learn",
         "cdlib",
         "pyclustering",
         "nxcontrol @ git+https://github.com/mkturkcan/nxcontrol"
@@ -49,7 +45,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     
 setup(
     name="FlyBrainLab",
-    version="1.1.5",
+    version="1.1.7",
     description="Main Client of the FlyBrainLab Project",
     author="Mehmet Kerem Turkcan",
     author_email="mkt2126@columbia.edu",
@@ -58,6 +54,7 @@ setup(
     license="BSD-3-Clause",
     long_description=long_description,
     long_description_content_type='text/markdown',
+    python_requires=">=3.6",
     install_requires=install_requires,
     extras_require = {
         "full": extras_require_full,
