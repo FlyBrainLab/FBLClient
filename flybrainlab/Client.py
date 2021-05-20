@@ -1261,7 +1261,7 @@ class Client:
                     raise FlyBrainLabBackendException("No valid datasets cannot be found.\nIf you are running the NeuroArch and NeuroNLP servers locally, please check if the servers are on and connected. If you are connecting to a public server, please contact server admin.")
             else:
                 if len(valid_datasets) == 1:
-                    dataset = valid_dataset[0]
+                    dataset = valid_datasets[0]
                 elif len(valid_datasets) > 1:
                     raise FlyBrainLabBackendException("Multiple valid datasets are available on the specified FFBO processor. However, you did not specify which dataset to connect to. Available datasets on the FFBO processor are the following:\n{}\n\n. Please choose one of the above datasets during Client connection by passing the dataset argument.".format('\n- '.join(valid_datasets)))
                 # print(
@@ -2970,7 +2970,7 @@ class Client:
             if query_result is None:
                 query_result = self.NLP_result
             nodes = list(query_result.neurons.keys()) + \
-                   [k for v in query_result.synapses.items() if v['N']>=synapse_threshold]
+                   [k for k, v in query_result.synapses.items() if v['N']>=synapse_threshold]
             return fblgraph.NeuronGraph(query_result.graph.subgraph(nodes))
 
     def get_circuit_graph(self, query_result = None, synapse_threshold = 5, complete_synapses = True):
@@ -2999,7 +2999,7 @@ class Client:
             if query_result is None:
                 query_result = self.NLP_result
             nodes = list(query_result.neurons.keys()) + \
-                   [k for v in query_result.synapses.items() if v['N']>=synapse_threshold]
+                   [k for k, v in query_result.synapses.items() if v['N']>=synapse_threshold]
             return fblgraph.CircuitGraph(query_result.graph.subgraph(nodes))
 
     def get_neuron_adjacency_matrix(self, query_result = None, synapse_threshold = 5,
