@@ -99,7 +99,7 @@ class ExecutableCircuit(object):
                 raise ValueError('Executable Circuit must be speicified by a circuit or model name.')
             else:
                 existing_models = self.query_for_models_by_name(model_name)
-                if len(existing_model) == 0:
+                if len(existing_models) == 0:
                     raise ValueError('Model with name {} does not exist. \
                            Cannot initialize without a circuit'.format(model_name))
                 if model_version is None:
