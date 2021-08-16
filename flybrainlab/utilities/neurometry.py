@@ -118,3 +118,97 @@ def morphometrics(res):
             metrics[uname] = generate_neuron_stats(X)
     return pd.DataFrame.from_dict(metrics)
 
+
+def generate_neuron_shape(_input, scale = 'mum', scale_coefficient = 1., log=False):
+    """Generates shape structures for the specified neuron.
+    
+    # Arguments:
+        _input (str or np.array): Name of the file to use, or the numpy array to get as input.
+        scale (str): Optional. Name of the measurement scale. Default to 'mum'.
+        scale_coefficient (float): Optional. A number to multiply the input with if needed. Defaults to 1.
+        
+    # Returns:
+        X: A result matrix with the contents of the input.
+        G: A directed networkx graph with the contents of the input.
+        distances: List of all distances in the .swc file.
+    """
+    if isinstance(_input, str):
+        a = pd.read_csv(_input, sep=' ', header=None, comment='#')
+        X = a.values
+    else:
+        X = _input
+    if X.shape[1]>7:
+        X = X[:, X.shape[1]-7:]
+    G = nx.DiGraph()
+    X[:,2:5] = X[:,2:5] * scale_coefficient
+    distances = []
+    for i in range(X.shape[0]):
+        if X[i,6] != -1:
+            parent = np.where(X[:,0] == X[i,6])[0][0]
+            x_parent = X[parent,2:5]
+            G.add_node(i, position_data = X[i,2:5], parent_position_data = X[parent,2:5], r = X[i,5])
+            x = X[i,2:5]
+            h = np.sqrt(np.sum(np.square(x_parent-x)))
+            G.add_edge(parent,i,weight=h)
+            distances.append(h)
+        else:
+            G.add_node(i, position_data = X[i,2:5], parent_position_data = X[i,2:5], r = X[i,5])
+    return X, G, distances
+
+def fix_swc(swc_file, new_swc_file,
+            percentile_cutoff = 50,
+            similarity_cutoff = 0.80,
+            distance_multiplier = 8):
+    """Tries to fix connectivity errors in a given swc file.
+    
+    # Arguments:
+        swc_file (str or np.array): Name of the file to use, or the numpy array to get as input.
+        new_swc_file (str): Name of the new swc file to use as output.
+        percentile_cutoff (int): Optional. Percentile to use for inter-node cutoff distance during reconstruction for connecting two nodes. Defaults to 50.
+        similarity_cutoff (float): Optional. Cosine similarity cutoff value between two endpoints' branches during reconstruction. Defaults to 0.8.
+        distance_multiplier (float): Optional. A multiplier to multiply percentile_cutoff with. Defaults to 8.
+        
+    # Returns:
+        G: A directed networkx graph with the contents of the input.
+        G_d: A directed networkx graph with the contents of the input after the fixes.
+
+    """
+    X, G, distances = generate_neuron_shape(swc_file)
+    endpoints = []
+    endpoint_vectors = []
+    endpoint_dirs = []
+    for i in G.nodes():
+        if len(list(G.successors(i)))==0:
+            endpoints.append(i)
+            endpoint_vectors.append(G.nodes()[i]['position_data'])
+            direction = G.nodes()[i]['position_data'] - G.nodes()[i]['parent_position_data']
+            if np.sqrt(np.sum(np.square(direction)))>0.:
+                direction = direction / np.sqrt(np.sum(np.square(direction)))
+            endpoint_dirs.append(direction)
+    endpoint_vectors = np.array(endpoint_vectors)
+    endpoint_dirs = np.array(endpoint_dirs)
+
+
+    distance_cutoff = np.percentile(distances,percentile_cutoff)
+    X_additions = []
+    X_a_idx = int(np.max(X[:,0]))+1
+    G_d = G.copy()
+    for idx_a_i in range(len(endpoints)):
+        for idx_b_j in range(idx_a_i+1,len(endpoints)):
+            idx_a = endpoints[idx_a_i]
+            idx_b = endpoints[idx_b_j]
+            if np.abs(np.sum(np.multiply(endpoint_dirs[idx_a_i],endpoint_dirs[idx_b_j])))>similarity_cutoff:
+                x = X[idx_b,2:5]
+                x_parent = X[idx_a,2:5]
+                if np.sqrt(np.sum(np.square(x_parent-x)))<distance_multiplier * distance_cutoff:
+                    X_additions.append([X_a_idx,0,X[idx_b,2],X[idx_b,3],X[idx_b,4],X[idx_b,5],X[idx_a,0]])
+                    X_a_idx += 1
+                    G_d.add_edge(idx_a, idx_b)
+    X_additions = np.array(X_additions)
+    X_all = np.vstack((X, X_additions))
+    X_pd = pd.DataFrame(X_all)
+    X_pd[0] = X_pd[0].astype(int)
+    X_pd[1] = X_pd[1].astype(int)
+    X_pd[6] = X_pd[6].astype(int)
+    X_pd.to_csv(new_swc_file, sep=' ', header=None, index=None)
+    return G, G_d
