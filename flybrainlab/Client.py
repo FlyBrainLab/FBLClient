@@ -1689,19 +1689,37 @@ class Client:
         #     self.active_na_queries.pop(queryID)
         #     return a
 
-    def createTag(self, tagName):
+    def createTag(self, tagName, metadata = None):
         """Creates a tag.
 
         # Returns
             bool: True.
         """
-        metadata = {
-            "color": {},
-            "pinned": {},
-            "visibility": {},
-            "camera": {"position": {}, "up": {}},
-            "target": {},
-        }
+        if metadata is None:
+            metadata = {
+                "color": {},
+                "pinned": {},
+                "visibility": {},
+                "camera": {"position": {}, "up": {}},
+                "target": {},
+            }
+        elif metadata == 'read':
+            meshes = {v.getData(rid)[0]: props['name'] for k, v in self.meshes.items() for rid, props in v.get(k).items() if len(v.getData(rid)) }
+            metadata = fbl.widget_manager.last_active.model.states
+            color = metadata['color']
+            for rid in list(color.keys()):
+                if rid in meshes:
+                    color[meshes[rid]] = color.pop(rid)
+            pinned = metadata['pinned']
+            for i, rid in enumerate(pinned):
+                if rid in meshes:
+                    pinned[i] = meshes[rid]
+            visibility = metadata['visibility']
+            for rid in list(visibility.keys()):
+                if rid in meshes:
+                    visibility[meshes[rid]] = visibility.pop(rid)
+            metadata['settings'] = fbl.widget_manager.last_active.model.metadata
+            metadata['settings']['defaultSynapseRadius'] = 1.0
         # res = self.executeNAquery(
         #     {"tag": tagName, "metadata": metadata, "uri": "ffbo.na.create_tag"}
         # )
@@ -1711,7 +1729,10 @@ class Client:
             self.log['Client'].info(res['info']['success'])
         elif 'error' in res['info']:
             raise FlyBrainLabNAserverException(res['info']['error'])
-        return res
+        else:
+            self.log['Client'].info(res)
+            raise FlyBrainLabNAserverException(res['info'])
+        return True
 
     def loadTag(self, tagName):
         """Loads a tag.
@@ -2094,7 +2115,7 @@ class Client:
         #                             names.append(data["data"]["data"][key]["uname"])
         neurons = self.NLP_result.neurons
         for k, v in neurons:
-            hasids.append(k)
+            hashids.append(k)
             names.append(v['uname'])
 
         for i in range(len(hashids)):
