@@ -70,6 +70,7 @@ import flybrainlab as fbl
 from .utils import setProtocolOptions
 from .exceptions import *
 from . import graph as fblgraph
+from . import query as fblquery
 
 
 # Create the home directory
@@ -641,6 +642,18 @@ class Client:
             self.init_client(ssl, user, secret, custom_salt, url, ssl_con, legacy)
             self.findServerIDs(dataset)  # Get current server IDs
             self.connected = True
+
+    def get_mesh(self):
+        if self.connected:
+            neuropils = fblquery.load_Neuropils(self)
+            subregions = fblquery.load_Subregions(self)
+            tracts = fblquery.load_Tracts(self)
+            subsystems = fblquery.load_Subsystems(self)
+            self.meshes = {'Neuropil': neuropils,
+                           'Subregion': subregions,
+                           'Tract': tracts,
+                           'Subsystem': subsystems}
+
 
     @property
     def neuron_data(self):

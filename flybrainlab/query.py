@@ -528,3 +528,36 @@ class NeuroArch_Mirror(object):
                              data_source = data_source)
         result = self._check_result(res)
         return result
+
+
+def load_mesh(client, mesh_type, format = 'morphology', verb = 'add'):
+    fbl_query = {}
+    fbl_query['verb'] = verb
+    fbl_query['format'] = format
+    fbl_query['query']= [{'action': {'method': {'query': {}}},
+                          'object': {'class': sum([mesh_type], [])}}]
+    res = client.executeNAquery(fbl_query, temp = True)
+    return res
+
+
+def load_Neuropils(client, format = 'morphology', verb = 'add'):
+    res = load_mesh(client, ['Neuropil'], format = format, verb = verb)
+    return res
+
+
+def load_Subregions(client, format = 'morphology', verb = 'add'):
+    res = load_mesh(client, ['Subregion'], format = format, verb = verb)
+    return res
+
+
+def load_Tracts(client, format = 'morphology', verb = 'add'):
+    res = load_mesh(client, ['Tract'], format = format, verb = verb)
+    return res
+
+
+def load_Subsystems(client, format = 'morphology', verb = 'add'):
+    res = load_mesh(client, ['Subsystem'], format = format, verb = verb)
+    return res
+
+
+
