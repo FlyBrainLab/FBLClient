@@ -209,7 +209,7 @@ class NeuroNLPResult(NAqueryResult):
         self.commands = []
         self.processed_commands = []
         self.enableResets = enableResets
-        self.graph = nx.MultiDiGraph()
+        self.graph = nx.DiGraph() #using only DiGraph as this class only deals with the morphology and it is one-to-one
         self.uname_to_rid = {}
 
     def receive_cmd(self, data):
