@@ -37,6 +37,7 @@ def loadSWC(client, file_name, scale_factor=1., uname=None):
     """Loads a neuron skeleton stored in the .swc format.
     # Arguments
         client (FlyBrainLab Client): A FlyBrainLab Client.
+        file_name (str): Database ID of the neuron or node.
         scale_factor (float): A scale factor to scale the neuron's dimensions with. Defaults to 1.
         uname (str): Unique name to use in the frontend. Defaults to the file_name.
     """
