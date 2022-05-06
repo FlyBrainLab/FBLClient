@@ -1408,7 +1408,8 @@ class Client:
 
     #####################  Queries ####################################################
     def executeNLPquery(
-        self, query=None, language="en", uri=None, queryID=None, returnNAOutput=False
+        self, query=None, language="en", uri=None, queryID=None, returnNAOutput=False,
+        visualize = True
     ):
         """Execute an NLP query.
 
@@ -1456,6 +1457,9 @@ class Client:
             a["widget"] = "NLP"
 
             self.log['NLP'].info("NLP successfully parsed query.")
+
+            if not visualize:
+                resNA['format'] = 'nx'
 
             if returnNAOutput == True:
                 return resNA
