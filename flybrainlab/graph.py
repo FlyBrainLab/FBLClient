@@ -363,7 +363,7 @@ class NeuronGraph(nx.DiGraph):
             # uname_order
             order_dict = {self.nodes[n]['uname']: n for n in self.nodes()}
             rid_order = [order_dict[uname] for uname in uname_order]
-        M = nx.adj_matrix(self, nodelist = rid_order).todense()
+        M = nx.adjacency_matrix(self, nodelist = rid_order).todense()
         return M, uname_order
 
 
