@@ -1448,8 +1448,15 @@ class Client:
                 return a
 
             if resNA == {}:
-                error_msg = 'The query could not be interpreted. Look at the server to check for potential errors.'
+                error_msg = 'NLP module did not understand the query.'
                 self.raise_error(FlyBrainLabNLPserverException(error_msg), error_msg)
+
+            # temporarily not show drosobot response until a widget is in place.
+            if 'engine' in resNA:
+                if resNA['engine'] != 'nlp':
+                    error_msg = 'NLP module did not understand the query.'
+                    self.raise_error(FlyBrainLabNLPserverException(error_msg), error_msg)
+            
             a = {}
             a["data"] = resNA
             a["messageType"] = "ParsedQuery"
