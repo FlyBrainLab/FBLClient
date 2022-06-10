@@ -1222,9 +1222,9 @@ class Client:
         res = self.rpc(u"ffbo.processor.server_information")
         res = convert_from_bytes(res)
 
-        if not version.parse(res["processor"]["autobahn"]).major == version.parse(autobahn.__version__).major:
-            error_msg = "Autobahn major version mismatch between your environment {} and the backend servers {}.\nPlease update your autobahn version to match with the processor version by running ``python -m pip install --upgrade autobahn`` in your terminal.".format(autobahn.__version__, res["processor"]["autobahn"])
-            self.raise_error(FlyBrainLabBackendException(error_msg), error_msg, no_raise = True)
+        # if not version.parse(res["processor"]["autobahn"]).major == version.parse(autobahn.__version__).major:
+        #     error_msg = "Autobahn major version mismatch between your environment {} and the backend servers {}.\nPlease update your autobahn version to match with the processor version by running ``python -m pip install --upgrade autobahn`` in your terminal.".format(autobahn.__version__, res["processor"]["autobahn"])
+        #     self.raise_error(FlyBrainLabBackendException(error_msg), error_msg, no_raise = True)
 
         announcement = res["processor"].get("announcement", "")
         if len(announcement):
