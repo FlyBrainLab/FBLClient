@@ -373,7 +373,7 @@ class Client:
         user="guest",
         secret="guestpass",
         custom_salt=None,
-        url=u"wss://flycircuitdev.neuronlp.fruitflybrain.org/ws",
+        url=u"wss://neuronlp.fruitflybrain.org/ws",
         realm=u"realm1",
         ca_cert_file="isrgrootx1.pem",
         intermediate_cert_file="letsencryptauthorityx3.pem",
@@ -428,134 +428,134 @@ class Client:
         self.widgets = widgets
         if FBLcomm is None and FFBOLabcomm is not None:
             FBLcomm = FFBOLabcomm
-        if os.path.exists(os.path.join(home, ".ffbo", "lib")):
-            self.log['Client'].debug("Downloading the latest certificates.")
+        # if os.path.exists(os.path.join(home, ".ffbo", "lib")):
+        #     self.log['Client'].debug("Downloading the latest certificates.")
             # CertificateDownloader = urllib.URLopener()
-            if not os.path.exists(
-                os.path.join(home, ".ffbo", "config", "FBLClient.ini")
-            ):
-                urlRetriever(
-                    "https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
-                    os.path.join(home, ".ffbo", "config", "FBLClient.ini"),
-                )
-            if not os.path.exists(
-                os.path.join(home, ".ffbo", "config", "flycircuit_config.ini")
-            ):
-                urlRetriever(
-                    "https://data.flybrainlab.fruitflybrain.org/config/flycircuit_config.ini",
-                    os.path.join(home, ".ffbo", "config", "flycircuit_config.ini"),
-                )
-            if not os.path.exists(
-                os.path.join(home, ".ffbo", "config", "hemibrain_config.ini")
-            ):
-                urlRetriever(
-                    "https://data.flybrainlab.fruitflybrain.org/config/hemibrain_config.ini",
-                    os.path.join(home, ".ffbo", "config", "hemibrain_config.ini"),
-                )
-            if not os.path.exists(
-                os.path.join(home, ".ffbo", "config", "larva_config.ini")
-            ):
-                urlRetriever(
-                    "https://data.flybrainlab.fruitflybrain.org/config/larva_config.ini",
-                    os.path.join(home, ".ffbo", "config", "larva_config.ini"),
-                )
-            urlRetriever(
-                "https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
-                os.path.join(home, ".ffbo", "lib", "caCertFile.pem"),
-            )
-            urlRetriever(
-                "https://data.flybrainlab.fruitflybrain.org/lib/letsencryptauthorityx3.pem",
-                os.path.join(home, ".ffbo", "lib", "intermediateCertFile.pem"),
-            )
-            config_file = os.path.join(home, ".ffbo", "config", "FBLClient.ini")
-            ca_cert_file = os.path.join(home, ".ffbo", "lib", "caCertFile.pem")
-            intermediate_cert_file = os.path.join(
-                home, ".ffbo", "lib", "intermediateCertFile.pem"
-            )
+            # if not os.path.exists(
+            #     os.path.join(home, ".ffbo", "config", "FBLClient.ini")
+            # ):
+            #     urlRetriever(
+            #         "https://data.flybrainlab.fruitflybrain.org/config/FBLClient.ini",
+            #         os.path.join(home, ".ffbo", "config", "FBLClient.ini"),
+            #     )
+            # if not os.path.exists(
+            #     os.path.join(home, ".ffbo", "config", "flycircuit_config.ini")
+            # ):
+            #     urlRetriever(
+            #         "https://data.flybrainlab.fruitflybrain.org/config/flycircuit_config.ini",
+            #         os.path.join(home, ".ffbo", "config", "flycircuit_config.ini"),
+            #     )
+            # if not os.path.exists(
+            #     os.path.join(home, ".ffbo", "config", "hemibrain_config.ini")
+            # ):
+            #     urlRetriever(
+            #         "https://data.flybrainlab.fruitflybrain.org/config/hemibrain_config.ini",
+            #         os.path.join(home, ".ffbo", "config", "hemibrain_config.ini"),
+            #     )
+            # if not os.path.exists(
+            #     os.path.join(home, ".ffbo", "config", "larva_config.ini")
+            # ):
+            #     urlRetriever(
+            #         "https://data.flybrainlab.fruitflybrain.org/config/larva_config.ini",
+            #         os.path.join(home, ".ffbo", "config", "larva_config.ini"),
+            #     )
+            # urlRetriever(
+            #     "https://data.flybrainlab.fruitflybrain.org/lib/isrgrootx1.pem",
+            #     os.path.join(home, ".ffbo", "lib", "caCertFile.pem"),
+            # )
+            # urlRetriever(
+            #     "https://data.flybrainlab.fruitflybrain.org/lib/letsencryptauthorityx3.pem",
+            #     os.path.join(home, ".ffbo", "lib", "intermediateCertFile.pem"),
+            # )
+            # config_file = os.path.join(home, ".ffbo", "config", "FBLClient.ini")
+            # ca_cert_file = os.path.join(home, ".ffbo", "lib", "caCertFile.pem")
+            # intermediate_cert_file = os.path.join(
+            #     home, ".ffbo", "lib", "intermediateCertFile.pem"
+            # )
         # config = ConfigParser()
         # print(config_file)
         # config.read(config_file)
 
         # This is a temporary fix. The configuration should be provided when instantiating a Client instance
-        if use_config:
-            root = os.path.expanduser("/")
-            homedir = os.path.expanduser("~")
-            filepath = os.path.dirname(os.path.abspath(__file__))
-            config_files = []
-            os.path.join(home, ".ffbo", "config", "FFBO.ini"),
-            config = ConfigParser()
-            configured = False
-            file_type = 0
-            for config_file in config_files:
-                if os.path.exists(config_file):
-                    config.read(config_file)
-                    configured = True
-                    break
-                file_type += 1
-            if not configured:
-                raise Exception("No config file exists for this component")
+        # if use_config:
+        #     root = os.path.expanduser("/")
+        #     homedir = os.path.expanduser("~")
+        #     filepath = os.path.dirname(os.path.abspath(__file__))
+        #     config_files = []
+        #     os.path.join(home, ".ffbo", "config", "FFBO.ini"),
+        #     config = ConfigParser()
+        #     configured = False
+        #     file_type = 0
+        #     for config_file in config_files:
+        #         if os.path.exists(config_file):
+        #             config.read(config_file)
+        #             configured = True
+        #             break
+        #         file_type += 1
+        #     if not configured:
+        #         raise Exception("No config file exists for this component")
 
-            user = config["USER"]["user"]
-            secret = config["USER"]["secret"]
-            ssl = eval(config["AUTH"]["ssl"])
-            websockets = "wss" if ssl else "ws"
-            if "ip" in config["SERVER"]:
-                split = config["SERVER"]["ip"].split(':')
-                ip = split[0]
-                if len(split) == 2:
-                    port = split[1]
-                    url =  "{}://{}:{}/ws".format(websockets, ip, port)
-                else:
-                    url =  "{}://{}/ws".format(websockets, ip)
-            else:
-                ip = "localhost"
-                port = int(config["NLP"]['port'])
-                url =  "{}://{}:{}/ws".format(websockets, ip, port)
-            realm = config["SERVER"]["realm"]
-            authentication = eval(config["AUTH"]["authentication"])
-            debug = eval(config["DEBUG"]["debug"])
-            ssl = False # override ssl for connections
-            if 'dataset' in config["SERVER"]:
-                dataset = config["SERVER"]['dataset']
-        if custom_config is not None:
-            root = os.path.expanduser("/")
-            homedir = os.path.expanduser("~")
-            filepath = os.path.dirname(os.path.abspath(__file__))
-            config_files = []
-            config_files.append(os.path.join(home, ".ffbo", "config", custom_config))
-            config_files.append(os.path.join(homedir, ".ffbo", "config", custom_config))
-            config_files.append(os.path.join(root, ".ffbo", "config", custom_config))
-            config = ConfigParser()
-            configured = False
-            file_type = 0
-            for config_file in config_files:
-                if os.path.exists(config_file):
-                    config.read(config_file)
-                    configured = True
-                    break
-                file_type += 1
-            if not configured:
-                raise Exception("No config file exists for this component")
+        #     user = config["USER"]["user"]
+        #     secret = config["USER"]["secret"]
+        #     ssl = eval(config["AUTH"]["ssl"])
+        #     websockets = "wss" if ssl else "ws"
+        #     if "ip" in config["SERVER"]:
+        #         split = config["SERVER"]["ip"].split(':')
+        #         ip = split[0]
+        #         if len(split) == 2:
+        #             port = split[1]
+        #             url =  "{}://{}:{}/ws".format(websockets, ip, port)
+        #         else:
+        #             url =  "{}://{}/ws".format(websockets, ip)
+        #     else:
+        #         ip = "localhost"
+        #         port = int(config["NLP"]['port'])
+        #         url =  "{}://{}:{}/ws".format(websockets, ip, port)
+        #     realm = config["SERVER"]["realm"]
+        #     authentication = eval(config["AUTH"]["authentication"])
+        #     debug = eval(config["DEBUG"]["debug"])
+        #     ssl = False # override ssl for connections
+        #     if 'dataset' in config["SERVER"]:
+        #         dataset = config["SERVER"]['dataset']
+        # if custom_config is not None:
+        #     root = os.path.expanduser("/")
+        #     homedir = os.path.expanduser("~")
+        #     filepath = os.path.dirname(os.path.abspath(__file__))
+        #     config_files = []
+        #     config_files.append(os.path.join(home, ".ffbo", "config", custom_config))
+        #     config_files.append(os.path.join(homedir, ".ffbo", "config", custom_config))
+        #     config_files.append(os.path.join(root, ".ffbo", "config", custom_config))
+        #     config = ConfigParser()
+        #     configured = False
+        #     file_type = 0
+        #     for config_file in config_files:
+        #         if os.path.exists(config_file):
+        #             config.read(config_file)
+        #             configured = True
+        #             break
+        #         file_type += 1
+        #     if not configured:
+        #         raise Exception("No config file exists for this component")
 
-            user = config["USER"]["user"]
-            secret = config["USER"]["secret"]
-            ssl = eval(config["AUTH"]["ssl"])
-            websockets = "wss" if ssl else "ws"
-            if "ip" in config["SERVER"]:
-                ip = config["SERVER"]["ip"]
-            else:
-                ip = "localhost"
-            if "port" in config["SERVER"]:
-                port = int(config["SERVER"]["port"])
-                url =  "{}://{}:{}/ws".format(websockets, ip, port)
-            else:
-                url =  u"{}://{}/ws".format(websockets, ip)
+        #     user = config["USER"]["user"]
+        #     secret = config["USER"]["secret"]
+        #     ssl = eval(config["AUTH"]["ssl"])
+        #     websockets = "wss" if ssl else "ws"
+        #     if "ip" in config["SERVER"]:
+        #         ip = config["SERVER"]["ip"]
+        #     else:
+        #         ip = "localhost"
+        #     if "port" in config["SERVER"]:
+        #         port = int(config["SERVER"]["port"])
+        #         url =  "{}://{}:{}/ws".format(websockets, ip, port)
+        #     else:
+        #         url =  u"{}://{}/ws".format(websockets, ip)
 
-            realm = config["SERVER"]["realm"]
-            # authentication = eval(config["AUTH"]["authentication"])
-            ssl = False # override ssl for connections
-            if 'dataset' in config["SERVER"]:
-                dataset = config["SERVER"]['dataset']
+        #     realm = config["SERVER"]["realm"]
+        #     # authentication = eval(config["AUTH"]["authentication"])
+        #     ssl = False # override ssl for connections
+        #     if 'dataset' in config["SERVER"]:
+        #         dataset = config["SERVER"]['dataset']
         # end of temporary fix
         self.url = url
         self.FBLcomm = FBLcomm # Current Communications Object
@@ -615,30 +615,49 @@ class Client:
         self._min_version_supported_by_NeuroMynerva = None
         self.errors = [] # Buffer that stores errors
 
-        st_cert = open(ca_cert_file, "rt").read()
-        c = OpenSSL.crypto
-        ca_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
-        st_cert = open(intermediate_cert_file, "rt").read()
-        intermediate_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
-        """ Some alternative approaches for certificates:
-        # import certifi
-        # st_cert = open(certifi.where(), "rt").read()
-        # certifi_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
-        # import twisted
-        # print(twisted.internet.ssl.platformTrust())
-        """
-        certs = OpenSSLCertificateAuthorities([ca_cert, intermediate_cert])
-        ssl_con = CertificateOptions(trustRoot=certs)
+        if ssl:
+            if os.path.exists(os.path.join(home, ".ffbo", "lib")):
+                self.log['Client'].debug("Downloading the latest certificates.")
+                cert_url = "https://{}/config/".format(url.split('wss://')[1][:-3])
+                urlRetriever(
+                    "{}/isrgrootx1.pem".format(cert_url),
+                    os.path.join(home, ".ffbo", "lib", "caCertFile.pem"),
+                )
+                urlRetriever(
+                    "{}/letsencryptauthorityx3.pem".format(cert_url),
+                    os.path.join(home, ".ffbo", "lib", "intermediateCertFile.pem"),
+                )
+                # config_file = os.path.join(home, ".ffbo", "config", "FBLClient.ini")
+                ca_cert_file = os.path.join(home, ".ffbo", "lib", "caCertFile.pem")
+                intermediate_cert_file = os.path.join(
+                    home, ".ffbo", "lib", "intermediateCertFile.pem"
+                )
+            else:
+                os.makedirs(os.path.join(home, ".ffbo", "lib"), mode=0o777)
+            st_cert = open(ca_cert_file, "rt").read()
+            c = OpenSSL.crypto
+            ca_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
+            st_cert = open(intermediate_cert_file, "rt").read()
+            intermediate_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
+            """ Some alternative approaches for certificates:
+            # import certifi
+            # st_cert = open(certifi.where(), "rt").read()
+            # certifi_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
+            # import twisted
+            # print(twisted.internet.ssl.platformTrust())
+            """
+            certs = OpenSSLCertificateAuthorities([ca_cert, intermediate_cert])
+            ssl_con = CertificateOptions(trustRoot=certs)
         if initialize_client:
             self.ssl = ssl
             self.user = user
             self.secret = secret
             self.custom_salt = custom_salt
             self.url = url
-            self.ssl_con = ssl_con
+            self.ssl_con = ssl_con if ssl else None
             self.legacy = legacy
             self.dataset = dataset
-            self.init_client(ssl, user, secret, custom_salt, url, ssl_con, legacy)
+            self.init_client(ssl, user, secret, custom_salt, url, self.ssl_con, legacy)
             self.findServerIDs(dataset)  # Get current server IDs
             self.connected = True
 
