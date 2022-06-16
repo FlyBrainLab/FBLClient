@@ -32,7 +32,7 @@ def loadJSON(client, file_name, uname=None, mesh_class = 'Neuropil'):
                  'messageType': 'Data',
                  'widget': 'NLP'}
     client.tryComms(mesh_data)
-    
+
 def loadSWC(client, file_name, scale_factor=1., uname=None):
     """Loads a neuron skeleton stored in the .swc format.
     # Arguments
@@ -50,13 +50,18 @@ def loadSWC(client, file_name, scale_factor=1., uname=None):
     rid = '#'+file_name
     neuron_data = {'data': {'data': {rid: {'name': file_name,
             'uname': uname,
-            'morph_type': 'mesh',
-            'faces': list(scale_factor * neuron_pd['x']),
-            'vertices': list(scale_factor * neuron_pd['y']),
+            'morph_type': 'swc',
+            'x': list(scale_factor * neuron_pd['x']),
+            'y': list(scale_factor * neuron_pd['y']),
+            'z': list(scale_factor * neuron_pd['z']),
+            'r': list(scale_factor * neuron_pd['r']),
+            'parent': list(neuron_pd['parent']),
+            'identifier': list(neuron_pd['identifier']),
+            'sample': list(neuron_pd['sample']),
             'class': 'MorphologyData'}},
-          'queryID': '0-0'},
-         'messageType': 'Data',
-         'widget': 'NLP'}
+            'queryID': '0-0'},
+            'messageType': 'Data',
+            'widget': 'NLP'}
     client.tryComms(neuron_data)
 
     return True
