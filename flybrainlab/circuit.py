@@ -596,7 +596,7 @@ window._neuGFX.mods.FlyBrainLab.addCircuit('{name}');
 
     def execute_submodule(self, name):
         code = "window.submodules['{}']".format(name)
-        client.tryComms({'widget':'GFX', 
+        self.client.tryComms({'widget':'GFX', 
                         'messageType': 'eval', 
                         'data': {'data': code}})
         time.sleep(1)
