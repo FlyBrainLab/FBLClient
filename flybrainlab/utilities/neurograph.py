@@ -142,8 +142,7 @@ def community_detection(G, method = 'un_louvain'):
         G (networkx.Graph): A networkx graph or subclass object, including flybrainlab.graph.NeuronGraph.
         method (str): Name for the method to use. 
         One of "un_louvain" (undirected louvain), "louvain",
-        "label_propagation", "leiden", "walktrap" and "infomap".
-
+        "label_propagation", "leiden", "rb_pots", "walktrap" and "infomap".
     # Returns:
         np.ndarray: community-ordered connectivity matrix of the undirected graph in linear scale
         list: a list of node orders
@@ -151,6 +150,7 @@ def community_detection(G, method = 'un_louvain'):
     """
     Gnodes = list(G.nodes())
     Gun = G.to_undirected()
+    G_to_return = Gun
     if method == 'un_louvain':
         partition = community.best_partition(Gun, randomize=None, resolution=1.00)
         all_nodes = []
@@ -165,27 +165,37 @@ def community_detection(G, method = 'un_louvain'):
                                         if partition[nodes] == com]
             all_nodes.append(list_nodes)
     else:
-        if algorithm == 'label_propagation':
+        if method == 'label_propagation':
             func = algorithms.label_propagation
-        elif algorithm == 'leiden':
+        elif method == 'leiden':
             func = algorithms.leiden
-        elif algorithm == 'walktrap':
+        elif method == 'walktrap':
             func = algorithms.walktrap
-        elif algorithm == 'louvain':
+        elif method == 'louvain':
             func = algorithms.louvain
-        elif algorithm == 'infomap':
+        elif method == 'infomap':
             func = algorithms.infomap
+        elif method == 'rb_pots':
+            func = algorithms.rb_pots
         try:
-            coms = algorithm(G)
+            if method == 'infomap':
+                coms = func(G, flags = '--directed')
+                G_to_return = G
+            elif method == 'rb_pots':
+                coms = func(G, weights='weight')
+                G_to_return = G
+            else:
+                coms = func(G)
+                G_to_return = G
         except:
-            coms = algorithm(Gun)
+            coms = func(Gun)
         all_nodes = []
         all_list_nodes = []
         for i in coms.communities:
             list_nodes = i
             all_list_nodes += [Gnodes.index(j) for j in i]
             all_nodes.append(list_nodes)
-    return Gun, all_list_nodes, all_nodes
+    return G_to_return, all_list_nodes, all_nodes
 
 
 def automatic_community_detector_downsample(G, 
@@ -275,7 +285,7 @@ def automatic_community_detector(G,
     # Arguments:
         G (network.Graph): A networkx graph or subclass object, including flybrainlab.graph.NeuronGraph.
         method (str): Method to use. One of un_louvain, label_propagation, leiden, louvain, walktrap or infomap.
-        scale (str): 'linear' or 'log'. Use linear or log scale to cluster.
+        scale (str): 'linear', 'log' or 'scaledlog'. Use linear or log scale to cluster. 'scaledlog' uses 50th percentile of nonzero entries as vmax.
         figsize (tuple): size of the figure.
         dpi (float): dpi of the figure.
         xlabel (str): Name of the x label.
@@ -309,15 +319,27 @@ def automatic_community_detector(G,
             yticklabels = sum(all_nodes, [])
     if scale == 'log':
         Bd = np.log10(1.+B)
+        # Bd[Bd>np.percentile(Bd, 90) = np.percentile(Bd, 90)
+        # Bd[Bd<np.percentile(Bd, 10) = np.percentile(Bd, 10)
+    elif scale == 'scaledlog':
+        print('Min B:', np.min(B))
+        Bd = np.log10(1.+B)
+        # Bd[Bd>np.percentile(Bd, 90)] = np.percentile(Bd, 90)
     else:
         Bd = B
         if title == 'Community-Ordered Connectivity Matrix (Log Scale)':
             title = 'Community-Ordered Connectivity Matrix'
 
+    if scale == 'scaledlog':
+        Bd_s = np.array(Bd)
+        Bd_s = Bd_s[Bd_s>0.]
+        vmax = np.percentile(Bd_s, 50)
+        Bd = np.nan_to_num(Bd)
+        print('Scaled vmax:', vmax)
     sizes = np.cumsum([len(i) for i in all_nodes])
     gen_heatmap(Bd, figsize = figsize, dpi = dpi, xlabel = xlabel, ylabel = ylabel,
                 xticklabels = xticklabels, yticklabels = yticklabels,
-                hlines = sizes, vlines = sizes, title = title, vmax = vmax,
+                hlines = sizes, vlines = sizes, title = title, vmax = vmax, vmin=0.,
                 export_format = export_format, figname = figname)
     return B, all_nodes
 

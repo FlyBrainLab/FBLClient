@@ -148,7 +148,6 @@ class NAqueryResult(object):
                     vertices[j*3+1] = vertices[j*3+1]*self.y_scale + self.y_shift
                     vertices[j*3+2] = vertices[j*3+2]*self.z_scale + self.z_shift
 
-
     def _finalize_nx(self):
         while self.locked:
             time.sleep(1)
@@ -209,7 +208,7 @@ class NeuroNLPResult(NAqueryResult):
         self.commands = []
         self.processed_commands = []
         self.enableResets = enableResets
-        self.graph = nx.MultiDiGraph()
+        self.graph = nx.DiGraph() #using only DiGraph as this class only deals with the morphology and it is one-to-one
         self.uname_to_rid = {}
 
     def receive_cmd(self, data):
@@ -261,7 +260,6 @@ class NeuroNLPResult(NAqueryResult):
     #TODO
     def getStats(self, rid = None, neuron_name = None):
         pass
-
 
     @property
     def rids(self):
@@ -363,7 +361,7 @@ class NeuronGraph(nx.DiGraph):
             # uname_order
             order_dict = {self.nodes[n]['uname']: n for n in self.nodes()}
             rid_order = [order_dict[uname] for uname in uname_order]
-        M = nx.adj_matrix(self, nodelist = rid_order).todense()
+        M = nx.adjacency_matrix(self, nodelist = rid_order).todense()
         return M, uname_order
 
 

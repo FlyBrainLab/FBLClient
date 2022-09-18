@@ -51,6 +51,11 @@ class NeuroArch_Mirror(object):
         result = self._check_result(res)
         return result
 
+    def flush_edges(self):
+        res = self.NeuroArchWrite_rpc('flush_edges')
+        result = self._check_result(res)
+        return result
+
     def add_Species(self, name, stage, sex, synonyms = None):
         """
         Add a Species.
@@ -337,8 +342,8 @@ class NeuroArch_Mirror(object):
 
         Returns
         -------
-        neuron : neuroarch.models.Neuron
-            Created Neuron object
+        result : dict
+            Properties of the created NeuronFragement object
         """
         res = self.NeuroArchWrite_rpc(
                          'add_Neuron', uname, name,
@@ -352,6 +357,61 @@ class NeuroArch_Mirror(object):
                          neurotransmitters_datasources = neurotransmitters_datasources,
                          data_source = data_source,
                          circuit = circuit)
+        result = self._check_result(res)
+        return result
+
+    def add_NeuronFragment(self, uname,
+                           name,
+                           referenceId = None,
+                           info = None,
+                           morphology = None,
+                           arborization = None,
+                           data_source = None):
+        """
+        Create a NeuronFragment Record and link it to the related node types.
+
+        Parameters
+        ----------
+        uname : str
+            A unqiue name assigned to the neuron, must be unique within the DataSource
+        name : str
+            Name of the neuron, typically the cell type.
+        referenceId : str (optional)
+            Unique identifier in the original data source
+        info : dict (optional)
+            Additional information about the neuron, values must be str
+        morphology : list of dict (optional)
+            Each dict in the list defines a type of morphology of the neuron.
+            Must be loaded from a file.
+            The dict must include the following key to indicate the type of morphology:
+                {'type': 'swc'/'obj'/...}
+            Additional keys must be provides, either 'filename' with value
+            indicating the file to be read for the morphology,
+            or a full definition of the morphology according the schema.
+            For swc, required fields are ['sample', 'identifier', 'x', 'y, 'z', 'r', 'parent'].
+            More formats pending implementation.
+        arborization : list of dict (optional)
+            A list of dictionaries define the arborization pattern of
+            the neuron in neuropils, subregions, and tracts, if applicable, with
+            {'type': 'neuropil' or 'subregion' or 'tract',
+             'dendrites': {'EB': 20, 'FB': 2},
+             'axons': {'NO': 10, 'MB': 22}}
+            Name of the regions must already be present in the database.
+        data_source : models.DataSource (optional)
+            The datasource. If not specified, default DataSource will be used.
+
+        Returns
+        -------
+        neuron : neuroarch.models.Neuron
+            Created Neuron object
+        """
+        res = self.NeuroArchWrite_rpc(
+                        'add_NeuronFragment', uname, name,
+                         referenceId = referenceId,
+                         info = info,
+                         morphology = morphology,
+                         arborization = arborization,
+                         data_source = data_source)
         result = self._check_result(res)
         return result
 
