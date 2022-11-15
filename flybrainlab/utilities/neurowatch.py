@@ -228,10 +228,10 @@ def visualize_mesh(client, data, rid, name = None,
         name = '{}_{}'.format(mesh_class, rid)
     morphology_data = {'morph_type': 'mesh', 'class': mesh_class,
                        'name': name}
-    assert isinstance(data, (dict, pd.DataFrame)), 'data must be either dict or a pandas DataFrame containing the field "sample/index", "identifier", "x", "y", "z", "r" and "parent"'
+    assert isinstance(data, (dict, pd.DataFrame)), 'data must be either dict or a pandas DataFrame containing the field "faces" and "vertices"'
     
-    morphology_data['faces'] = list(df['faces'])
-    morphology_data['vertices'] = [n*scale[i%3]+shift[i%3] for i, n in enumerate(df['vertices'])]
+    morphology_data['faces'] = list(data['faces'])
+    morphology_data['vertices'] = [n*scale[i%3]+shift[i%3] for i, n in enumerate(data['vertices'])]
     data = {rid: morphology_data}
 
     send_data_to_NLP(client, data)
