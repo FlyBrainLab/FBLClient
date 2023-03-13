@@ -26,7 +26,7 @@ install_requires = [
 ]
 
 extras_require_utilities = {
-        "nxt_gem @ git+https://github.com/jernsting/nxt_gem",
+        "nxt_gem==2.0.1",
         "graspy<=0.1.1",
         "scipy",
         "umap-learn",
