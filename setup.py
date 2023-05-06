@@ -26,7 +26,7 @@ install_requires = [
 ]
 
 extras_require_utilities = {
-        "nxt_gem @ git+https://github.com/jernsting/nxt_gem",
+        "nxt_gem<=2.0.1",
         "graspy<=0.1.1",
         "scipy",
         "umap-learn",
@@ -45,10 +45,10 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     
 setup(
     name="FlyBrainLab",
-    version="1.1.9",
-    description="Main Client of the FlyBrainLab Project",
-    author="Mehmet Kerem Turkcan",
-    author_email="mkt2126@columbia.edu",
+    version="1.1.10",
+    description="FlyBrainLab User-side Backend",
+    author="Mehmet Kerem Turkcan, Yiyin Zhou",
+    author_email="mkt2126@columbia.edu, yiyin@ee.columbia.edu",
     url="https://flybrainlab.fruitflybrain.org",
     download_url="",
     license="BSD-3-Clause",
