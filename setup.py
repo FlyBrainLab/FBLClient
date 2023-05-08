@@ -22,7 +22,7 @@ install_requires = [
     "ipython", # no longer need if remove get_slow_connectivity
     "pywin32; platform_system=='Windows'",
     "graphviz",
-    "jupyterlab >= 3.0",
+    "jupyterlab >= 3.0, <3.6", # 3.6 has some issue for
 ]
 
 extras_require_utilities = {
