@@ -53,12 +53,26 @@ def loadSWC(client, file_name, scale_factor=1., uname=None):
 
 
 def send_data_to_NLP(client, data):
+    """
+    Utility to send data to NLP for visualization
+    """
     a = {'messageType': 'Data', 'widget': 'NLP',
          'data': {'data': data, "queryID": '0-0'}}
     client.tryComms(a)
 
 
 def color_by_rids(client, rids, rgb):
+    """
+    Utility to color items in Neu3D widget with rids to rgb color.
+    
+    # Arguments
+    client (flybrainlab.Client)
+        Client object to specify the neu3d widget to use.
+    rids (list)
+        A list of rids for the items already in the neu3d widget to be colored.
+    rgb (str)
+        RGB Hex string, starting with '#'.
+    """
     if isinstance(rids, str):
         rids = [rids]
     a = {'messageType': 'Command', 'widget': 'NLP',
@@ -67,6 +81,27 @@ def color_by_rids(client, rids, rgb):
 
 
 def color_group(client, rids, user_color = None, colormap = None, colors = None):
+    """
+    Color a group of items in the neu3d widget with different colors.
+    
+    # Arguments
+    client (flybrainlab.Client)
+        Client object to specify the neu3d widget to use.
+    rids (list)
+        A list of rids for the items already in the neu3d widget to be colored
+    user_color (dict or None)
+        A dict of color for each rid using rid as key.
+        Values must be either of the following: 
+        1. all values are RGB Hex strings starting with '#'.
+        2. all values are floating point values.
+    colormap (matplotlib.colors.Colormap)
+        A color map to map floating point values into color.
+        The floating point values are supplied by user_color
+    colors (list)
+        A list of colors to use when user_color and colormap are not supplied.
+        The list of colors does not need to have the same length as rids.
+        It will be used in a round-robin fashion.
+    """
     if user_color is None or len(user_color) == 0:
         color_type = 'list'
         if colors is None:
@@ -111,6 +146,15 @@ def color_group(client, rids, user_color = None, colormap = None, colors = None)
 
 
 def remove_by_rids(client, rids):
+    """
+    Remove items in neu3d widget with rids.
+    
+    # Arguments
+    client (flybrainlab.Client)
+        Client object to specify the neu3d widget to use.
+    rids (list)
+        A list of rids for the items to be removed from neu3d widget.
+    """
     if isinstance(rids, str):
         rids = [rids]
     else:
@@ -126,6 +170,39 @@ def points_to_morphology(points, r = 0.2, scale_factor = None,
                          z_scale = 1.0, r_scale = 1.0, 
                          x_shift = 0.0, y_shift = 0.0,
                          z_shift = 0.0, r_shift = 0.0):
+    """
+    Utility to reorganize point data into morphology data that
+    can be passed to neu3d widget.
+    
+    # Arguments
+    point (list)
+        A list of 3-tuples of the coordinates of the points.
+    r (float)
+        The radius of the sphere for the points
+    scale_factor (float or None)
+        A single scaling factor for x, y, z and r.
+        If scales are different for each axis,
+        use x_scale, y_scale, z_scale and r_scale individually.
+    x_scale (float)
+        scaling factor for x coordinate.
+    y_scale (float)
+        scaling factor for y coordinate.
+    z_scale (float)
+        scaling factor for z coordinate.
+    r_scale (float)
+        scaling factor for radius.
+    x_shift (float)
+        shifting x coordinate by this amount.
+    y_shift (float)
+        shifting y coordinate by this amount.
+    z_shift (float)
+        shifting z coordinate by this amount.
+    r_shift (float)
+        adding a constant value to all radius.
+        
+    # Returns
+        dict : A dictionary that can be passed to neu3d for visualization.
+    """
     if scale_factor is not None:
         x_scale = scale_factor
         y_scale = scale_factor
@@ -148,6 +225,39 @@ def neuron_data_to_morphology(data, scale_factor = None,
                               z_scale = 1.0, r_scale = 1.0, 
                               x_shift = 0.0, y_shift = 0.0,
                               z_shift = 0.0, r_shift = 0.0):
+    """
+    Utility to reorganize neuron skeleton data into morphology data that
+    can be passed to neu3d widget.
+    
+    # Arguments
+    data (dict)
+        A dictionary containing 'x', 'y', 'z', 'r', 'identifier', 'parent'
+        and optionally 'sample' as keys, similar to the specification of
+        swc files.
+    scale_factor (float or None)
+        A single scaling factor for x, y, z and r.
+        If scales are different for each axis,
+        use x_scale, y_scale, z_scale and r_scale individually.
+    x_scale (float)
+        scaling factor for x coordinate.
+    y_scale (float)
+        scaling factor for y coordinate.
+    z_scale (float)
+        scaling factor for z coordinate.
+    r_scale (float)
+        scaling factor for radius.
+    x_shift (float)
+        shifting x coordinate by this amount.
+    y_shift (float)
+        shifting y coordinate by this amount.
+    z_shift (float)
+        shifting z coordinate by this amount.
+    r_shift (float)
+        adding a constant value to all radius.
+        
+    # Returns
+        dict : A dictionary that can be passed to neu3d for visualization.
+    """
     if scale_factor is not None:
         x_scale = scale_factor
         y_scale = scale_factor
@@ -173,6 +283,48 @@ def visualize_synapses(client, points, rid,
                        scale_factor = None,
                        x_scale = 1.0, y_scale = 1.0, z_scale = 1.0, r_scale = 1.0, 
                        x_shift = 0.0, y_shift = 0.0, z_shift = 0.0, r_shift = 0.0):
+    """
+    Visualize synapses in neu3d widget.
+    
+    # Arguments
+    client (flybrainlab.Client)
+        Client object to specify the neu3d widget to use.
+    point (list)
+        A list of 3-tuples of the coordinates of the points.
+    rid (str)
+        rid to be used for point.
+        User must guarantee that it is unique.
+    uname (str)
+        uname to be used for these points.
+        This uname will be displayed in the neuron/synapse list.
+    r (float)
+        The radius of the sphere for the points
+    color (str)
+        RGB Hex code for the color to be used for these points.
+    scale_factor (float or None)
+        A single scaling factor for x, y, z and r.
+        If scales are different for each axis,
+        use x_scale, y_scale, z_scale and r_scale individually.
+    x_scale (float)
+        scaling factor for x coordinate.
+    y_scale (float)
+        scaling factor for y coordinate.
+    z_scale (float)
+        scaling factor for z coordinate.
+    r_scale (float)
+        scaling factor for radius.
+    x_shift (float)
+        shifting x coordinate by this amount.
+    y_shift (float)
+        shifting y coordinate by this amount.
+    z_shift (float)
+        shifting z coordinate by this amount.
+    r_shift (float)
+        adding a constant value to all radius.
+
+    # Returns
+        str : The rid specified by the argument.
+    """
     if uname is None:
         uname = 'synapses_{}'.format(rid)
     morphology_data = points_to_morphology(
@@ -195,6 +347,48 @@ def visualize_neuron(client, data, rid, uname = None, color = None,
                      scale_factor = None,
                      x_scale = 1.0, y_scale = 1.0, z_scale = 1.0, r_scale = 1.0, 
                      x_shift = 0.0, y_shift = 0.0, z_shift = 0.0, r_shift = 0.0):
+    """
+    Visualize neuron in neu3d widget.
+    
+    # Arguments
+    client (flybrainlab.Client)
+        Client object to specify the neu3d widget to use.
+    data (dict)
+        A dictionary containing 'x', 'y', 'z', 'r', 'identifier', 'parent'
+        and optionally 'sample' as keys, similar to the specification of
+        swc files.
+    rid (str)
+        rid to be used for point.
+        User must guarantee that it is unique.
+    uname (str)
+        uname to be used for these points.
+        This uname will be displayed in the neuron/synapse list.
+    color (str)
+        RGB Hex code for the color to be used for these points.
+    scale_factor (float or None)
+        A single scaling factor for x, y, z and r.
+        If scales are different for each axis,
+        use x_scale, y_scale, z_scale and r_scale individually.
+    x_scale (float)
+        scaling factor for x coordinate.
+    y_scale (float)
+        scaling factor for y coordinate.
+    z_scale (float)
+        scaling factor for z coordinate.
+    r_scale (float)
+        scaling factor for radius.
+    x_shift (float)
+        shifting x coordinate by this amount.
+    y_shift (float)
+        shifting y coordinate by this amount.
+    z_shift (float)
+        shifting z coordinate by this amount.
+    r_shift (float)
+        adding a constant value to all radius.
+
+    # Returns
+        str : The rid specified by the argument.
+    """
     if uname is None:
         uname = 'neuron_{}'.format(rid)
     morphology_data = neuron_data_to_morphology(
@@ -218,6 +412,47 @@ def visualize_mesh(client, data, rid, name = None,
                    x_scale = 1.0, y_scale = 1.0,
                    z_scale = 1.0, x_shift = 0.0,
                    y_shift = 0.0, z_shift = 0.0):
+    """
+    Visualize mesh in neu3d widget.
+    
+    # Arguments
+    client (flybrainlab.Client)
+        Client object to specify the neu3d widget to use.
+    data (dict)
+        A dictionary containing 'faces', 'vertices' as usually
+        used in the trimesh specification.
+        values should be a single, rastered list of values,
+        with every 3 consecutive entries of 'vertices' representing
+        the x,y,z coordinates of a vertex, and every 3 consecutive
+        entries of 'faces' specifying the 3 vertices to triangulate.
+    rid (str)
+        rid to be used for point.
+        User must guarantee that it is unique.
+    name (str)
+        name to be used for the mesth.
+        This name will be displayed in the meshes list.
+    color (str)
+        RGB Hex code for the color to be used for these points.
+    scale_factor (float or None)
+        A single scaling factor for x, y, z and r.
+        If scales are different for each axis,
+        use x_scale, y_scale, z_scale and r_scale individually.
+    x_scale (float)
+        scaling factor for x coordinate.
+    y_scale (float)
+        scaling factor for y coordinate.
+    z_scale (float)
+        scaling factor for z coordinate.
+    x_shift (float)
+        shifting x coordinate by this amount.
+    y_shift (float)
+        shifting y coordinate by this amount.
+    z_shift (float)
+        shifting z coordinate by this amount.
+
+    # Returns
+        str : The rid specified by the argument.
+    """
     if scale_factor is not None:
         x_scale = scale_factor
         y_scale = scale_factor
@@ -247,6 +482,37 @@ def visualize_synapses_group(client, synapses_group,
                              z_scale = 1.0, r_scale = 1.0, 
                              x_shift = 0.0, y_shift = 0.0,
                              z_shift = 0.0, r_shift = 0.0):
+    """
+    Visualize a group of synapses.
+    
+    # Arguments 
+    client (flybrainlab.Client)
+        Client object to specify the neu3d widget to use.
+    synapses_group (dict)
+        A dictionary with uname of each set of synapses as keys,
+        and values as a dictionary with the following keys:
+        "points", (optional) "rid", (optional) "color".
+        So a typical dict can look like 
+        {"synapse_A_to_B": {"points": [(x1,y1,z1), (x2,y2,z2), ....],
+                            "rid": "#123:456",
+                            "color": "#FF0000"},
+         "synapse_C_to_D": {"points": [(x3,y3,z3), (x4,y4,z4), ....],
+                            "rid": "#654:321",
+                            "color": "#00FFFF"},
+                            }
+        }
+    r (float)
+        The radius of the sphere for the points
+    colormap (matplotlib.colors.Colormap)
+        Colormap to use if "color" in synapses_group is specified by floating point values.
+    colors (list)
+        A list of colors to use when user_color and colormap are not supplied.
+        The list of colors does not need to have the same length as rids.
+        It will be used in a round-robin fashion. See also color_group.
+    
+    # Returns
+        list : A list of rids.
+    """
     rids = {}
     user_color = {}
     all_data = {}
@@ -310,6 +576,9 @@ def visualize_neuron_group(client, neuron_group,
         scaling of the x, y, z and r of the neuron will all be overwritten by this value.
     x_shift, y_shift, z_shift, r_shift (float):
         shifting of the x, y, z position values and a bias for r.
+    
+    # Returns
+        list: A list of rids.
     """
     rids = {}
     user_color = {}
