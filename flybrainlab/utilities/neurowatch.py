@@ -154,6 +154,9 @@ def remove_by_rids(client, rids):
         Client object to specify the neu3d widget to use.
     rids (list)
         A list of rids for the items to be removed from neu3d widget.
+        
+    # Returns
+        list : rids of the items removed.
     """
     if isinstance(rids, str):
         rids = [rids]
