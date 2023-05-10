@@ -66,7 +66,7 @@ def color_by_rids(client, rids, rgb):
     Utility to color items in Neu3D widget with rids to rgb color.
     
     # Arguments
-    client (flybrainlab.Client)
+    client (flybrainlab.Client.Client)
         Client object to specify the neu3d widget to use.
     rids (list)
         A list of rids for the items already in the neu3d widget to be colored.
@@ -85,7 +85,7 @@ def color_group(client, rids, user_color = None, colormap = None, colors = None)
     Color a group of items in the neu3d widget with different colors.
     
     # Arguments
-    client (flybrainlab.Client)
+    client (flybrainlab.Client.Client)
         Client object to specify the neu3d widget to use.
     rids (list)
         A list of rids for the items already in the neu3d widget to be colored
@@ -150,7 +150,7 @@ def remove_by_rids(client, rids):
     Remove items in neu3d widget with rids.
     
     # Arguments
-    client (flybrainlab.Client)
+    client (flybrainlab.Client.Client)
         Client object to specify the neu3d widget to use.
     rids (list)
         A list of rids for the items to be removed from neu3d widget.
@@ -287,7 +287,7 @@ def visualize_synapses(client, points, rid,
     Visualize synapses in neu3d widget.
     
     # Arguments
-    client (flybrainlab.Client)
+    client (flybrainlab.Client.Client)
         Client object to specify the neu3d widget to use.
     point (list)
         A list of 3-tuples of the coordinates of the points.
@@ -351,7 +351,7 @@ def visualize_neuron(client, data, rid, uname = None, color = None,
     Visualize neuron in neu3d widget.
     
     # Arguments
-    client (flybrainlab.Client)
+    client (flybrainlab.Client.Client)
         Client object to specify the neu3d widget to use.
     data (dict)
         A dictionary containing 'x', 'y', 'z', 'r', 'identifier', 'parent'
@@ -416,7 +416,7 @@ def visualize_mesh(client, data, rid, name = None,
     Visualize mesh in neu3d widget.
     
     # Arguments
-    client (flybrainlab.Client)
+    client (flybrainlab.Client.Client)
         Client object to specify the neu3d widget to use.
     data (dict)
         A dictionary containing 'faces', 'vertices' as usually
@@ -486,7 +486,7 @@ def visualize_synapses_group(client, synapses_group,
     Visualize a group of synapses.
     
     # Arguments 
-    client (flybrainlab.Client)
+    client (flybrainlab.Client.Client)
         Client object to specify the neu3d widget to use.
     synapses_group (dict)
         A dictionary with uname of each set of synapses as keys,
