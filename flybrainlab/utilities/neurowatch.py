@@ -2,20 +2,496 @@
 This file contains some utilities from Neurowatch for visualizing local files of neurons and meshes in FlyBrainLab.
 """
 
+import os
 import json
 import time
+import random
 import matplotlib.cm as cm
 import matplotlib.colors as mc
 import pandas as pd
 import numpy as np
 
 DEFAULT_COLORS = [mc.rgb2hex(n) for n in cm.hsv([0, 27, 53, 80, 107, 133, 160, 187, 213, 240])]
+DEFAULT_MESH_COLOR = '#260226'
+DEFAULT_NEURON_COLORS = [mc.rgb2hex(n) for n in cm.Set2.colors]
+DEFAULT_SYNAPSE_COLORS = [mc.rgb2hex(n) for n in cm.hsv([0, 27, 53, 80, 107, 133, 160, 187, 213, 240])]
+
+class NeuroWatch(object):
+    """
+    Visualization handle
+    
+    # Arguments
+        client (flybrainlab.Client.Client)
+            Client object to specify the neu3d widget to use.
+    """
+    def __init__(self, client):
+        self.client = client
+        self.meshes = {}
+        self.neurons = {}
+        self.synapses = {}
+        self.colors = {}
+        self._uname_to_rid = {}
+        self._rids = set()
+
+    def add_mesh(self, data, name = None, 
+                 mesh_class = 'Neuropil', color = None,
+                 scale_factor = None,
+                 x_scale = 1.0, y_scale = 1.0,
+                 z_scale = 1.0, x_shift = 0.0,
+                 y_shift = 0.0, z_shift = 0.0):
+        """
+        Add mesh to the visualization.
+        
+        # Arguments
+        data (dict)
+            A dictionary containing 'faces', 'vertices' as usually
+            used in the trimesh specification.
+            values should be a single, rastered list of values,
+            with every 3 consecutive entries of 'vertices' representing
+            the x,y,z coordinates of a vertex, and every 3 consecutive
+            entries of 'faces' specifying the 3 vertices to triangulate.
+        name (str)
+            name to be used for the mesh.
+            This name will be displayed in the meshes list.
+        mesh_class (str)
+            Either 'Neuropil' or 'Subregion'.
+        color (str)
+            RGB Hex code for the color to be used for these points.
+        scale_factor (float or None)
+            A single scaling factor for x, y, z and r.
+            If scales are different for each axis,
+            use x_scale, y_scale, z_scale and r_scale individually.
+        x_scale (float)
+            scaling factor for x coordinate.
+        y_scale (float)
+            scaling factor for y coordinate.
+        z_scale (float)
+            scaling factor for z coordinate.
+        x_shift (float)
+            shifting x coordinate by this amount.
+        y_shift (float)
+            shifting y coordinate by this amount.
+        z_shift (float)
+            shifting z coordinate by this amount.
+        """
+        rid = self._get_random_rid()
+        if scale_factor is not None:
+            x_scale = scale_factor
+            y_scale = scale_factor
+            z_scale = scale_factor
+        scale = [x_scale, y_scale, z_scale]
+        shift = [x_shift, y_shift, z_shift]
+        if name is None:
+            name = '{}_{}'.format(mesh_class, rid)
+        morphology_data = {'morph_type': 'mesh',
+                           'class': mesh_class,
+                           'name': name}
+        assert isinstance(data, (dict, pd.DataFrame)), 'data must be either dict or a pandas DataFrame containing the field "faces" and "vertices"'
+        
+        morphology_data['faces'] = list(data['faces'])
+        morphology_data['vertices'] = [n*scale[i%3]+shift[i%3] for i, n in enumerate(data['vertices'])]
+        self.meshes[rid] = morphology_data
+        self.colors[rid] = DEFAULT_MESH_COLOR if color is None else color
+        self._uname_to_rid[name] = rid
+        self._rids.add(rid)
+        
+    def add_neuron(self, data, uname, color = None,
+                   scale_factor = None,
+                   x_scale = 1.0, y_scale = 1.0, z_scale = 1.0, r_scale = 1.0, 
+                   x_shift = 0.0, y_shift = 0.0, z_shift = 0.0, r_shift = 0.0):
+        """
+        Add neuron to visualization.
+        
+        # Arguments
+        data (dict)
+            A dictionary containing 'x', 'y', 'z', 'r', 'identifier', 'parent'
+            and optionally 'sample' as keys, similar to the specification of
+            swc files.
+        uname (str)
+            uname to be used for these points.
+            This uname will be displayed in the neuron/synapse list.
+        color (str)
+            RGB Hex code for the color to be used for these points.
+        scale_factor (float or None)
+            A single scaling factor for x, y, z and r.
+            If scales are different for each axis,
+            use x_scale, y_scale, z_scale and r_scale individually.
+        x_scale (float)
+            scaling factor for x coordinate.
+        y_scale (float)
+            scaling factor for y coordinate.
+        z_scale (float)
+            scaling factor for z coordinate.
+        r_scale (float)
+            scaling factor for radius.
+        x_shift (float)
+            shifting x coordinate by this amount.
+        y_shift (float)
+            shifting y coordinate by this amount.
+        z_shift (float)
+            shifting z coordinate by this amount.
+        r_shift (float)
+            adding a constant value to all radius.
+        """
+        rid = self._get_random_rid()
+        morphology_data = neuron_data_to_morphology(
+                            data, scale_factor = scale_factor,
+                            x_scale = x_scale, y_scale = y_scale,
+                            z_scale = z_scale, r_scale = r_scale,
+                            x_shift = x_shift, y_shift = y_shift,
+                            z_shift = z_shift, r_shift = r_shift)
+        morphology_data['uname'] = uname
+        self.neurons[rid] = morphology_data
+        self.colors[rid] = random.choice(DEFAULT_NEURON_COLORS) if color is None else color
+        self._uname_to_rid[uname] = rid
+        self._rids.add(rid)
+    
+    def add_synapses(self, points, uname,
+                     r = 0.2, color = None, scale_factor = None,
+                     x_scale = 1.0, y_scale = 1.0, z_scale = 1.0, r_scale = 1.0, 
+                     x_shift = 0.0, y_shift = 0.0, z_shift = 0.0, r_shift = 0.0):
+        """
+        add synapses to the visualization
+        
+        # Arguments
+        point (list)
+            A list of 3-tuples of the coordinates of the points.
+        uname (str)
+            uname to be used for these points.
+            This uname will be displayed in the neuron/synapse list.
+        r (float)
+            The radius of the sphere for the points
+        color (str)
+            RGB Hex code for the color to be used for these points.
+        scale_factor (float or None)
+            A single scaling factor for x, y, z and r.
+            If scales are different for each axis,
+            use x_scale, y_scale, z_scale and r_scale individually.
+        x_scale (float)
+            scaling factor for x coordinate.
+        y_scale (float)
+            scaling factor for y coordinate.
+        z_scale (float)
+            scaling factor for z coordinate.
+        r_scale (float)
+            scaling factor for radius.
+        x_shift (float)
+            shifting x coordinate by this amount.
+        y_shift (float)
+            shifting y coordinate by this amount.
+        z_shift (float)
+            shifting z coordinate by this amount.
+        r_shift (float)
+            adding a constant value to all radius.
+        """
+        rid = self._get_random_rid()
+        morphology_data = points_to_morphology(
+                            points, r = r, 
+                            scale_factor = scale_factor,
+                            x_scale = x_scale, y_scale = y_scale,
+                            z_scale = z_scale, r_scale = r_scale,
+                            x_shift = x_shift, y_shift = y_shift,
+                            z_shift = z_shift, r_shift = r_shift)
+        morphology_data['uname'] = uname
+        self.synapses[rid] = morphology_data
+        self.colors[rid] = random.choice(DEFAULT_SYNAPSE_COLORS) if color is None else color
+        self._uname_to_rid[uname] = rid
+        self._rids.add(rid)
+        
+    def add_mesh_group(self, mesh_group, mesh_class = 'Neuropil',
+                       colormap = None, colors = None,
+                       scale_factor = None,
+                       x_scale = 1.0, y_scale = 1.0, z_scale = 1.0, 
+                       x_shift = 0.0, y_shift = 0.0, z_shift = 0.0):
+        """
+        Add several meshes to the visualization at once.
+        
+        # Arguments
+            mesh_group (dict)
+                A dictionary with name of each mesh as keys,
+                and values as a dictionary with the following keys:
+                "vertices", "faces", (optional) "color".
+                So a typical dict can look like 
+                {"meshA": {"vertices": [x1,y1,z1, x2,y2,z2, ....],
+                           "faces": [0,1,2, 1,2,3, 1,3,5, ...]
+                           "color": "#FF0000"},
+                 "meshB": {"vertices": [x3,y3,z3, x4,y4,z4, ....],
+                           "faces": [0,1,2, 2,4,11, 12,31,15, ...]
+                           "color": "#00FFFF"},
+                }
+                If color is a hex code, the color will be used to color.
+                If color is a float, must be between 0 and 1 and color will be determined by the colormap at this value.
+            mesh_class (str)
+                Either "Neuropil" or "Subregion"
+            colormap (matplotlib.colors.Colormap)
+                Colormap to use if "color" in synapses_group is specified by floating point values.
+            colors (list)
+                A list of colors to use when user_color and colormap are not supplied.
+                The list of colors does not need to have the same length as rids.
+                It will be used in a round-robin fashion. See also color_group.
+            scale_factor (float or None)
+                A single scaling factor for x, y, z and r.
+                If scales are different for each axis,
+                use x_scale, y_scale, z_scale and r_scale individually.
+            x_scale (float)
+                scaling factor for x coordinate.
+            y_scale (float)
+                scaling factor for y coordinate.
+            z_scale (float)
+                scaling factor for z coordinate.
+            r_scale (float)
+                scaling factor for radius.
+            x_shift (float)
+                shifting x coordinate by this amount.
+            y_shift (float)
+                shifting y coordinate by this amount.
+            z_shift (float)
+                shifting z coordinate by this amount.
+            r_shift (float)
+                adding a constant value to all radius.
+        """
+        for i, (name, data) in enumerate(mesh_group.items()):
+            if 'color' in data:
+                if isinstance(data['color'], str):
+                    color = data['color'],
+                elif isinstance(data['color'], float):
+                    if colormap is None:
+                        colormap = cm.gnuplot
+                    color = mc.rgb2hex(colormap(data['color']))
+            else:
+                if colors is not None:
+                    color = colors[i%len(colors)]
+                elif colormap is not None:
+                    color = mc.rgb2hex(colormap(0.0))
+                else:
+                    color = None
+            self.add_mesh({"vertices": data["vertices"], "faces": data["faces"]},
+                          name, mesh_class, color = color,
+                          scale_factor = scale_factor,
+                          x_scale = x_scale, y_scale = y_scale,
+                          z_scale = z_scale,
+                          x_shift = x_shift, y_shift = y_shift,
+                          z_shift = z_shift)
+        
+    def add_neuron_group(self, neuron_group,
+                            colormap = None, colors = None,
+                            scale_factor = None,
+                            x_scale = 1.0, y_scale = 1.0,
+                            z_scale = 1.0, r_scale = 1.0, 
+                            x_shift = 0.0, y_shift = 0.0,
+                            z_shift = 0.0, r_shift = 0.0):
+        """
+        Add a group of neurons to the visualization.
+
+        # Arguments
+        neuron_group (dict):
+            Specifying the morphology of the neuron keyed by its uname, in the form of:
+            neuron_group = {'morphology': pandas.DataFrame or dict in swc format,
+                            'color': hex code starting with '#' for RGB value or float (optional)}
+            If color is a hex code, the color will be used to color.
+            If color is a float, must be between 0 and 1 and color will be determined by the colormap at this value.
+        colormap (matplotlib.colormap.cm):
+            A colormap to use when the color are specified in float
+        colors (list):
+            A list of hex code of colors to use in round robin fashion.
+        scale_factor (float):
+            If specified, scaling of the x, y, z and r of the neuron will all be overwritten by this value.
+        x_scale, y_scale, z_scale, r_scale (float):
+            scaling of the x, y, z and r of the neuron will all be overwritten by this value.
+        x_shift, y_shift, z_shift, r_shift (float):
+            shifting of the x, y, z position values and a bias for r.
+        """
+        for i, (uname, data) in enumerate(neuron_group.items()):
+            if 'color' in data:
+                if isinstance(data['color'], str):
+                    color = data['color'],
+                elif isinstance(data['color'], float):
+                    if colormap is None:
+                        colormap = cm.gnuplot
+                    color = mc.rgb2hex(colormap(data['color']))
+            else:
+                if colors is not None:
+                    color = colors[i%len(colors)]
+                elif colormap is not None:
+                    color = mc.rgb2hex(colormap(0.0))
+                else:
+                    color = None
+            self.add_neuron(data["morphology"],
+                            uname, color = color,
+                            scale_factor = scale_factor,
+                            x_scale = x_scale, y_scale = y_scale,
+                            z_scale = z_scale, r_scale = r_scale,
+                            x_shift = x_shift, y_shift = y_shift,
+                            z_shift = z_shift, r_shift = r_shift)
+
+    def add_synapses_group(self, synapses_group,
+                            r = 0.2, colormap = None, 
+                            colors = None, scale_factor = None,
+                            x_scale = 1.0, y_scale = 1.0,
+                            z_scale = 1.0, r_scale = 1.0, 
+                            x_shift = 0.0, y_shift = 0.0,
+                            z_shift = 0.0, r_shift = 0.0):
+        """
+        Add a group of synapse sets to the visualization.
+        
+        # Arguments 
+        synapses_group (dict)
+            A dictionary with uname of each set of synapses as keys,
+            and values as a dictionary with the following keys:
+            "points", (optional) "color".
+            So a typical dict can look like 
+            {
+                "synapse_A_to_B": {"points": [(x1,y1,z1), (x2,y2,z2), ....],
+                                    "color": "#FF0000"},
+                "synapse_C_to_D": {"points": [(x3,y3,z3), (x4,y4,z4), ....],
+                                    "color": "#00FFFF"},
+            }
+            If color is a hex code, the color will be used to color.
+            If color is a float, must be between 0 and 1 and color will be determined by the colormap at this value.
+        r (float)
+            The radius of the sphere for the points
+        colormap (matplotlib.colors.Colormap)
+            Colormap to use if "color" in synapses_group is specified by floating point values.
+        colors (list)
+            A list of colors to use when user_color and colormap are not supplied.
+            The list of colors does not need to have the same length as rids.
+            It will be used in a round-robin fashion. See also color_group.
+        """
+        for i, (uname, data) in enumerate(synapses_group.items()):
+            if 'color' in data:
+                if isinstance(data['color'], str):
+                    color = data['color'],
+                elif isinstance(data['color'], float):
+                    if colormap is None:
+                        colormap = cm.gnuplot
+                    color = mc.rgb2hex(colormap(data['color']))
+            else:
+                if colors is not None:
+                    color = colors[i%len(colors)]
+                elif colormap is not None:
+                    color = mc.rgb2hex(colormap(0.0))
+                else:
+                    color = None
+            self.add_synapses(data["points"],
+                                uname, r = r, color = color,
+                                scale_factor = scale_factor,
+                                x_scale = x_scale, y_scale = y_scale,
+                                z_scale = z_scale, r_scale = r_scale,
+                                x_shift = x_shift, y_shift = y_shift,
+                                z_shift = z_shift, r_shift = r_shift)
+    
+    def visualize(self):
+        _send_data_to_NLP(self.client, self.meshes)
+        _send_data_to_NLP(self.client, self.neurons)
+        _send_data_to_NLP(self.client, self.synapses)
+        color_group(self.client, list(self._rids), user_color = self.colors)
+    
+    def hide(self, items = None):
+        if items is None:
+            rids = list(self._rids)
+        else:
+            if isinstance(items, str):
+                items = [items]
+            rids = []
+            for k in items:
+                rids.append(self._uname_to_rid(k))
+        _command_by_rids(self.client, rids, 'hide')
+    
+    def remove(self, items = None):
+        if items is None:
+            rids = list(self._rids)
+        else:
+            if isinstance(items, str):
+                items = [items]
+            rids = []
+            for k in items:
+                rid = self._uname_to_rid(k)
+                if rid in self.meshes:
+                    self.meshes.pop(rid)
+                if rid in self.neurons:
+                    self.neurons.pop(rid)
+                if rid in self.synapses:
+                    self.synapses.pop(rid)
+                rids.append(rid)
+        _command_by_rids(self.client, rids, 'remove')
+        
+    def show(self, items = None):
+        if items is None:
+            rids = list(self._rids)
+        else:
+            if isinstance(items, str):
+                items = [items]
+            rids = []
+            for k in items:
+                rids.append(self._uname_to_rid[k])
+        _command_by_rids(self.client, rids, 'show')
+        
+    def pin(self, items = None):
+        if items is None:
+            rids = list(self._rids)
+        else:
+            if isinstance(items, str):
+                items = [items]
+            rids = []
+            for k in items:
+                rids.append(self._uname_to_rid[k])
+        _command_by_rids(self.client, rids, 'pin')
+    
+    def unpin(self, items = None):
+        if items is None:
+            rids = list(self._rids)
+        else:
+            if isinstance(items, str):
+                items = [items]
+            rids = []
+            for k in items:
+                rids.append(self._uname_to_rid[k])
+        _command_by_rids(self.client, rids, 'unpin')
+    
+    def color(self, color, items = None):
+        if items is None:
+            rids = list(self._rids)
+        else:
+            if isinstance(items, str):
+                items = [items]
+            rids = []
+            for k in items:
+                rids.append(self._uname_to_rid[k]) 
+        color_by_rids(self.client, rids, color)
+        for rid in rids:
+            self.colors[rid] = color
+    
+    def _get_random_rid(self):
+        rid = "#{}:{}".format(str(random.randint(0,999999)).zfill(6),
+                              str(random.randint(0,999999)).zfill(6))
+        while rid in self._rids:
+            rid = "#{}:{}".format(str(random.randint(0,999999)).zfill(6),
+                                  str(random.randint(0,999999)).zfill(6))
+        return rid
+    
+    def update(self, other):
+        for rid in other._rids:
+            if rid in self._rids:
+                new_rid = self._get_random_rid()
+            else:
+                new_rid = rid
+            if rid in other.meshes:
+                self.meshes[new_rid] = other.meshes[rid]
+            elif rid in other.neurons:
+                self.neurons[new_rid] = other.neurons[rid]
+            elif rid in other.synapses:
+                self.synapses[new_rid] = other.synapses[rid]
+            self.colors[new_rid] = other.colors[rid]
+            self._rids.add(new_rid)
+            self._uname_to_rid[other.meshes[rid]['name']] = new_rid
 
 
 def loadJSON(client, file_name, scale_factor=1., name=None, mesh_class = 'Neuropil'):
     """Loads a mesh stored in the .json format.
     # Arguments
-        client (FlyBrainLab Client): A FlyBrainLab Client.
+        client (flybrainlab.Client.Client or flybrainlab.utilities.NeuroWatch)
+            Client object to specify the neu3d widget to use.
+            If a NeuroWatch object, visualization will be added to this object.
         file_name (str): Database ID of the neuron or node.
         scale_factor (float): A scale factor to scale the neuron's dimensions with. Defaults to 1.
         name (str): Unique name to use in the frontend. Defaults to the file_name.
@@ -27,16 +503,24 @@ def loadJSON(client, file_name, scale_factor=1., name=None, mesh_class = 'Neurop
     with open(file_name) as f:
         data = json.load(f)
     if name == None:
-        name = file_name.split('.')[0]
-    rid = '#'+name
-    visualize_mesh(client, data, rid, name = name, mesh_class = mesh_class, 
+        name = os.path.splitext(os.path.split(file_name)[-1])[0]
+    if isinstance(client, NeuroWatch):
+        watch = client
+        client = watch.client
+    else:
+        watch = NeuroWatch(client)
+        
+    watch.add_mesh(data, name, mesh_class = mesh_class, 
                    scale_factor = scale_factor)
-    return rid
+    watch.visualize()
+    return watch
     
 def loadSWC(client, file_name, scale_factor=1., uname=None):
     """Loads a neuron skeleton stored in the .swc format.
     # Arguments
-        client (FlyBrainLab Client): A FlyBrainLab Client.
+        client (flybrainlab.Client.Client or flybrainlab.utilities.NeuroWatch)
+            Client object to specify the neu3d widget to use.
+            If a NeuroWatch object, visualization will be added to this object.
         file_name (str): Database ID of the neuron or node.
         scale_factor (float): A scale factor to scale the neuron's dimensions with. Defaults to 1.
         uname (str): Unique name to use in the frontend. Defaults to the file_name.
@@ -46,13 +530,20 @@ def loadSWC(client, file_name, scale_factor=1., uname=None):
                     comment='#',
                     delim_whitespace=True)
     if uname == None:
-        uname = file_name.split('.')[0]
-    rid = '#'+file_name
-    visualize_neuron(client, neuron_pd, rid, uname = uname, scale_factor = scale_factor)
-    return rid
+        uname = os.path.splitext(os.path.split(file_name)[-1])[0]
+    if isinstance(client, NeuroWatch):
+        watch = client
+        client = watch.client
+    else:
+        watch = NeuroWatch(client)
+    
+    data = neuron_pd.to_dict(orient='list')
+    watch.add_neuron(data, uname, scale_factor = scale_factor)
+    watch.visualize()
+    return watch
 
 
-def send_data_to_NLP(client, data):
+def _send_data_to_NLP(client, data):
     """
     Utility to send data to NLP for visualization
     """
@@ -77,6 +568,25 @@ def color_by_rids(client, rids, rgb):
         rids = [rids]
     a = {'messageType': 'Command', 'widget': 'NLP',
          'data': {'commands': {'setcolor': [rids, rgb]}}}
+    client.tryComms(a)
+    
+def _command_by_rids(client, rids, command):
+    """
+    Utility to hide items in Neu3D widget with rids.
+    
+    # Arguments
+    client (flybrainlab.Client.Client)
+        Client object to specify the neu3d widget to use.
+    rids (list)
+        A list of rids for the items already in the neu3d widget to be hidden.
+    command (str)
+        The command to execute: "hide", "show", "pin", "unpin", "keep", "remove"
+    """
+    assert command in ["hide", "show", "pin", "unpin", "keep", "remove"]
+    if isinstance(rids, str):
+        rids = [rids]
+    a = {'messageType': 'Command', 'widget': 'NLP',
+         'data': {'commands': {command: [rids, []]}}}
     client.tryComms(a)
 
 
@@ -280,341 +790,6 @@ def neuron_data_to_morphology(data, scale_factor = None,
         morphology_data['sample'] = list(data.index)
     return morphology_data
 
-
-def visualize_synapses(client, points, rid, 
-                       uname = None, r = 0.2, color = None,
-                       scale_factor = None,
-                       x_scale = 1.0, y_scale = 1.0, z_scale = 1.0, r_scale = 1.0, 
-                       x_shift = 0.0, y_shift = 0.0, z_shift = 0.0, r_shift = 0.0):
-    """
-    Visualize synapses in neu3d widget.
-    
-    # Arguments
-    client (flybrainlab.Client.Client)
-        Client object to specify the neu3d widget to use.
-    point (list)
-        A list of 3-tuples of the coordinates of the points.
-    rid (str)
-        rid to be used for point.
-        User must guarantee that it is unique.
-    uname (str)
-        uname to be used for these points.
-        This uname will be displayed in the neuron/synapse list.
-    r (float)
-        The radius of the sphere for the points
-    color (str)
-        RGB Hex code for the color to be used for these points.
-    scale_factor (float or None)
-        A single scaling factor for x, y, z and r.
-        If scales are different for each axis,
-        use x_scale, y_scale, z_scale and r_scale individually.
-    x_scale (float)
-        scaling factor for x coordinate.
-    y_scale (float)
-        scaling factor for y coordinate.
-    z_scale (float)
-        scaling factor for z coordinate.
-    r_scale (float)
-        scaling factor for radius.
-    x_shift (float)
-        shifting x coordinate by this amount.
-    y_shift (float)
-        shifting y coordinate by this amount.
-    z_shift (float)
-        shifting z coordinate by this amount.
-    r_shift (float)
-        adding a constant value to all radius.
-
-    # Returns
-        str : The rid specified by the argument.
-    """
-    if uname is None:
-        uname = 'synapses_{}'.format(rid)
-    morphology_data = points_to_morphology(
-                        points, r = r, 
-                        scale_factor = scale_factor,
-                        x_scale = x_scale, y_scale = y_scale,
-                        z_scale = z_scale, r_scale = r_scale,
-                        x_shift = x_shift, y_shift = y_shift,
-                        z_shift = z_shift, r_shift = r_shift)
-    morphology_data['uname'] = uname
-    data = {rid: morphology_data}
-    send_data_to_NLP(client, data)
-
-    if color is not None:
-        color_by_rids(client, rid, color)
-    return rid
-
-
-def visualize_neuron(client, data, rid, uname = None, color = None,
-                     scale_factor = None,
-                     x_scale = 1.0, y_scale = 1.0, z_scale = 1.0, r_scale = 1.0, 
-                     x_shift = 0.0, y_shift = 0.0, z_shift = 0.0, r_shift = 0.0):
-    """
-    Visualize neuron in neu3d widget.
-    
-    # Arguments
-    client (flybrainlab.Client.Client)
-        Client object to specify the neu3d widget to use.
-    data (dict)
-        A dictionary containing 'x', 'y', 'z', 'r', 'identifier', 'parent'
-        and optionally 'sample' as keys, similar to the specification of
-        swc files.
-    rid (str)
-        rid to be used for point.
-        User must guarantee that it is unique.
-    uname (str)
-        uname to be used for these points.
-        This uname will be displayed in the neuron/synapse list.
-    color (str)
-        RGB Hex code for the color to be used for these points.
-    scale_factor (float or None)
-        A single scaling factor for x, y, z and r.
-        If scales are different for each axis,
-        use x_scale, y_scale, z_scale and r_scale individually.
-    x_scale (float)
-        scaling factor for x coordinate.
-    y_scale (float)
-        scaling factor for y coordinate.
-    z_scale (float)
-        scaling factor for z coordinate.
-    r_scale (float)
-        scaling factor for radius.
-    x_shift (float)
-        shifting x coordinate by this amount.
-    y_shift (float)
-        shifting y coordinate by this amount.
-    z_shift (float)
-        shifting z coordinate by this amount.
-    r_shift (float)
-        adding a constant value to all radius.
-
-    # Returns
-        str : The rid specified by the argument.
-    """
-    if uname is None:
-        uname = 'neuron_{}'.format(rid)
-    morphology_data = neuron_data_to_morphology(
-                        data, scale_factor = scale_factor,
-                        x_scale = x_scale, y_scale = y_scale,
-                        z_scale = z_scale, r_scale = r_scale,
-                        x_shift = x_shift, y_shift = y_shift,
-                        z_shift = z_shift, r_shift = r_shift)
-    morphology_data['uname'] = uname
-    data = {rid: morphology_data}
-
-    send_data_to_NLP(client, data)
-    if color is not None:
-        color_by_rids(client, rid, color)
-    return rid
-
-
-def visualize_mesh(client, data, rid, name = None, 
-                   mesh_class = 'Neuropil', color = None,
-                   scale_factor = None,
-                   x_scale = 1.0, y_scale = 1.0,
-                   z_scale = 1.0, x_shift = 0.0,
-                   y_shift = 0.0, z_shift = 0.0):
-    """
-    Visualize mesh in neu3d widget.
-    
-    # Arguments
-    client (flybrainlab.Client.Client)
-        Client object to specify the neu3d widget to use.
-    data (dict)
-        A dictionary containing 'faces', 'vertices' as usually
-        used in the trimesh specification.
-        values should be a single, rastered list of values,
-        with every 3 consecutive entries of 'vertices' representing
-        the x,y,z coordinates of a vertex, and every 3 consecutive
-        entries of 'faces' specifying the 3 vertices to triangulate.
-    rid (str)
-        rid to be used for point.
-        User must guarantee that it is unique.
-    name (str)
-        name to be used for the mesth.
-        This name will be displayed in the meshes list.
-    color (str)
-        RGB Hex code for the color to be used for these points.
-    scale_factor (float or None)
-        A single scaling factor for x, y, z and r.
-        If scales are different for each axis,
-        use x_scale, y_scale, z_scale and r_scale individually.
-    x_scale (float)
-        scaling factor for x coordinate.
-    y_scale (float)
-        scaling factor for y coordinate.
-    z_scale (float)
-        scaling factor for z coordinate.
-    x_shift (float)
-        shifting x coordinate by this amount.
-    y_shift (float)
-        shifting y coordinate by this amount.
-    z_shift (float)
-        shifting z coordinate by this amount.
-
-    # Returns
-        str : The rid specified by the argument.
-    """
-    if scale_factor is not None:
-        x_scale = scale_factor
-        y_scale = scale_factor
-        z_scale = scale_factor
-    scale = [x_scale, y_scale, z_scale]
-    shift = [x_shift, y_shift, z_shift]
-    if name is None:
-        name = '{}_{}'.format(mesh_class, rid)
-    morphology_data = {'morph_type': 'mesh', 'class': mesh_class,
-                       'name': name}
-    assert isinstance(data, (dict, pd.DataFrame)), 'data must be either dict or a pandas DataFrame containing the field "faces" and "vertices"'
-    
-    morphology_data['faces'] = list(data['faces'])
-    morphology_data['vertices'] = [n*scale[i%3]+shift[i%3] for i, n in enumerate(data['vertices'])]
-    data = {rid: morphology_data}
-
-    send_data_to_NLP(client, data)
-    if color is not None:
-        color_by_rids(client, rid, color)
-    return rid
-
-
-def visualize_synapses_group(client, synapses_group,
-                             r = 0.2, colormap = None, 
-                             colors = None, scale_factor = None,
-                             x_scale = 1.0, y_scale = 1.0,
-                             z_scale = 1.0, r_scale = 1.0, 
-                             x_shift = 0.0, y_shift = 0.0,
-                             z_shift = 0.0, r_shift = 0.0):
-    """
-    Visualize a group of synapses.
-    
-    # Arguments 
-    client (flybrainlab.Client.Client)
-        Client object to specify the neu3d widget to use.
-    synapses_group (dict)
-        A dictionary with uname of each set of synapses as keys,
-        and values as a dictionary with the following keys:
-        "points", (optional) "rid", (optional) "color".
-        So a typical dict can look like 
-        {"synapse_A_to_B": {"points": [(x1,y1,z1), (x2,y2,z2), ....],
-                            "rid": "#123:456",
-                            "color": "#FF0000"},
-         "synapse_C_to_D": {"points": [(x3,y3,z3), (x4,y4,z4), ....],
-                            "rid": "#654:321",
-                            "color": "#00FFFF"},
-                            }
-        }
-    r (float)
-        The radius of the sphere for the points
-    colormap (matplotlib.colors.Colormap)
-        Colormap to use if "color" in synapses_group is specified by floating point values.
-    colors (list)
-        A list of colors to use when user_color and colormap are not supplied.
-        The list of colors does not need to have the same length as rids.
-        It will be used in a round-robin fashion. See also color_group.
-    
-    # Returns
-        list : A list of rids.
-    """
-    rids = {}
-    user_color = {}
-    all_data = {}
-    for uname, data in synapses_group.items():
-        rid = data.get('rid', '#{}'.format(uname))
-        morphology_data = points_to_morphology(
-                            data['points'], r = r,
-                            scale_factor = scale_factor,
-                            x_scale = x_scale, y_scale = y_scale,
-                            z_scale = z_scale, r_scale = r_scale,
-                            x_shift = x_shift, y_shift = y_shift,
-                            z_shift = z_shift, r_shift = r_shift)
-        morphology_data['uname'] = uname
-        all_data[rid] = morphology_data
-        if 'color' in data:
-            user_color[rid] = data['color']
-        rids[uname] = rid
-    send_data_to_NLP(client, all_data)
-
-    if len(user_color) and len(user_color) != len(all_data):
-        if isinstance(user_color[user_color.keys()[0]], str):
-            color_type == 'rgb'
-        else:
-            color_type = 'colormap'
-        for rid in all_data:
-            if rid not in user_color:
-                if color_type == 'rgb':
-                    user_color[rid] = '#FFFFFF'
-                else:
-                    user_color[rid] = 0.0
-    color_group(client, rids, user_color = user_color, colormap = colormap, colors = colors)
-    return rids
-
-
-def visualize_neuron_group(client, neuron_group,
-                           colormap = None, colors = None,
-                           scale_factor = None,
-                           x_scale = 1.0, y_scale = 1.0,
-                           z_scale = 1.0, r_scale = 1.0, 
-                           x_shift = 0.0, y_shift = 0.0,
-                           z_shift = 0.0, r_shift = 0.0):
-    """
-    Visualize a group of neurons.
-
-    # Arguments
-    neuron_group (dict):
-        Specifying the morphology of the neuron keyed by its uname, in the form of:
-        neuron_group = {'morphology': pandas.DataFrame or dict in swc format,
-                        'rid': rid of the neuron (optional),
-                        'color': hex code starting with '#' for RGB value or float (optional)}
-        If color is a hex code, the color will be used to color.
-        If color is a float, color will use a colors as a colormap with the mininum of all color value
-        mapped to the lowest value of the colormap, and maximum mapped to the highest value of colormap.
-    colormap (matplotlib.colormap.cm):
-        A colormap to use when the color are specified in float
-    colors (list):
-        A list of hex code of colors to use in round robin fashion.
-    scale_factor (float):
-        If specified, scaling of the x, y, z and r of the neuron will all be overwritten by this value.
-    x_scale, y_scale, z_scale, r_scale (float):
-        scaling of the x, y, z and r of the neuron will all be overwritten by this value.
-    x_shift, y_shift, z_shift, r_shift (float):
-        shifting of the x, y, z position values and a bias for r.
-    
-    # Returns
-        list: A list of rids.
-    """
-    rids = {}
-    user_color = {}
-    all_data = {}
-    for uname, data in neuron_group.items():
-        rid = data.get('rid', '#{}'.format(uname))
-        morphology_data = neuron_data_to_morphology(
-                            data['morphology'],
-                            scale_factor = scale_factor,
-                            x_scale = x_scale, y_scale = y_scale,
-                            z_scale = z_scale, r_scale = r_scale,
-                            x_shift = x_shift, y_shift = y_shift,
-                            z_shift = z_shift, r_shift = r_shift)
-        morphology_data['uname'] = uname
-        all_data[rid] = morphology_data
-        if 'color' in data:
-            user_color[rid] = data['color']
-        rids[uname] = rid
-    send_data_to_NLP(client, all_data)
-
-    if len(user_color) and len(user_color) != len(all_data):
-        if isinstance(user_color[user_color.keys()[0]], str):
-            color_type == 'rgb'
-        else:
-            color_type = 'colormap'
-        for rid in all_data:
-            if rid not in user_color:
-                if color_type == 'rgb':
-                    user_color[rid] = '#FFFFFF'
-                else:
-                    user_color[rid] = 0.0
-    color_group(client, rids, user_color = user_color, colormap = colormap, colors = colors)
-    return rids
 
 
 
