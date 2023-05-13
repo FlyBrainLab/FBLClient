@@ -537,13 +537,16 @@ class NeuroWatch(object):
                 new_rid = rid
             if rid in other.meshes:
                 self.meshes[new_rid] = other.meshes[rid]
+                name = other.meshes[rid]['name']
             elif rid in other.neurons:
                 self.neurons[new_rid] = other.neurons[rid]
+                name = other.neurons[rid]['uname']
             elif rid in other.synapses:
                 self.synapses[new_rid] = other.synapses[rid]
+                name = other.synapses[rid]['uname']
             self.colors[new_rid] = other.colors[rid]
             self._rids.add(new_rid)
-            self._uname_to_rid[other.meshes[rid]['name']] = new_rid
+            self._uname_to_rid[name] = new_rid
 
 
 def loadJSON(client, file_name, scale_factor=1., name=None, mesh_class = 'Neuropil'):
