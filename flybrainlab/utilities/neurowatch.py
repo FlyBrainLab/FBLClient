@@ -381,12 +381,24 @@ class NeuroWatch(object):
                                 z_shift = z_shift, r_shift = r_shift)
     
     def visualize(self):
+        """
+        Visualize the data within this handle.
+        Objects will be displayed in Neu3D window after this method is called.
+        """
         _send_data_to_NLP(self.client, self.meshes)
         _send_data_to_NLP(self.client, self.neurons)
         _send_data_to_NLP(self.client, self.synapses)
         color_group(self.client, list(self._rids), user_color = self.colors)
     
     def hide(self, items = None):
+        """
+        Hide objects.
+        
+        # Arguments
+            items (list)
+                A list of uname or name of the objects to hide.
+                If None, all will be hidden.
+        """
         if items is None:
             rids = list(self._rids)
         else:
@@ -398,6 +410,14 @@ class NeuroWatch(object):
         _command_by_rids(self.client, rids, 'hide')
     
     def remove(self, items = None):
+        """
+        Remove objects.
+        
+        # Arguments
+            items (list)
+                A list of uname or name of the objects to remove.
+                If None, all will be removed.
+        """
         if items is None:
             rids = list(self._rids)
         else:
@@ -416,6 +436,14 @@ class NeuroWatch(object):
         _command_by_rids(self.client, rids, 'remove')
         
     def show(self, items = None):
+        """
+        Show objects.
+        
+        # Arguments
+            items (list)
+                A list of uname or name of the objects to show.
+                If None, all will be shown.
+        """
         if items is None:
             rids = list(self._rids)
         else:
@@ -427,6 +455,14 @@ class NeuroWatch(object):
         _command_by_rids(self.client, rids, 'show')
         
     def pin(self, items = None):
+        """
+        Pin objects.
+        
+        # Arguments
+            items (list)
+                A list of uname or name of the objects to pin.
+                If None, all will be pinned.
+        """
         if items is None:
             rids = list(self._rids)
         else:
@@ -438,6 +474,14 @@ class NeuroWatch(object):
         _command_by_rids(self.client, rids, 'pin')
     
     def unpin(self, items = None):
+        """
+        Unpin objects.
+        
+        # Arguments
+            items (list)
+                A list of uname or name of the objects to unpin.
+                If None, all will be unpinned.
+        """
         if items is None:
             rids = list(self._rids)
         else:
@@ -449,6 +493,16 @@ class NeuroWatch(object):
         _command_by_rids(self.client, rids, 'unpin')
     
     def color(self, color, items = None):
+        """
+        Color objects.
+        
+        # Arguments
+            color (str)
+                A hex code for color.
+            items (list)
+                A list of uname or name of the objects to color.
+                If None, all will be colored.
+        """
         if items is None:
             rids = list(self._rids)
         else:
@@ -462,6 +516,9 @@ class NeuroWatch(object):
             self.colors[rid] = color
     
     def _get_random_rid(self):
+        """
+        Get a random rid '#??????:??????'
+        """
         rid = "#{}:{}".format(str(random.randint(0,999999)).zfill(6),
                               str(random.randint(0,999999)).zfill(6))
         while rid in self._rids:
@@ -470,6 +527,9 @@ class NeuroWatch(object):
         return rid
     
     def update(self, other):
+        """
+        Update current object by adding objects from other.
+        """
         for rid in other._rids:
             if rid in self._rids:
                 new_rid = self._get_random_rid()
