@@ -23,6 +23,18 @@ class NeuroWatch(object):
     # Arguments
         client (flybrainlab.Client.Client)
             Client object to specify the neu3d widget to use.
+            
+    # Examples
+        import fruitflybrain.utilities.neurowatch as nw
+        watch = nw.NeuroWatch(fbl.get_client())
+        # see docstring for argument format.
+        watch.add_mesh(...)
+        watch.add_neuron(...)
+        watch.add_synapses(...)
+        watch.visualize()
+        watch.hide([uname_of_neurons/mesh/synapses,...])
+        watch.pin([uname_of_neurons/mesh/synapses,...])
+        watch.remove() 
     """
     def __init__(self, client):
         self.client = client
