@@ -402,6 +402,24 @@ class NeuroWatch(object):
         _send_data_to_NLP(self.client, self.synapses)
         color_group(self.client, list(self._rids), user_color = self.colors)
     
+    def _get_rids_from_items(self, items = None):
+        if items is None:
+            rids = list(self._rids)
+        else:
+            if isinstance(items, str):
+                if items == 'mesh':
+                    items = [v['name'] for v in self.meshes.values()]
+                elif items == 'neuron':
+                    items = [v['uname'] for v in self.neurons.values()]
+                elif items == 'synapse':
+                    items = [v['uname'] for v in self.synapses.values()]
+                else:
+                    items = [items]
+            rids = []
+            for k in items:
+                rids.append(self._uname_to_rid[k])
+        return rids
+        
     def hide(self, items = None):
         """
         Hide objects.
@@ -410,15 +428,11 @@ class NeuroWatch(object):
             items (list)
                 A list of uname or name of the objects to hide.
                 If None, all will be hidden.
+                If 'mesh', all meshes will be hidden.
+                If 'neuron', all neurons will be hidden.
+                If 'synapse', all synapses will be hidden.
         """
-        if items is None:
-            rids = list(self._rids)
-        else:
-            if isinstance(items, str):
-                items = [items]
-            rids = []
-            for k in items:
-                rids.append(self._uname_to_rid(k))
+        rids = self._get_rids_from_items(items)
         _command_by_rids(self.client, rids, 'hide')
     
     def remove(self, items = None):
@@ -429,22 +443,11 @@ class NeuroWatch(object):
             items (list)
                 A list of uname or name of the objects to remove.
                 If None, all will be removed.
+                If 'mesh', all meshes will be removed.
+                If 'neuron', all neurons will be removed.
+                If 'synapse', all synapses will be removed.
         """
-        if items is None:
-            rids = list(self._rids)
-        else:
-            if isinstance(items, str):
-                items = [items]
-            rids = []
-            for k in items:
-                rid = self._uname_to_rid(k)
-                if rid in self.meshes:
-                    self.meshes.pop(rid)
-                if rid in self.neurons:
-                    self.neurons.pop(rid)
-                if rid in self.synapses:
-                    self.synapses.pop(rid)
-                rids.append(rid)
+        rids = self._get_rids_from_items(items)
         _command_by_rids(self.client, rids, 'remove')
         
     def show(self, items = None):
@@ -455,15 +458,11 @@ class NeuroWatch(object):
             items (list)
                 A list of uname or name of the objects to show.
                 If None, all will be shown.
+                If 'mesh', all meshes will be shown.
+                If 'neuron', all neurons will be shown.
+                If 'synapse', all synapses will be shown.
         """
-        if items is None:
-            rids = list(self._rids)
-        else:
-            if isinstance(items, str):
-                items = [items]
-            rids = []
-            for k in items:
-                rids.append(self._uname_to_rid[k])
+        rids = self._get_rids_from_items(items)
         _command_by_rids(self.client, rids, 'show')
         
     def pin(self, items = None):
@@ -474,15 +473,11 @@ class NeuroWatch(object):
             items (list)
                 A list of uname or name of the objects to pin.
                 If None, all will be pinned.
+                If 'mesh', all meshes will be pinned.
+                If 'neuron', all neurons will be pinned.
+                If 'synapse', all synapses will be pinned.
         """
-        if items is None:
-            rids = list(self._rids)
-        else:
-            if isinstance(items, str):
-                items = [items]
-            rids = []
-            for k in items:
-                rids.append(self._uname_to_rid[k])
+        rids = self._get_rids_from_items(items)
         _command_by_rids(self.client, rids, 'pin')
     
     def unpin(self, items = None):
@@ -493,15 +488,11 @@ class NeuroWatch(object):
             items (list)
                 A list of uname or name of the objects to unpin.
                 If None, all will be unpinned.
+                If 'mesh', all meshes will be unpinned.
+                If 'neuron', all neurons will be unpinned.
+                If 'synapse', all synapses will be unpinned.
         """
-        if items is None:
-            rids = list(self._rids)
-        else:
-            if isinstance(items, str):
-                items = [items]
-            rids = []
-            for k in items:
-                rids.append(self._uname_to_rid[k])
+        rids = self._get_rids_from_items(items)
         _command_by_rids(self.client, rids, 'unpin')
     
     def color(self, color, items = None):
@@ -514,15 +505,11 @@ class NeuroWatch(object):
             items (list)
                 A list of uname or name of the objects to color.
                 If None, all will be colored.
+                If 'mesh', all meshes will be colored.
+                If 'neuron', all neurons will be colored.
+                If 'synapse', all synapses will be colored.
         """
-        if items is None:
-            rids = list(self._rids)
-        else:
-            if isinstance(items, str):
-                items = [items]
-            rids = []
-            for k in items:
-                rids.append(self._uname_to_rid[k]) 
+        rids = self._get_rids_from_items(items)
         color_by_rids(self.client, rids, color)
         for rid in rids:
             self.colors[rid] = color
