@@ -171,6 +171,7 @@ class NeuroWatch(object):
         uname (str)
             uname to be used for these points.
             This uname will be displayed in the neuron/synapse list.
+            uname must be the following format: "prename--postname".
         r (float)
             The radius of the sphere for the points
         color (str)
@@ -353,9 +354,9 @@ class NeuroWatch(object):
             "points", (optional) "color".
             So a typical dict can look like 
             {
-                "synapse_A_to_B": {"points": [(x1,y1,z1), (x2,y2,z2), ....],
+                "A--B": {"points": [(x1,y1,z1), (x2,y2,z2), ....],
                                     "color": "#FF0000"},
-                "synapse_C_to_D": {"points": [(x3,y3,z3), (x4,y4,z4), ....],
+                "C--D": {"points": [(x3,y3,z3), (x4,y4,z4), ....],
                                     "color": "#00FFFF"},
             }
             If color is a hex code, the color will be used to color.
@@ -799,6 +800,7 @@ def points_to_morphology(points, r = 0.2, scale_factor = None,
     morphology_data['identifier'] = [7]*length
     morphology_data['sample'] = list(range(1, length+1))
     morphology_data['parent'] = [-1]*length
+    morphology_data['N'] = length
     return morphology_data
 
 
