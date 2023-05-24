@@ -400,7 +400,8 @@ class NeuroWatch(object):
         _send_data_to_NLP(self.client, self.meshes)
         _send_data_to_NLP(self.client, self.neurons)
         _send_data_to_NLP(self.client, self.synapses)
-        color_group(self.client, list(self._rids), user_color = self.colors)
+        if len(self._rids):
+            color_group(self.client, list(self._rids), user_color = self.colors)
     
     def _get_rids_from_items(self, items = None):
         if items is None:
@@ -433,7 +434,8 @@ class NeuroWatch(object):
                 If 'synapse', all synapses will be hidden.
         """
         rids = self._get_rids_from_items(items)
-        _command_by_rids(self.client, rids, 'hide')
+        if len(rids):
+            _command_by_rids(self.client, rids, 'hide')
     
     def remove(self, items = None):
         """
@@ -448,7 +450,8 @@ class NeuroWatch(object):
                 If 'synapse', all synapses will be removed.
         """
         rids = self._get_rids_from_items(items)
-        _command_by_rids(self.client, rids, 'remove')
+        if len(rids):
+            _command_by_rids(self.client, rids, 'remove')
         
     def show(self, items = None):
         """
@@ -463,7 +466,8 @@ class NeuroWatch(object):
                 If 'synapse', all synapses will be shown.
         """
         rids = self._get_rids_from_items(items)
-        _command_by_rids(self.client, rids, 'show')
+        if len(rids):
+            _command_by_rids(self.client, rids, 'show')
         
     def pin(self, items = None):
         """
@@ -478,7 +482,8 @@ class NeuroWatch(object):
                 If 'synapse', all synapses will be pinned.
         """
         rids = self._get_rids_from_items(items)
-        _command_by_rids(self.client, rids, 'pin')
+        if len(rids):
+            _command_by_rids(self.client, rids, 'pin')
     
     def unpin(self, items = None):
         """
@@ -493,7 +498,8 @@ class NeuroWatch(object):
                 If 'synapse', all synapses will be unpinned.
         """
         rids = self._get_rids_from_items(items)
-        _command_by_rids(self.client, rids, 'unpin')
+        if len(rids):
+            _command_by_rids(self.client, rids, 'unpin')
     
     def color(self, color, items = None):
         """
@@ -510,9 +516,10 @@ class NeuroWatch(object):
                 If 'synapse', all synapses will be colored.
         """
         rids = self._get_rids_from_items(items)
-        color_by_rids(self.client, rids, color)
-        for rid in rids:
-            self.colors[rid] = color
+        if len(rids):
+            color_by_rids(self.client, rids, color)
+            for rid in rids:
+                self.colors[rid] = color
     
     def _get_random_rid(self):
         """
