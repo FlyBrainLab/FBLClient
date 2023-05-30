@@ -22,7 +22,7 @@ install_requires = [
     "ipython", # no longer need if remove get_slow_connectivity
     "pywin32; platform_system=='Windows'",
     "graphviz",
-    "jupyterlab >= 3.0",
+    "jupyterlab >= 3.0, <3.6", # 3.6 has some issue for
 ]
 
 extras_require_utilities = {
@@ -45,10 +45,10 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     
 setup(
     name="FlyBrainLab",
-    version="1.1.9",
-    description="Main Client of the FlyBrainLab Project",
-    author="Mehmet Kerem Turkcan",
-    author_email="mkt2126@columbia.edu",
+    version="1.1.10",
+    description="FlyBrainLab User-side Backend",
+    author="Mehmet Kerem Turkcan, Yiyin Zhou",
+    author_email="mkt2126@columbia.edu, yiyin@ee.columbia.edu",
     url="https://flybrainlab.fruitflybrain.org",
     download_url="",
     license="BSD-3-Clause",
