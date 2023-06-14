@@ -159,7 +159,7 @@ class NeuroWatch(object):
         self._rids.add(rid)
     
     def add_synapses(self, points, uname,
-                     r = 0.2, color = None, scale_factor = None,
+                     r = 0.0, color = None, scale_factor = None,
                      x_scale = 1.0, y_scale = 1.0, z_scale = 1.0, r_scale = 1.0, 
                      x_shift = 0.0, y_shift = 0.0, z_shift = 0.0, r_shift = 0.0):
         """
@@ -338,7 +338,7 @@ class NeuroWatch(object):
                             z_shift = z_shift, r_shift = r_shift)
 
     def add_synapses_group(self, synapses_group,
-                            r = 0.2, colormap = None, 
+                            r = 0.0, colormap = None, 
                             colors = None, scale_factor = None,
                             x_scale = 1.0, y_scale = 1.0,
                             z_scale = 1.0, r_scale = 1.0, 
@@ -748,7 +748,7 @@ def remove_by_rids(client, rids):
     return rids
 
 
-def points_to_morphology(points, r = 0.2, scale_factor = None,
+def points_to_morphology(points, r = 0.0, scale_factor = None,
                          x_scale = 1.0, y_scale = 1.0,
                          z_scale = 1.0, r_scale = 1.0, 
                          x_shift = 0.0, y_shift = 0.0,
@@ -797,7 +797,7 @@ def points_to_morphology(points, r = 0.2, scale_factor = None,
     morphology_data['y'] = [n[1]*y_scale+y_shift for n in points]
     morphology_data['z'] = [n[2]*z_scale+z_shift for n in points]
     morphology_data['r'] = [r*r_scale+r_shift]*length
-    morphology_data['identifier'] = [7]*length
+    morphology_data['identifier'] = [0]*length
     morphology_data['sample'] = list(range(1, length+1))
     morphology_data['parent'] = [-1]*length
     morphology_data['N'] = length
