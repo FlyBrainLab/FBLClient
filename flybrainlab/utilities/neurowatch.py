@@ -591,7 +591,7 @@ def loadSWC(client, file_name, scale_factor=1., uname=None):
         client (flybrainlab.Client.Client or flybrainlab.utilities.NeuroWatch)
             Client object to specify the neu3d widget to use.
             If a NeuroWatch object, visualization will be added to this object.
-        file_name (str): Database ID of the neuron or node.
+        file_name (str): file name of the swc file.
         scale_factor (float): A scale factor to scale the neuron's dimensions with. Defaults to 1.
         uname (str): Unique name to use in the frontend. Defaults to the file_name.
     """
@@ -609,6 +609,50 @@ def loadSWC(client, file_name, scale_factor=1., uname=None):
     
     data = neuron_pd.to_dict(orient='list')
     watch.add_neuron(data, uname, scale_factor = scale_factor)
+    watch.visualize()
+    return watch
+
+
+def showSWC(client, swc, uname, scale_factor = 1.0):
+    """Visualize a neuron skeleton stored in a pandas DataFrame in swc format/columns.
+    # Arguments
+        client (flybrainlab.Client.Client or flybrainlab.utilities.NeuroWatch)
+            Client object to specify the neu3d widget to use.
+            If a NeuroWatch object, visualization will be added to this object.
+        swc (pandas.DataFrame): the DataFrame containing the neuron morphology.
+        uname (str): Unique name to use in the frontend.
+        scale_factor (float): A scale factor to scale the neuron's dimensions with. Defaults to 1.
+    """
+    if isinstance(client, NeuroWatch):
+        watch = client
+        client = watch.client
+    else:
+        watch = NeuroWatch(client)
+    
+    data = swc.to_dict(orient='list')
+    watch.add_neuron(data, uname, scale_factor = scale_factor)
+    watch.visualize()
+    return watch
+
+
+def showSynapses(client, synapses, uname, scale_factor = 1.0, r = 0.0):
+    """Visualize a neuron skeleton stored in a pandas DataFrame in swc format/columns.
+    # Arguments
+        client (flybrainlab.Client.Client or flybrainlab.utilities.NeuroWatch)
+            Client object to specify the neu3d widget to use.
+            If a NeuroWatch object, visualization will be added to this object.
+        synapses (list): A list containing the locations of the synapses.
+        uname (str): Unique name to use in the frontend.
+        scale_factor (float): A scale factor to scale the neuron's dimensions with. Defaults to 1.
+        r (float): radius of each synapse
+    """
+    if isinstance(client, NeuroWatch):
+        watch = client
+        client = watch.client
+    else:
+        watch = NeuroWatch(client)
+    
+    watch.add_synapses(synapses, uname, scale_factor = scale_factor, r = r)
     watch.visualize()
     return watch
 
