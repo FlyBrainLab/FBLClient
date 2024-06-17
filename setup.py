@@ -45,10 +45,10 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     
 setup(
     name="FlyBrainLab",
-    version="1.1.10",
+    version="1.1.11",
     description="FlyBrainLab User-side Backend",
     author="Mehmet Kerem Turkcan, Yiyin Zhou",
-    author_email="mkt2126@columbia.edu, yiyin@ee.columbia.edu",
+    author_email="mkt2126@columbia.edu, yiyin.zhou@fordham.edu",
     url="https://flybrainlab.fruitflybrain.org",
     download_url="",
     license="BSD-3-Clause",
