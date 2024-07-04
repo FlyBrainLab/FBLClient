@@ -377,7 +377,7 @@ class Client:
         url=u"wss://neuronlp.fruitflybrain.org/ws",
         realm=u"realm1",
         ca_cert_file="isrgrootx1.pem",
-        intermediate_cert_file="letsencryptauthorityx3.pem",
+        intermediate_cert_file=None,
         FFBOLabcomm=None,
         FBLcomm=None,
         legacy=False,
@@ -402,7 +402,7 @@ class Client:
             url (str): URL of the WAMP server with the FFBO Processor component.
             realm (str): Realm to be connected to.
             ca_cert_file (str): Path to the certificate for establishing connection.
-            intermediate_cert_file (str): Path to the intermediate certificate for establishing connection.
+            intermediate_cert_file (str): Path to the intermediate certificate for establishing connection (no longer required).
             FFBOLabcomm (obj): Communications object for the frontend.
             FBLcomm (obj): Communications object for the frontend.
             legacy (bool): Whether the server uses the old FFBO server standard or not. Should be False for most cases. Defaults to False.
@@ -624,22 +624,22 @@ class Client:
                     "{}/isrgrootx1.pem".format(cert_url),
                     os.path.join(home, ".ffbo", "lib", "caCertFile.pem"),
                 )
-                urlRetriever(
-                    "{}/letsencryptauthorityx3.pem".format(cert_url),
-                    os.path.join(home, ".ffbo", "lib", "intermediateCertFile.pem"),
-                )
+                # urlRetriever(
+                #     "{}/letsencryptauthorityx3.pem".format(cert_url),
+                #     os.path.join(home, ".ffbo", "lib", "intermediateCertFile.pem"),
+                # )
                 # config_file = os.path.join(home, ".ffbo", "config", "FBLClient.ini")
                 ca_cert_file = os.path.join(home, ".ffbo", "lib", "caCertFile.pem")
-                intermediate_cert_file = os.path.join(
-                    home, ".ffbo", "lib", "intermediateCertFile.pem"
-                )
+                # intermediate_cert_file = os.path.join(
+                #     home, ".ffbo", "lib", "intermediateCertFile.pem"
+                # )
             else:
                 os.makedirs(os.path.join(home, ".ffbo", "lib"), mode=0o777)
             st_cert = open(ca_cert_file, "rt").read()
             c = OpenSSL.crypto
             ca_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
-            st_cert = open(intermediate_cert_file, "rt").read()
-            intermediate_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
+            # st_cert = open(intermediate_cert_file, "rt").read()
+            # intermediate_cert = c.load_certificate(c.FILETYPE_PEM, st_cert)
             """ Some alternative approaches for certificates:
             # import certifi
             # st_cert = open(certifi.where(), "rt").read()
@@ -647,7 +647,7 @@ class Client:
             # import twisted
             # print(twisted.internet.ssl.platformTrust())
             """
-            certs = OpenSSLCertificateAuthorities([ca_cert, intermediate_cert])
+            certs = OpenSSLCertificateAuthorities([ca_cert])
             ssl_con = CertificateOptions(trustRoot=certs)
         if initialize_client:
             self.ssl = ssl
