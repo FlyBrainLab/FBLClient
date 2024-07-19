@@ -831,17 +831,17 @@ class Client:
             else:
                 raise Exception("Invalid authmethod {}".format(challenge.method))
 
-        if ssl:
-            FBLClient.run(
-                url=url, authmethods=[u"wampcra"], authid=user, ssl=ssl_con
-            )  # Initialize the communication right now!
-        else:
-            FBLClient.run(url=url, authmethods=[u'wampcra'], authid=user)
+        websocket_options = {
+            "maxFramePayloadSize": 0,
+            "maxMessagePayloadSize": 0,
+            "openHandshakeTimeout": 10.,
+            "autoFragmentSize": 65536
+        }
 
-        setProtocolOptions(FBLClient._async_session._transport,
-                           maxFramePayloadSize = 0,
-                           maxMessagePayloadSize = 0,
-                           autoFragmentSize = 65536)
+        FBLClient.run(
+            url=url, authmethods=[u"wampcra"], authid=user, ssl=ssl_con if ssl else None,
+            websocket_options = websocket_options
+        )  # Initialize the communication right now!
 
         @FBLClient.subscribe(
             'ffbo.server.update.' + str(FBLClient._async_session._session_id)
