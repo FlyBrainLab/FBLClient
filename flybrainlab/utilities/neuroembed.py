@@ -1,4 +1,5 @@
 import os
+import sys
 from time import time
 import pickle
 import shutil
@@ -21,7 +22,10 @@ from scipy.spatial import distance_matrix
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 
-from graspy.embed import AdjacencySpectralEmbed
+# No longer supported in python 3.10
+if sys.version_info.major <= 3 and sys.version_info.minor <= 9:
+    from graspy.embed import AdjacencySpectralEmbed
+
 from .neurometry import *
 try:
     from gem.utils import graph_util, plot_util
@@ -409,38 +413,39 @@ class LEEmbedding(GEMEmbedding):
     """
     def __init__(self, d = 2):
         self.model = LaplacianEigenmaps(d=d)
+        
+if sys.version_info.major <= 3 and sys.version_info.minor <= 9:
+    class ASEEmbedding(Embedding):
+        """Implements an interface for adjacency spectral embedding; inherits from the Embedding class.
 
-class ASEEmbedding(Embedding):
-    """Implements an interface for adjacency spectral embedding; inherits from the Embedding class.
+        """
+        def __init__(self):
+            self.model = AdjacencySpectralEmbed()
 
-    """
-    def __init__(self):
-        self.model = AdjacencySpectralEmbed()
+        def fit(self, X, S = None):
+            Xh = np.hstack(self.model.fit_transform(X))
+            if S is not None:
+                Xh = np.hstack((Xh, S))
+            clusterer = GaussianMixture(n_components=Xh.shape[1]//2)
+            clusterer.fit(Xh)
+            predict_labels = clusterer.predict(Xh)
+            self.y = predict_labels
+            self.H = Xh
 
-    def fit(self, X, S = None):
-        Xh = np.hstack(self.model.fit_transform(X))
-        if S is not None:
-            Xh = np.hstack((Xh, S))
-        clusterer = GaussianMixture(n_components=Xh.shape[1]//2)
-        clusterer.fit(Xh)
-        predict_labels = clusterer.predict(Xh)
-        self.y = predict_labels
-        self.H = Xh
+        def learn_embedding(self, G, S = None, **kwargs):
+            X = nx.adjacency_matrix(G)
+            X = X.todense()
+            Xh = np.hstack(self.model.fit_transform(X))
+            if S is not None:
+                Xh = np.hstack((Xh, S))
+            clusterer = GaussianMixture(n_components=Xh.shape[1]//2)
+            clusterer.fit(Xh)
+            predict_labels = clusterer.predict(Xh)
+            self.y = predict_labels
+            self.H = Xh
 
-    def learn_embedding(self, G, S = None, **kwargs):
-        X = nx.adjacency_matrix(G)
-        X = X.todense()
-        Xh = np.hstack(self.model.fit_transform(X))
-        if S is not None:
-            Xh = np.hstack((Xh, S))
-        clusterer = GaussianMixture(n_components=Xh.shape[1]//2)
-        clusterer.fit(Xh)
-        predict_labels = clusterer.predict(Xh)
-        self.y = predict_labels
-        self.H = Xh
-
-    def get_reconstructed_adj(self, *a, **b):
-        return self.model.latent_left_.dot(np.diag(self.model.singular_values_)).dot(self.model.latent_right_.T)
+        def get_reconstructed_adj(self, *a, **b):
+            return self.model.latent_left_.dot(np.diag(self.model.singular_values_)).dot(self.model.latent_right_.T)
         
 class RawEmbedding(Embedding):
     """A trivial embedding in which the adjacency matrix is treated as the embedding.
