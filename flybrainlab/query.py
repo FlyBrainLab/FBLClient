@@ -620,4 +620,93 @@ def load_Subsystems(client, format = 'morphology', verb = 'add'):
     return res
 
 
+def query_neuron_by_uname(client, uname, format = 'morphology', verb = 'add'):
+    """ Query neurons by uname """
+    fbl_query = {}
+    fbl_query['verb'] = verb
+    fbl_query['format'] = format
+    fbl_query['query']= [{'action': {'method': {'query': {'uname': uname}}},
+                          'object': {'class': 'Neuron'}}]
+    res = client.executeNAquery(fbl_query)
+    return res
+
+
+def query_neuron_by_type(client, celltype, format = 'morphology', verb = 'add'):
+    """ Query neurons by cell type name """
+    fbl_query = {}
+    fbl_query['verb'] = verb
+    fbl_query['format'] = format
+    fbl_query['query']= [{'action': {'method': {'query': {'name': celltype}}},
+                          'object': {'class': 'Neuron'}}]
+    res = client.executeNAquery(fbl_query)
+    return res
+
+
+def output_synapses(client, uname, format = 'morphology', verb = 'add'):
+    """ Query a neuron's (by its uname) output synapses """
+    fbl_query = {}
+    fbl_query['verb'] = verb
+    fbl_query['format'] = format
+    fbl_query['query']= [{'action': {'method': {'query': {'uname': uname}}},
+                          'object': {'class': 'Neuron'}},
+                         {'object': {'memory': 0},
+                          'action': {'method': {
+                              'gen_traversal_out': {
+                                   'pass_through': [['SendsTo', 'Synapse']],
+                                   'min_depth': 1}}}},
+                         ]
+    res = client.executeNAquery(fbl_query)
+    return res
+
+
+def input_synapses(client, uname, format = 'morphology', verb = 'add'):
+    """ Query a neuron's (by its uname) input synapses """
+    fbl_query = {}
+    fbl_query['verb'] = verb
+    fbl_query['format'] = format
+    fbl_query['query']= [{'action': {'method': {'query': {'uname': uname}}},
+                          'object': {'class': 'Neuron'}},
+                         {'object': {'memory': 0},
+                          'action': {'method': {
+                              'gen_traversal_in': {
+                                   'pass_through': [['SendsTo', 'Synapse']],
+                                   'min_depth': 1}}}},
+                         ]
+    res = client.executeNAquery(fbl_query)
+    return res
+
+
+def postsynaptic_neurons(client, uname, format = 'morphology', verb = 'add'):
+    """ Query a neuron's (by its uname) postsynaptic neurons """
+    fbl_query = {}
+    fbl_query['verb'] = verb
+    fbl_query['format'] = format
+    fbl_query['query']= [{'action': {'method': {'query': {'uname': uname}}},
+                          'object': {'class': 'Neuron'}},
+                         {'object': {'memory': 0},
+                          'action': {'method': {
+                              'gen_traversal_out': {
+                                   'pass_through': [['SendsTo', 'Synapse'], ['SendsTo', 'Neuron']],
+                                   'min_depth': 2}}}}
+                         ]
+    res = client.executeNAquery(fbl_query)
+    return res
+
+
+def presynaptic_neurons(client, uname, format = 'morphology', verb = 'add'):
+    """ Query a neuron's (by its uname) presynaptic neurons """
+    fbl_query = {}
+    fbl_query['verb'] = verb
+    fbl_query['format'] = format
+    fbl_query['query']= [{'action': {'method': {'query': {'uname': uname}}},
+                          'object': {'class': 'Neuron'}},
+                         {'object': {'memory': 0},
+                          'action': {'method': {
+                              'gen_traversal_in': {
+                                   'pass_through': [['SendsTo', 'Synapse'], ['SendsTo', 'Neuron']],
+                                   'min_depth': 2}}}},
+                         ]
+    res = client.executeNAquery(fbl_query)
+    return res
+
 
