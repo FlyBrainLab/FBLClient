@@ -1,6 +1,68 @@
 [build-system]
-requires = [
-    "setuptools>=42",
-    "wheel"
-]
+requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "FlyBrainLab"
+version = "1.1.12"
+description = "FlyBrainLab User-side Backend"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = { text = "BSD-3-Clause" }
+authors = [
+  { name = "Mehmet Kerem Turkcan", email = "mkt2126@columbia.edu" },
+  { name = "Yiyin Zhou", email = "yiyin.zhou@fordham.edu" }
+]
+requires-python = ">=3.6"
+dependencies = [
+  "numpy",
+  "txaio",
+  "h5py",
+  "autobahn",
+  "twisted[tls]",
+  "autobahn_sync @ git+https://github.com/mkturkcan/autobahn-sync",
+  "pyOpenSSL",
+  "seaborn",
+  "requests",
+  "dataclasses; python_version < '3.7'",
+  "msgpack>1.0",
+  "msgpack-numpy",
+  "neuroballad @ git+https://github.com/flybrainlab/neuroballad",
+  "matplotlib",
+  "networkx",
+  "pandas",
+  "ipython",
+  "pywin32; platform_system == 'Windows'",
+  "graphviz",
+  "jupyterlab>=3.0,<3.6"
+]
+
+[project.optional-dependencies]
+utilities = [
+  "nxt_gem==2.0.1",
+  "graspy<=0.1.1",
+  "scipy",
+  "umap-learn",
+  "tensorflow",
+  "scikit-learn",
+  "cdlib",
+  "pyclustering",
+  "nxcontrol @ git+https://github.com/mkturkcan/nxcontrol"
+]
+full = [
+  "nxt_gem==2.0.1",
+  "graspy<=0.1.1",
+  "scipy",
+  "umap-learn",
+  "tensorflow",
+  "scikit-learn",
+  "cdlib",
+  "pyclustering",
+  "nxcontrol @ git+https://github.com/mkturkcan/nxcontrol"
+]
+
+[project.urls]
+Homepage = "https://flybrainlab.fruitflybrain.org"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
